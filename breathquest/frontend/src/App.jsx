@@ -16,6 +16,12 @@ import TongueTamer        from './vaakmirror/TongueTamer'
 import LipSyncHero        from './vaakmirror/LipSyncHero'
 import ChimeHome          from './chime/ChimeHome'
 import VillageBuilder     from './chime/VillageBuilder'
+import RocketLaunch       from './chime/RocketLaunch'
+import SubmarineDive      from './chime/SubmarineDive'
+import DrumIsland         from './chime/DrumIsland'
+import WindChimeGarden    from './chime/WindChimeGarden'
+import BubbleWrapPop      from './chime/BubbleWrapPop'
+import RequireLevelUnlocked from './chime/lib/RequireLevelUnlocked'
 
 // Lets Quest Hub hand off a logged-in session by linking here with
 // ?token=&kind=&id=&name=&data= — adopts it into BreathQuest's OWN
@@ -114,8 +120,23 @@ function AppRoutes() {
       <Route path="/play/chime" element={
         <ProtectedKid><ChimeHome /></ProtectedKid>
       } />
+      <Route path="/play/chime/rocket-launch" element={
+        <ProtectedKid><RequireLevelUnlocked levelId="aa"><RocketLaunch /></RequireLevelUnlocked></ProtectedKid>
+      } />
+      <Route path="/play/chime/submarine-dive" element={
+        <ProtectedKid><RequireLevelUnlocked levelId="oo"><SubmarineDive /></RequireLevelUnlocked></ProtectedKid>
+      } />
+      <Route path="/play/chime/drum-island" element={
+        <ProtectedKid><RequireLevelUnlocked levelId="ma"><DrumIsland /></RequireLevelUnlocked></ProtectedKid>
+      } />
+      <Route path="/play/chime/wind-chime-garden" element={
+        <ProtectedKid><RequireLevelUnlocked levelId="fa"><WindChimeGarden /></RequireLevelUnlocked></ProtectedKid>
+      } />
+      <Route path="/play/chime/bubble-wrap-pop" element={
+        <ProtectedKid><RequireLevelUnlocked levelId="ha"><BubbleWrapPop /></RequireLevelUnlocked></ProtectedKid>
+      } />
       <Route path="/play/chime/village-builder" element={
-        <ProtectedKid><VillageBuilder /></ProtectedKid>
+        <ProtectedKid><RequireLevelUnlocked levelId="village-builder"><VillageBuilder /></RequireLevelUnlocked></ProtectedKid>
       } />
 
       <Route path="*" element={<Navigate to="/" replace />} />

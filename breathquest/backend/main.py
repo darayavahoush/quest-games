@@ -59,3 +59,31 @@ app.include_router(vm_exercises.router,  prefix=VM_PREFIX)
 @app.get("/health")
 async def health():
     return {"status": "ok", "app": settings.APP_NAME}
+
+
+# ============================================================
+# Serve the built React frontend (present only in the HF Space
+# Docker image — local dev still uses `npm run dev` on its own
+# port, this directory won't exist then, so it's a no-op there).
+# Registered LAST so it never shadows the /api/v1/* or /health
+# routes above — Starlette matches routes in registration order.
+# ============================================================
+import os
+from pathlib import Path
+from fastapi import HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+
+FRONTEND_DIR = Path(__file__).resolve().parent / "static"
+
+if FRONTEND_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIR / "assets")), name="frontend-assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        if full_path.startswith("api/") or full_path == "health":
+            raise HTTPException(status_code=404)
+        candidate = FRONTEND_DIR / full_path
+        if full_path and candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(FRONTEND_DIR / "index.html")
