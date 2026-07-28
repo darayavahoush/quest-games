@@ -2,7 +2,7 @@ import enum
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    ARRAY,
+    JSON,
     Column,
     DateTime,
     Enum,
@@ -89,7 +89,9 @@ class ExerciseTemplate(Base):
     title = Column(String(160), nullable=False)
     description = Column(Text, nullable=False)
     duration_label = Column(String(32), nullable=False)
-    target_categories = Column(ARRAY(String), nullable=False, default=list)
+    # JSON instead of ARRAY: works on both Postgres (stored as jsonb) and
+    # SQLite (this demo build's DB) — same Python-side list in/out either way.
+    target_categories = Column(JSON, nullable=False, default=list)
 
     assignments = relationship("vaakmirror.models.ExerciseAssignment", back_populates="exercise")
 
