@@ -30,7 +30,9 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
-
+@app.get("/debug/cors")
+async def debug_cors():
+    return {"origins": settings.ALLOWED_ORIGINS}
 # CORS — allow the React frontend
 app.add_middleware(
     CORSMiddleware,
