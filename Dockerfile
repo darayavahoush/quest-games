@@ -2,7 +2,7 @@
 FROM node:20-slim AS frontend-build
 WORKDIR /frontend
 COPY breathquest/frontend/package*.json ./
-RUN npm ci
+RUN npm install
 COPY breathquest/frontend/ ./
 RUN npm run build
 
