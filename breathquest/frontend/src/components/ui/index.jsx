@@ -28,16 +28,26 @@ export function Card({ children, className = '', ...props }) {
   )
 }
 
-export function Input({ label, error, className = '', ...props }) {
+export function Input({ label, error, icon: Icon, rightElement, className = '', ...props }) {
   return (
     <div className="flex flex-col gap-1.5">
       {label && <label className="text-sm font-medium text-white/70">{label}</label>}
-      <input
-        className={`w-full bg-white/5 border ${error ? 'border-brand-coral' : 'border-white/15'}
-          rounded-xl px-4 py-3 text-white placeholder-white/30
-          focus:outline-none focus:border-brand-green transition-colors ${className}`}
-        {...props}
-      />
+      <div className="relative">
+        {Icon && (
+          <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
+        )}
+        <input
+          className={`w-full bg-white/5 border ${error ? 'border-brand-coral' : 'border-white/15'}
+            rounded-xl px-4 py-3 ${Icon ? 'pl-10' : ''} ${rightElement ? 'pr-10' : ''} text-white placeholder-white/30
+            focus:outline-none focus:border-brand-green transition-colors ${className}`}
+          {...props}
+        />
+        {rightElement && (
+          <div className="absolute right-3.5 top-1/2 -translate-y-1/2">
+            {rightElement}
+          </div>
+        )}
+      </div>
       {error && <span className="text-xs text-brand-coral">{error}</span>}
     </div>
   )
