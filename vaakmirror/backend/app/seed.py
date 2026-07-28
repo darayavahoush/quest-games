@@ -10,7 +10,11 @@ demo patient seeded anymore — patients are created through BreathQuest
 (therapist creates one, or a kid self-registers), not through VaakMirror.
 """
 
-from app.database import Base, SessionLocal, engine
+import asyncio
+
+from sqlalchemy import func, select
+
+from app.database import AsyncSessionLocal, create_tables
 from app.models import ExerciseTemplate
 
 EXERCISE_LIBRARY = [
@@ -47,25 +51,23 @@ EXERCISE_LIBRARY = [
 ]
 
 
-def run():
+async def run():
     # Requires patients/therapists (BreathQuest's tables) to already exist,
     # since GameSession.patient_id and ExerciseAssignment.patient_id declare
     # a ForeignKey("patients.id"). If BreathQuest hasn't been run yet, this
     # will fail with an error mentioning the missing "patients" table —
     # that's expected; run BreathQuest first.
-    Base.metadata.create_all(bind=engine)
+    await create_tables()
 
-    db = SessionLocal()
-    try:
-        if db.query(ExerciseTemplate).count() == 0:
+    async with AsyncSessionLocal() as db:
+        count_result = await db.execute(select(func.count()).select_from(ExerciseTemplate))
+        if count_result.scalar_one() == 0:
             db.add_all([ExerciseTemplate(**e) for e in EXERCISE_LIBRARY])
             print(f"Seeded {len(EXERCISE_LIBRARY)} exercise templates.")
-        db.commit()
-    finally:
-        db.close()
+        await db.commit()
 
     print("Done.")
 
 
 if __name__ == "__main__":
-    run()
+    asyncio.run(run())

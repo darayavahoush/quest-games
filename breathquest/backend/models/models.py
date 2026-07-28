@@ -66,8 +66,8 @@ class Patient(Base):
     created_at:       Mapped[datetime]      = mapped_column(DateTime(timezone=True), default=utcnow)
 
     therapist: Mapped["Therapist | None"]   = relationship(back_populates="patients")
-    sessions:  Mapped[list["GameSession"]]  = relationship(back_populates="patient", cascade="all, delete-orphan")
-    notes:     Mapped[list["TherapistNote"]]= relationship(back_populates="patient", cascade="all, delete-orphan")
+    sessions:  Mapped[list["GameSession"]]  = relationship("models.models.GameSession", back_populates="patient", cascade="all, delete-orphan")
+    notes:     Mapped[list["TherapistNote"]]= relationship("models.models.TherapistNote", back_populates="patient", cascade="all, delete-orphan")
 
 
 class GameSession(Base):
@@ -103,7 +103,7 @@ class SessionEvent(Base):
     breath_value: Mapped[float|None]   = mapped_column(Float)
     event_data:   Mapped[dict|None]    = mapped_column(JSON)
 
-    session: Mapped["GameSession"] = relationship(back_populates="events")
+    session: Mapped["GameSession"] = relationship("models.models.GameSession", back_populates="events")
 
 
 class TherapistNote(Base):

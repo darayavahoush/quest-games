@@ -45,11 +45,18 @@ class AssignmentStatus(str, enum.Enum):
 # stores a `patient_id` reference to it. We don't map BreathQuest's Patient
 # or Therapist tables as ORM classes in VaakMirror's own Base either
 # (see app/auth.py) — that would mean VaakMirror's own create_all() could
-# attempt to manage a table it doesn't fully own the schema for. Instead,
-# anything that needs to read patients/therapists uses raw SQL via
-# sqlalchemy.text(), and this file's ForeignKey("patients.id") references
-# rely on BreathQuest's tables already existing in the database — BreathQuest
-# must be run/initialized first. See README.
+# attempt to manage a table it doesn't fully own the schema for. Anything
+# that needs to read patients/therapists uses raw SQL via sqlalchemy.text().
+#
+# patient_id columns below are deliberately plain indexed String columns,
+# NOT SQLAlchemy ForeignKey("patients.id"). A real FK constraint requires
+# SQLAlchemy to resolve "patients" as a Table object within THIS file's own
+# Base.metadata at DDL-generation time — which it can't do without either
+# mapping a Patient class here (defeats the ownership boundary above) or
+# registering an unmapped stub Table (throwaway once BreathQuest and
+# VaakMirror share one Base after the planned backend merge). Referential
+# integrity is enforced in application code instead — see
+# app/auth.py: assert_therapist_owns_patient() and get_current_patient_id().
 
 
 class GameSession(Base):
@@ -59,7 +66,7 @@ class GameSession(Base):
     __tablename__ = "vaakmirror_sessions"
 
     id = Column(Integer, primary_key=True)
-    patient_id = Column(String, ForeignKey("patients.id"), nullable=False, index=True)
+    patient_id = Column(String, nullable=False, index=True)  # logical ref to breathquest.patients.id
     game = Column(Enum(GameName), nullable=False)
     started_at = Column(DateTime(timezone=True), default=utcnow)
     ended_at = Column(DateTime(timezone=True), nullable=True)
@@ -109,7 +116,7 @@ class ExerciseAssignment(Base):
     __tablename__ = "exercise_assignments"
 
     id = Column(Integer, primary_key=True)
-    patient_id = Column(String, ForeignKey("patients.id"), nullable=False, index=True)
+    patient_id = Column(String, nullable=False, index=True)  # logical ref to breathquest.patients.id
     exercise_id = Column(Integer, ForeignKey("exercise_templates.id"), nullable=False)
     status = Column(Enum(AssignmentStatus), nullable=False, default=AssignmentStatus.assigned)
     assigned_at = Column(DateTime(timezone=True), default=utcnow)

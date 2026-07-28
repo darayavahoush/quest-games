@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     # App
     APP_NAME: str = "BreathQuest"
     DEBUG: bool = False
-    ALLOWED_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:3000"]
+    ALLOWED_ORIGINS: list[str] = [f"http://localhost:{p}" for p in range(5173, 5180)] + ["http://localhost:3000"]
 
     class Config:
         env_file = ".env"

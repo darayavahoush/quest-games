@@ -8,3 +8,4 @@ backenv/
 *.egg-info/
 dist/
 .DS_Store
+*.db

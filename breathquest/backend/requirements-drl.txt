@@ -1,0 +1,6 @@
+# Optional: only needed for policy=ppo / policy=recurrent_ppo in
+# routers/chime.py. Default policy=tabular_q does not need these.
+# Install with: pip install -r requirements-drl.txt
+gymnasium
+stable-baselines3
+sb3-contrib

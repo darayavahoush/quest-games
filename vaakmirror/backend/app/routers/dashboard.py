@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import Integer, cast, func
-from sqlalchemy.orm import Session
+from sqlalchemy import Integer, cast, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import assert_therapist_owns_patient, get_current_therapist_id, get_patient_summary
 from app.database import get_db
@@ -18,18 +18,19 @@ def _success_flag():
     return cast(Attempt.outcome.in_(SUCCESS_OUTCOMES), Integer)
 
 
-def _accuracy_by(db: Session, patient_id: str, column) -> list[CategoryAccuracy]:
-    rows = (
-        db.query(
+async def _accuracy_by(db: AsyncSession, patient_id: str, column) -> list[CategoryAccuracy]:
+    stmt = (
+        select(
             column.label("category"),
             func.count(Attempt.id).label("attempts"),
             func.sum(_success_flag()).label("successes"),
         )
         .join(GameSession, Attempt.session_id == GameSession.id)
-        .filter(GameSession.patient_id == patient_id, column.isnot(None))
+        .where(GameSession.patient_id == patient_id, column.isnot(None))
         .group_by(column)
-        .all()
     )
+    result = await db.execute(stmt)
+    rows = result.all()
     out = []
     for r in rows:
         attempts = r.attempts or 0
@@ -39,54 +40,56 @@ def _accuracy_by(db: Session, patient_id: str, column) -> list[CategoryAccuracy]
     return sorted(out, key=lambda c: c.accuracy)
 
 
-def _ensure_assigned(db: Session, patient_id: str, exercise_id: int) -> None:
+async def _ensure_assigned(db: AsyncSession, patient_id: str, exercise_id: int) -> None:
     """See the fuller note in the previous version of this function — this
     is an intentional GET-with-a-side-effect: it's idempotent (checks for
     an existing active assignment first), and this is the one place already
     computing which gaps are flagged."""
-    existing = (
-        db.query(ExerciseAssignment)
-        .filter(
-            ExerciseAssignment.patient_id == patient_id,
-            ExerciseAssignment.exercise_id == exercise_id,
-            ExerciseAssignment.status != AssignmentStatus.completed,
-        )
-        .first()
+    stmt = select(ExerciseAssignment).where(
+        ExerciseAssignment.patient_id == patient_id,
+        ExerciseAssignment.exercise_id == exercise_id,
+        ExerciseAssignment.status != AssignmentStatus.completed,
     )
+    result = await db.execute(stmt)
+    existing = result.scalars().first()
     if existing:
         return
     db.add(ExerciseAssignment(patient_id=patient_id, exercise_id=exercise_id))
 
 
 @router.get("/patients/{patient_id}/dashboard", response_model=DashboardOut)
-def get_dashboard(
+async def get_dashboard(
     patient_id: str,
     therapist_id: str = Depends(get_current_therapist_id),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
-    assert_therapist_owns_patient(db, therapist_id, patient_id)
-    patient = get_patient_summary(db, patient_id)
+    await assert_therapist_owns_patient(db, therapist_id, patient_id)
+    patient = await get_patient_summary(db, patient_id)
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
 
-    sessions_count = db.query(GameSession).filter(GameSession.patient_id == patient_id).count()
+    sessions_count_result = await db.execute(
+        select(func.count()).select_from(GameSession).where(GameSession.patient_id == patient_id)
+    )
+    sessions_count = sessions_count_result.scalar_one()
 
-    manner_accuracy = _accuracy_by(db, patient_id, Attempt.manner)
-    place_accuracy = _accuracy_by(db, patient_id, Attempt.place)
-    voicing_accuracy = _accuracy_by(db, patient_id, Attempt.voicing)
+    manner_accuracy = await _accuracy_by(db, patient_id, Attempt.manner)
+    place_accuracy = await _accuracy_by(db, patient_id, Attempt.place)
+    voicing_accuracy = await _accuracy_by(db, patient_id, Attempt.voicing)
 
-    weekly_rows = (
-        db.query(
+    weekly_stmt = (
+        select(
             func.date_trunc("week", Attempt.created_at).label("week"),
             func.count(Attempt.id).label("attempts"),
             func.sum(_success_flag()).label("successes"),
         )
         .join(GameSession, Attempt.session_id == GameSession.id)
-        .filter(GameSession.patient_id == patient_id)
+        .where(GameSession.patient_id == patient_id)
         .group_by("week")
         .order_by("week")
-        .all()
     )
+    weekly_result = await db.execute(weekly_stmt)
+    weekly_rows = weekly_result.all()
     progress_over_time = [
         WeeklyPoint(
             week=row.week.strftime("Wk of %b %-d") if row.week else "\u2014",
@@ -96,7 +99,8 @@ def get_dashboard(
         for row in weekly_rows[-6:]
     ]
 
-    exercises = db.query(ExerciseTemplate).all()
+    exercises_result = await db.execute(select(ExerciseTemplate))
+    exercises = exercises_result.scalars().all()
     candidates = (
         [(c, "Manner") for c in manner_accuracy]
         + [(c, "Place") for c in place_accuracy]
@@ -124,9 +128,9 @@ def get_dashboard(
             )
         )
         if matching_exercise:
-            _ensure_assigned(db, patient_id, matching_exercise.id)
+            await _ensure_assigned(db, patient_id, matching_exercise.id)
     flagged.sort(key=lambda g: {"high": 0, "medium": 1, "low": 2}[g.severity])
-    db.commit()
+    await db.commit()
 
     return DashboardOut(
         patient=PatientSummary(**patient),
