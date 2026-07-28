@@ -1,0 +1,6 @@
+# Install with: pip install -r requirements-drl.txt
+# Kept separate from requirements.txt because these pull in torch (large
+# download) — no need to install this until you're ready to train the agent.
+gymnasium
+stable-baselines3
+sb3-contrib

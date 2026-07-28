@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Firefly Jar — Chime</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --night-top: #1B2A4A;
+    --night-mid: #263A63;
+    --night-deep: #101A30;
+    --firefly-glow: #FFE9A0;
+    --gold: #FFD166;
+    --coral: #FF6B6B;
+    --cloud-white: #FFF8EC;
+    --panel-bg: rgba(27, 42, 74, 0.7);
+    --panel-border: rgba(255, 248, 236, 0.16);
+    --display-font: 'Baloo 2', sans-serif;
+    --body-font: 'Quicksand', sans-serif;
+    --shadow-lift: 0 24px 60px rgba(0,0,0,0.45);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--night-deep); font-family: var(--body-font); color: var(--cloud-white); -webkit-tap-highlight-color: transparent; }
+  #scene-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; z-index: 10; }
+  .hidden { display: none !important; }
+  .panel { background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 28px 28px 40px 28px; padding: 40px 36px; max-width: 460px; width: 100%; backdrop-filter: blur(10px); box-shadow: var(--shadow-lift); }
+  h1.title { font-family: var(--display-font); font-weight: 800; font-size: clamp(2rem, 6vw, 2.8rem); margin: 0 0 8px; color: var(--cloud-white); text-shadow: 0 4px 0 rgba(0,0,0,0.15); }
+  p.subtitle { font-size: clamp(1rem, 3vw, 1.2rem); font-weight: 700; margin: 0 0 28px; color: var(--gold); line-height: 1.5; }
+  button { font-family: var(--display-font); font-weight: 700; font-size: 1.3rem; border: none; border-radius: 999px; padding: 16px 40px; cursor: pointer; color: var(--night-deep); background: var(--gold); box-shadow: 0 6px 0 #C99A2E, 0 10px 24px rgba(0,0,0,0.25); transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.18s ease; }
+  button:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 9px 0 #C99A2E, 0 16px 32px rgba(0,0,0,0.32); }
+  button:active { transform: translateY(3px) scale(1); box-shadow: 0 3px 0 #C99A2E, 0 6px 14px rgba(0,0,0,0.25); }
+  button:focus-visible { outline: 3px solid var(--cloud-white); outline-offset: 3px; }
+  button.secondary { background: transparent; color: var(--cloud-white); box-shadow: none; border: 2px solid var(--panel-border); font-size: 1rem; padding: 10px 22px; margin-top: 14px; }
+  .mic-icon { font-size: 3.4rem; margin-bottom: 12px; display: inline-block; }
+  .error-text { font-size: 0.95rem; color: #FFD3D3; margin-top: 14px; line-height: 1.5; }
+  .how-to-box { background: rgba(255,255,255,0.1); border: 1px solid var(--panel-border); border-radius: 18px 18px 26px 18px; padding: 16px 18px 16px 34px; margin: 0 0 26px; text-align: left; }
+  .how-to-title { font-family: var(--display-font); font-weight: 700; font-size: 1rem; margin-bottom: 8px; color: var(--gold); }
+  .how-to-box ol { margin: 0; padding-left: 18px; font-size: 0.9rem; line-height: 1.6; }
+  .how-to-box li { margin-bottom: 4px; }
+  .how-to-box strong { color: var(--gold); }
+  .ring-wrap { position: relative; width: 150px; height: 150px; margin: 0 auto 22px; }
+  .ring-wrap svg { transform: rotate(-90deg); }
+  .ring-bg { fill: none; stroke: rgba(255,255,255,0.12); stroke-width: 10; }
+  .ring-fg { fill: none; stroke: var(--gold); stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 0.1s linear; }
+  .ring-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 2rem; }
+  #hud { position: fixed; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: flex-start; padding: 18px 20px; z-index: 20; pointer-events: none; }
+  #hud > * { pointer-events: auto; }
+  #encourage-caption { font-family: var(--display-font); font-weight: 700; font-size: clamp(1rem, 3.5vw, 1.4rem); background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 999px; padding: 10px 22px; opacity: 0; transition: opacity 0.4s ease; max-width: 70vw; }
+  #encourage-caption.visible { opacity: 1; }
+  .icon-btn { background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 999px; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; box-shadow: 0 8px 20px rgba(0,0,0,0.25); padding: 0; color: var(--cloud-white); backdrop-filter: blur(8px); transition: transform 0.15s ease, box-shadow 0.15s ease; }
+  .icon-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(0,0,0,0.3); }
+  .icon-btn:active { transform: translateY(1px); }
+  #settings-panel { position: fixed; top: 74px; right: 18px; background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 20px 20px 28px 20px; padding: 18px 20px; z-index: 30; width: 240px; text-align: left; backdrop-filter: blur(10px); box-shadow: 0 16px 40px rgba(0,0,0,0.3); }
+  #settings-panel h3 { font-family: var(--display-font); margin: 0 0 12px; font-size: 1.1rem; }
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; font-weight: 700; font-size: 0.95rem; }
+  .switch { position: relative; width: 46px; height: 26px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch-track { position: absolute; inset: 0; background: rgba(255,255,255,0.2); border-radius: 999px; transition: background 0.2s ease; cursor: pointer; }
+  .switch-track::before { content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px; background: var(--cloud-white); border-radius: 50%; transition: transform 0.2s ease; }
+  .switch input:checked + .switch-track { background: #6BCB77; }
+  .switch input:checked + .switch-track::before { transform: translateX(20px); }
+  #settings-panel button.secondary { width: 100%; margin-top: 4px; }
+  #success-overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 40; background: rgba(16, 26, 48, 0.5); }
+  #success-overlay .panel { text-align: center; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+
+<canvas id="scene-canvas" aria-hidden="true"></canvas>
+
+<div id="screen-start" class="screen">
+  <div class="panel">
+    <div class="mic-icon">🫙</div>
+    <h1 class="title">Firefly Jar</h1>
+    <p class="subtitle">Say "ma" to catch a firefly and fill the jar!</p>
+    <div class="how-to-box">
+      <div class="how-to-title">👄 How to make the sound</div>
+      <ol>
+        <li>Press your lips together, like you're humming: <strong>"mmm"</strong></li>
+        <li>Pop your mouth open with your voice on: <strong>"ma"</strong></li>
+        <li>Say it clearly each time you want to catch a firefly!</li>
+      </ol>
+    </div>
+    <button id="btn-start">Let's Play!</button>
+  </div>
+</div>
+
+<div id="screen-mic-error" class="screen hidden">
+  <div class="panel">
+    <div class="mic-icon">🎤</div>
+    <h1 class="title" style="font-size: 1.6rem;">We need to hear you!</h1>
+    <p class="error-text" id="mic-error-detail">Please allow microphone access so we can hear your voice.</p>
+    <button id="btn-retry-mic">Try Again</button>
+  </div>
+</div>
+
+<div id="screen-calibrate" class="screen hidden">
+  <div class="panel">
+    <div class="ring-wrap">
+      <svg width="150" height="150">
+        <circle class="ring-bg" cx="75" cy="75" r="60"></circle>
+        <circle class="ring-fg" id="calib-ring" cx="75" cy="75" r="60" stroke-dasharray="377" stroke-dashoffset="377"></circle>
+      </svg>
+      <div class="ring-label" id="calib-emoji">🤫</div>
+    </div>
+    <h1 class="title" id="calib-title" style="font-size: 1.6rem;">Let's find quiet...</h1>
+    <p class="subtitle" id="calib-subtitle">Stay nice and quiet for a moment</p>
+  </div>
+</div>
+
+<div id="hud" class="hidden">
+  <div id="encourage-caption"></div>
+  <button id="btn-settings" class="icon-btn" aria-label="Settings">⚙️</button>
+</div>
+
+<div id="settings-panel" class="hidden">
+  <h3>Settings</h3>
+  <div class="toggle-row"><span>Reduce motion</span><label class="switch"><input type="checkbox" id="toggle-motion"><span class="switch-track"></span></label></div>
+  <div class="toggle-row"><span>Mute sounds</span><label class="switch"><input type="checkbox" id="toggle-mute"><span class="switch-track"></span></label></div>
+  <button id="btn-recalibrate" class="secondary">Recalibrate mic</button>
+</div>
+
+<div id="success-overlay" class="hidden">
+  <div class="panel">
+    <div class="mic-icon">🌟</div>
+    <h1 class="title">Jar is full of light!</h1>
+    <p class="subtitle">You caught every firefly!</p>
+    <p id="agent-feedback" style="font-size: 0.95rem; opacity: 0.85; margin: -14px 0 20px;"></p>
+    <button id="btn-play-again">Play Again!</button>
+  </div>
+</div>
+
+<div class="visually-hidden" id="aria-live" aria-live="polite"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ============================================================
+  // Burst detection — deliberately the SAME approach as
+  // bubble_wrap_pop.html (enter/exit-burst state machine + scoreBurst),
+  // not the onset-detector approach from drum_logic.js. That approach had
+  // two rounds of real bugs (strict rhythm gating, then a threshold
+  // calibrated against the loudest spike instead of a typical attempt).
+  // This mechanic drops rhythm timing entirely — every clear "ma" burst
+  // counts, full stop, using the pattern that hasn't had reliability
+  // complaints elsewhere in this project.
+  // ============================================================
+  function computeRMS(samples) {
+    let sum = 0;
+    for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i];
+    return Math.sqrt(sum / samples.length);
+  }
+  const MIN_PEAK_RMS_DEFAULT = 0.05, MAX_EXPECTED_PEAK_RMS_DEFAULT = 0.4, MAX_BURST_DURATION_S = 0.6;
+  function scoreBurst(rmsEnvelope, durationS, minPeakRms = MIN_PEAK_RMS_DEFAULT, maxExpectedPeakRms = MAX_EXPECTED_PEAK_RMS_DEFAULT) {
+    if (!rmsEnvelope.length) return { score: 0, isValidAttempt: false };
+    const peakRms = Math.max(...rmsEnvelope);
+    if (peakRms < minPeakRms) return { score: 0, isValidAttempt: false, peakRms };
+    const durationPenalty = durationS <= MAX_BURST_DURATION_S ? 1.0 : Math.max(0, 1.0 - (durationS - MAX_BURST_DURATION_S));
+    const magnitudeScore = Math.max(0, Math.min(1, (peakRms - minPeakRms) / (maxExpectedPeakRms - minPeakRms)));
+    return { score: magnitudeScore * durationPenalty, isValidAttempt: true, peakRms };
+  }
+  function personalizeBurstRange(peakRmsReadings, noiseFloor, fallbackMax = MAX_EXPECTED_PEAK_RMS_DEFAULT) {
+    const valid = peakRmsReadings.filter(p => p > 0);
+    const minPeakRms = Math.max(0.01, noiseFloor * 1.8); // deliberately low bar — catch generously, not strictly
+    if (valid.length < 2) return { minPeakRms, maxExpectedPeakRms: fallbackMax, usedFallback: true };
+    const maxObserved = Math.max(...valid);
+    const maxExpectedPeakRms = Math.max(minPeakRms + 0.05, maxObserved);
+    return { minPeakRms, maxExpectedPeakRms, usedFallback: false };
+  }
+
+  const NUM_FIREFLIES = 8; // how many catches needed to fill the jar
+  const CATCH_THRESHOLD = 0.10; // starts at the SAFE_RANGE floor — easiest first attempt, agent gently raises it as the child succeeds
+
+  const DIFFICULTY_AGENT = {
+    SAFE_RANGE: [0.10, 0.4],
+    STEP: 0.03,
+    FAST_S: 6,
+    SLOW_S: 18,
+    decide(timeToFillSeconds) {
+      if (timeToFillSeconds < this.FAST_S) return { action: 'raise', message: "Great strong sounds! Let's ask for a bit more next time 🦟" };
+      if (timeToFillSeconds > this.SLOW_S) return { action: 'lower', message: "Nice effort! Let's make the next jar a little easier 💛" };
+      return { action: 'hold', message: "Great steady sounds! Let's keep this the same for now 🌟" };
+    },
+    apply(threshold, decision) {
+      let next = threshold;
+      if (decision.action === 'raise') next += this.STEP;
+      if (decision.action === 'lower') next -= this.STEP;
+      return Math.max(this.SAFE_RANGE[0], Math.min(this.SAFE_RANGE[1], next));
+    },
+  };
+
+  // ============================================================
+  // Backend integration — calls the real trained agent (/agent/decide,
+  // per-child tabular Q by default) instead of only the client-side
+  // rule-based DIFFICULTY_AGENT above. DIFFICULTY_AGENT.apply()'s safety
+  // envelope (SAFE_RANGE clamp) still runs on whatever action comes back,
+  // whether it's the trained agent's or the local fallback's.
+  //
+  // Falls back to DIFFICULTY_AGENT.decide() locally if the backend is
+  // unreachable, same pattern as the other games — a win never stalls
+  // waiting on a fetch.
+  // ============================================================
+  const BACKEND_URL = 'http://localhost:8001';
+  const LEVEL_ID = 'ma_firefly';
+  const AGENT_POLICY = 'tabular_q';
+
+  function getChildId() {
+    let id = localStorage.getItem('chime_child_id');
+    if (!id) {
+      id = 'child_' + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem('chime_child_id', id);
+    }
+    return id;
+  }
+  const CHILD_ID = getChildId();
+  let attemptNumber = 0;
+
+  async function logEventToBackend(payload) {
+    try {
+      await fetch(`${BACKEND_URL}/events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch (err) {
+      console.warn('Backend event logging unavailable:', err);
+    }
+  }
+
+  async function fetchAgentDecision() {
+    try {
+      const resp = await fetch(`${BACKEND_URL}/agent/decide/${CHILD_ID}/${LEVEL_ID}?policy=${AGENT_POLICY}`);
+      if (!resp.ok) throw new Error(`backend returned ${resp.status}`);
+      return await resp.json();
+    } catch (err) {
+      console.warn('Trained-agent endpoint unavailable, falling back to local rule-based agent:', err);
+      return null;
+    }
+  }
+
+  function timeToScore(timeToFillSeconds) {
+    if (timeToFillSeconds <= DIFFICULTY_AGENT.FAST_S) return 1.0;
+    if (timeToFillSeconds >= DIFFICULTY_AGENT.SLOW_S) return 0.2;
+    const t = (timeToFillSeconds - DIFFICULTY_AGENT.FAST_S) / (DIFFICULTY_AGENT.SLOW_S - DIFFICULTY_AGENT.FAST_S);
+    return 1.0 - t * 0.8;
+  }
+
+  async function updateDifficultyFromAttempt(timeToFillSeconds) {
+    attemptNumber++;
+    const score = timeToScore(timeToFillSeconds);
+
+    await logEventToBackend({
+      child_id: CHILD_ID,
+      level_id: LEVEL_ID,
+      attempt_number: attemptNumber,
+      score,
+      is_valid_attempt: true,
+      threshold_at_time: state.catchThreshold,
+      quit_flag: false,
+    });
+
+    let decision = await fetchAgentDecision();
+    if (!decision) {
+      decision = DIFFICULTY_AGENT.decide(timeToFillSeconds); // offline fallback
+    }
+
+    state.catchThreshold = DIFFICULTY_AGENT.apply(state.catchThreshold, decision);
+    document.getElementById('agent-feedback').textContent = decision.message;
+  }
+
+  const state = {
+    audioCtx: null, analyser: null, timeDomainData: null,
+    noiseFloor: 0.01,
+    firefliesCaught: 0, catchThreshold: CATCH_THRESHOLD,
+    minPeakRms: MIN_PEAK_RMS_DEFAULT, maxExpectedPeakRms: MAX_EXPECTED_PEAK_RMS_DEFAULT,
+    burstEnvelope: [], inBurst: false, burstStartTime: 0,
+    freeFireflies: [], jarFireflies: [], caughtPulse: 0,
+    lastFrameTime: 0, quietStreak: 0,
+    reduceMotion: localStorage.getItem('drum_reduce_motion') === 'true',
+    muted: localStorage.getItem('drum_muted') === 'true',
+    hasFinished: false, particles: [],
+    attemptStartTime: 0,
+    treeTime: 0,
+  };
+
+  const canvas = document.getElementById('scene-canvas');
+  const ctx = canvas.getContext('2d');
+  const screens = { start: document.getElementById('screen-start'), micError: document.getElementById('screen-mic-error'), calibrate: document.getElementById('screen-calibrate') };
+  const hud = document.getElementById('hud');
+  const settingsPanel = document.getElementById('settings-panel');
+  const successOverlay = document.getElementById('success-overlay');
+  const encourageCaption = document.getElementById('encourage-caption');
+  const ariaLive = document.getElementById('aria-live');
+  document.getElementById('toggle-motion').checked = state.reduceMotion;
+  document.getElementById('toggle-mute').checked = state.muted;
+
+  function showScreen(name) {
+    Object.values(screens).forEach(s => s.classList.add('hidden'));
+    if (name && screens[name]) screens[name].classList.remove('hidden');
+  }
+
+  let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+  function resizeCanvas() {
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    initFreeFireflies();
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  function initFreeFireflies() {
+    const count = 10;
+    state.freeFireflies = Array.from({ length: count }, () => ({
+      x: Math.random() * W, y: H * 0.15 + Math.random() * H * 0.55,
+      phase: Math.random() * Math.PI * 2, driftPhase: Math.random() * Math.PI * 2,
+      speed: Math.random() * 0.3 + 0.1,
+    }));
+  }
+
+  function playTone(freq, duration, type = 'sine', gainPeak = 0.06) {
+    if (state.muted || !state.audioCtx) return;
+    const a = state.audioCtx;
+    const osc = a.createOscillator(), gain = a.createGain();
+    osc.type = type; osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, a.currentTime);
+    gain.gain.linearRampToValueAtTime(gainPeak, a.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + duration);
+    osc.connect(gain).connect(a.destination);
+    osc.start(); osc.stop(a.currentTime + duration + 0.05);
+  }
+  function playCatch() { [660, 880].forEach((f, i) => setTimeout(() => playTone(f, 0.15, 'sine', 0.06), i * 50)); }
+  function playSuccessChime() { [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => setTimeout(() => playTone(f, 0.5, 'triangle', 0.05), i * 110)); }
+
+  async function requestMicAndCalibrate() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } });
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      state.audioCtx = new AudioContextClass();
+      const source = state.audioCtx.createMediaStreamSource(stream);
+      state.analyser = state.audioCtx.createAnalyser();
+      state.analyser.fftSize = 2048;
+      state.timeDomainData = new Float32Array(state.analyser.fftSize);
+      source.connect(state.analyser);
+      runCalibration();
+    } catch (err) {
+      document.getElementById('mic-error-detail').textContent = err.name === 'NotAllowedError'
+        ? 'Please allow microphone access so we can hear your voice.'
+        : 'Something went wrong reaching the microphone. Please try again.';
+      showScreen('micError');
+    }
+  }
+
+  function readCurrentRMS() {
+    state.analyser.getFloatTimeDomainData(state.timeDomainData);
+    return computeRMS(state.timeDomainData);
+  }
+
+  function runCalibration() {
+    showScreen('calibrate');
+    const ring = document.getElementById('calib-ring');
+    const CIRC = 2 * Math.PI * 60;
+    ring.setAttribute('stroke-dasharray', CIRC);
+    const QUIET_MS = 1200; // lowered from 2000 — faster into gameplay
+    const LOUD_MS = 1800; // lowered from 2500
+    let quietSamples = [];
+    let burstPeaks = [];
+    function setRing(p) { ring.setAttribute('stroke-dashoffset', CIRC * (1 - p)); }
+    document.getElementById('calib-title').textContent = "Let's find quiet...";
+    document.getElementById('calib-subtitle').textContent = 'Stay nice and quiet for a moment';
+    document.getElementById('calib-emoji').textContent = '🤫';
+    const quietStart = performance.now();
+    function quietStep(now) {
+      const elapsed = now - quietStart;
+      quietSamples.push(readCurrentRMS());
+      setRing(Math.min(1, elapsed / QUIET_MS));
+      if (elapsed < QUIET_MS) { requestAnimationFrame(quietStep); }
+      else {
+        const sorted = [...quietSamples].sort((a, b) => a - b);
+        const p90 = sorted[Math.floor(sorted.length * 0.9)] || 0.01;
+        state.noiseFloor = Math.max(0.006, p90 * 1.4);
+        startLoudPhase();
+      }
+    }
+
+    function startLoudPhase() {
+      document.getElementById('calib-title').textContent = 'Now say "ma-ma-ma"!';
+      document.getElementById('calib-subtitle').textContent = 'A few clear tries, one after another';
+      document.getElementById('calib-emoji').textContent = '🦟';
+      setRing(0);
+      const loudStart = performance.now();
+      let inBurst = false, currentBurstPeak = 0;
+      const burstGate = state.noiseFloor * 1.8;
+      function loudStep(now) {
+        const elapsed = now - loudStart;
+        const rms = readCurrentRMS();
+        if (rms >= burstGate) {
+          inBurst = true;
+          currentBurstPeak = Math.max(currentBurstPeak, rms);
+        } else if (inBurst) {
+          burstPeaks.push(currentBurstPeak);
+          inBurst = false;
+          currentBurstPeak = 0;
+        }
+        setRing(Math.min(1, elapsed / LOUD_MS));
+        if (elapsed < LOUD_MS) {
+          requestAnimationFrame(loudStep);
+        } else {
+          if (inBurst) burstPeaks.push(currentBurstPeak);
+          const { minPeakRms, maxExpectedPeakRms } = personalizeBurstRange(burstPeaks, state.noiseFloor);
+          state.minPeakRms = minPeakRms;
+          state.maxExpectedPeakRms = maxExpectedPeakRms;
+          finishCalibration();
+        }
+      }
+      requestAnimationFrame(loudStep);
+    }
+
+    requestAnimationFrame(quietStep);
+  }
+
+  function finishCalibration() {
+    showScreen(null);
+    hud.classList.remove('hidden');
+    state.firefliesCaught = 0; state.jarFireflies = []; state.hasFinished = false;
+    state.lastFrameTime = performance.now();
+    state.attemptStartTime = performance.now();
+    ariaLive.textContent = 'Ready! Say "ma" to catch a firefly.';
+    requestAnimationFrame(gameLoop);
+  }
+
+  function gameLoop(now) {
+    const dt = Math.min(0.1, (now - state.lastFrameTime) / 1000);
+    state.lastFrameTime = now;
+
+    const rms = readCurrentRMS();
+    const burstThreshold = state.noiseFloor * 1.8;
+
+    if (rms >= burstThreshold) {
+      if (!state.inBurst) { state.inBurst = true; state.burstStartTime = now; state.burstEnvelope = []; }
+      state.burstEnvelope.push(rms);
+    } else if (state.inBurst) {
+      const durationS = (now - state.burstStartTime) / 1000;
+      const { score, isValidAttempt } = scoreBurst(state.burstEnvelope, durationS, state.minPeakRms, state.maxExpectedPeakRms);
+      if (isValidAttempt && score >= state.catchThreshold && state.firefliesCaught < NUM_FIREFLIES) {
+        state.firefliesCaught++;
+        state.caughtPulse = 1;
+        spawnJarFirefly();
+        playCatch();
+      }
+      state.inBurst = false;
+      state.burstEnvelope = [];
+    }
+
+    state.caughtPulse = Math.max(0, state.caughtPulse - dt * 2);
+
+    if (state.firefliesCaught === 0) state.quietStreak += dt; else state.quietStreak = 0;
+    encourageCaption.classList.toggle('visible', state.quietStreak > 4);
+    if (state.quietStreak > 4) encourageCaption.textContent = '🦉 Try saying "ma" clearly to catch a firefly!';
+
+    render();
+
+    if (state.firefliesCaught >= NUM_FIREFLIES && !state.hasFinished) { state.hasFinished = true; onJarFull(); }
+    if (!state.hasFinished) requestAnimationFrame(gameLoop);
+  }
+
+  function spawnJarFirefly() {
+    state.jarFireflies.push({
+      x: (Math.random() - 0.5) * 40,
+      y: (Math.random() - 0.5) * 50,
+      phase: Math.random() * Math.PI * 2,
+      driftX: Math.random() * Math.PI * 2,
+      driftY: Math.random() * Math.PI * 2,
+    });
+  }
+
+  function onJarFull() {
+    playSuccessChime();
+    ariaLive.textContent = 'The jar is full of fireflies!';
+    spawnCelebrationParticles();
+    const timeToFillSeconds = (performance.now() - state.attemptStartTime) / 1000;
+    updateDifficultyFromAttempt(timeToFillSeconds); // async — doesn't block the celebration below
+    let frames = 0;
+    function celebrateLoop() { render(); frames++; if (frames < 90) requestAnimationFrame(celebrateLoop); }
+    requestAnimationFrame(celebrateLoop);
+    setTimeout(() => successOverlay.classList.remove('hidden'), 500);
+  }
+
+  function spawnCelebrationParticles() {
+    const count = state.reduceMotion ? 16 : 50;
+    const jarX = W / 2, jarY = H * 0.62;
+    for (let i = 0; i < count; i++) {
+      state.particles.push({ x: jarX, y: jarY, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6 - 2, life: 1, color: ['#FFE9A0', '#FFD166', '#FFF8EC', '#FFB870'][i % 4], r: Math.random() * 3 + 2 });
+    }
+  }
+
+  function render() {
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, '#1B2A4A'); grad.addColorStop(0.6, '#263A63'); grad.addColorStop(1, '#101A30');
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+    drawMoon();
+    drawTreeSilhouette();
+    drawFreeFireflies();
+    drawParticles();
+    drawJar();
+  }
+
+  function drawMoon() {
+    ctx.save();
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = '#FFF3D6';
+    ctx.beginPath(); ctx.arc(W * 0.82, H * 0.14, 32, 0, Math.PI * 2); ctx.fill();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath(); ctx.arc(W * 0.82 - 12, H * 0.14 - 5, 28, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawTreeSilhouette() {
+    if (!state.reduceMotion) state.treeTime += 0.005;
+    ctx.save();
+    ctx.fillStyle = 'rgba(8, 14, 28, 0.85)';
+    const baseY = H * 0.88;
+    for (let i = 0; i < 6; i++) {
+      const x = (i / 5) * W;
+      const sway = Math.sin(state.treeTime + i) * 4;
+      const h = 60 + (i % 3) * 25;
+      ctx.beginPath();
+      ctx.moveTo(x - 4, baseY);
+      ctx.lineTo(x + sway - 2, baseY - h);
+      ctx.quadraticCurveTo(x + sway, baseY - h - 20, x + sway + 22, baseY - h + 6);
+      ctx.quadraticCurveTo(x + sway + 4, baseY - h + 14, x + 4, baseY);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.fillRect(0, baseY, W, H - baseY);
+    ctx.restore();
+  }
+
+  let freeFireflyTime = 0;
+  function drawFreeFireflies() {
+    if (!state.reduceMotion) freeFireflyTime += 0.03;
+    ctx.save();
+    for (const f of state.freeFireflies) {
+      if (!state.reduceMotion) { f.driftPhase += 0.01; f.y -= f.speed * 0.1; if (f.y < H * 0.1) f.y = H * 0.7; }
+      const bx = f.x + Math.sin(f.driftPhase) * 20;
+      const glow = 0.3 + 0.7 * Math.max(0, Math.sin(freeFireflyTime + f.phase));
+      const grad = ctx.createRadialGradient(bx, f.y, 0, bx, f.y, 6);
+      grad.addColorStop(0, `rgba(255, 233, 160, ${0.8 * glow})`);
+      grad.addColorStop(1, 'rgba(255, 233, 160, 0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(bx, f.y, 6, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawParticles() {
+    ctx.save();
+    state.particles = state.particles.filter(p => p.life > 0);
+    for (const p of state.particles) {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.life -= 0.014;
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawJar() {
+    const jarX = W / 2, jarY = H * 0.62;
+    const scale = 1 + state.caughtPulse * 0.08;
+
+    ctx.save();
+    ctx.globalAlpha = 0.2;
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.ellipse(jarX, jarY + 92, 60, 12, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(jarX, jarY);
+    ctx.scale(scale, scale);
+
+    // jar glass body
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(-45, -60);
+    ctx.lineTo(45, -60);
+    ctx.lineTo(52, 60);
+    ctx.quadraticCurveTo(52, 78, 34, 80);
+    ctx.lineTo(-34, 80);
+    ctx.quadraticCurveTo(-52, 78, -52, 60);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+
+    // ambient glow inside proportional to how full the jar is
+    const fillRatio = state.firefliesCaught / NUM_FIREFLIES;
+    if (fillRatio > 0) {
+      ctx.save();
+      ctx.clip();
+      const glowGrad = ctx.createRadialGradient(0, 20, 5, 0, 20, 70);
+      glowGrad.addColorStop(0, `rgba(255, 233, 160, ${0.25 * fillRatio})`);
+      glowGrad.addColorStop(1, 'rgba(255, 233, 160, 0)');
+      ctx.fillStyle = glowGrad;
+      ctx.fillRect(-60, -70, 120, 160);
+      ctx.restore();
+    }
+
+    // fireflies caught inside the jar
+    const jarTime = performance.now() * 0.003;
+    for (const jf of state.jarFireflies) {
+      const jx = jf.x + Math.sin(jarTime + jf.driftX) * 12;
+      const jy = jf.y + Math.cos(jarTime * 1.3 + jf.driftY) * 10;
+      const glow = 0.5 + 0.5 * Math.sin(jarTime * 2 + jf.phase);
+      const g = ctx.createRadialGradient(jx, jy, 0, jx, jy, 8);
+      g.addColorStop(0, `rgba(255, 245, 200, ${0.9 * glow})`);
+      g.addColorStop(1, 'rgba(255, 245, 200, 0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(jx, jy, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = `rgba(255,255,230,${glow})`;
+      ctx.beginPath(); ctx.arc(jx, jy, 1.8, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // lid
+    ctx.fillStyle = '#B98F4A';
+    ctx.fillRect(-30, -74, 60, 16);
+    ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth = 1.5;
+    ctx.strokeRect(-30, -74, 60, 16);
+
+    ctx.restore();
+  }
+
+  document.getElementById('btn-start').addEventListener('click', requestMicAndCalibrate);
+  document.getElementById('btn-retry-mic').addEventListener('click', requestMicAndCalibrate);
+  document.getElementById('btn-settings').addEventListener('click', () => settingsPanel.classList.toggle('hidden'));
+  document.getElementById('toggle-motion').addEventListener('change', (e) => { state.reduceMotion = e.target.checked; localStorage.setItem('drum_reduce_motion', state.reduceMotion); });
+  document.getElementById('toggle-mute').addEventListener('change', (e) => { state.muted = e.target.checked; localStorage.setItem('drum_muted', state.muted); });
+  document.getElementById('btn-recalibrate').addEventListener('click', () => { settingsPanel.classList.add('hidden'); hud.classList.add('hidden'); runCalibration(); });
+  document.getElementById('btn-play-again').addEventListener('click', () => {
+    successOverlay.classList.add('hidden');
+    state.firefliesCaught = 0; state.jarFireflies = []; state.hasFinished = false; state.particles = [];
+    state.lastFrameTime = performance.now(); state.attemptStartTime = performance.now();
+    requestAnimationFrame(gameLoop);
+  });
+
+  resizeCanvas();
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Bubble Wrap Pop — Chime</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cozy-top: #FFDDE1;
+    --cozy-mid: #FFB6C1;
+    --cozy-deep: #C97B8B;
+    --plastic-tint: #FFF0F3;
+    --gold: #FFD166;
+    --mint: #6BCB77;
+    --cloud-white: #FFF8EC;
+    --panel-bg: rgba(201, 123, 139, 0.6);
+    --panel-border: rgba(255, 248, 236, 0.2);
+    --display-font: 'Baloo 2', sans-serif;
+    --body-font: 'Quicksand', sans-serif;
+    --shadow-lift: 0 24px 60px rgba(0,0,0,0.35);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--cozy-deep); font-family: var(--body-font); color: var(--cloud-white); -webkit-tap-highlight-color: transparent; }
+  #scene-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; z-index: 10; }
+  .hidden { display: none !important; }
+  .panel { background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 28px 28px 40px 28px; padding: 40px 36px; max-width: 460px; width: 100%; backdrop-filter: blur(10px); box-shadow: var(--shadow-lift); }
+  h1.title { font-family: var(--display-font); font-weight: 800; font-size: clamp(2rem, 6vw, 2.8rem); margin: 0 0 8px; color: var(--cloud-white); text-shadow: 0 4px 0 rgba(0,0,0,0.1); }
+  p.subtitle { font-size: clamp(1rem, 3vw, 1.2rem); font-weight: 700; margin: 0 0 28px; color: var(--gold); line-height: 1.5; }
+  button { font-family: var(--display-font); font-weight: 700; font-size: 1.3rem; border: none; border-radius: 999px; padding: 16px 40px; cursor: pointer; color: var(--cozy-deep); background: var(--cloud-white); box-shadow: 0 6px 0 #D9B99C, 0 10px 24px rgba(0,0,0,0.2); transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.18s ease; }
+  button:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 9px 0 #D9B99C, 0 16px 32px rgba(0,0,0,0.28); }
+  button:active { transform: translateY(3px) scale(1); box-shadow: 0 3px 0 #D9B99C, 0 6px 14px rgba(0,0,0,0.2); }
+  button:focus-visible { outline: 3px solid var(--cloud-white); outline-offset: 3px; }
+  button.secondary { background: transparent; color: var(--cloud-white); box-shadow: none; border: 2px solid var(--panel-border); font-size: 1rem; padding: 10px 22px; margin-top: 14px; }
+  .mic-icon { font-size: 3.4rem; margin-bottom: 12px; display: inline-block; }
+  .error-text { font-size: 0.95rem; color: #FFF0F0; margin-top: 14px; line-height: 1.5; }
+  .ring-wrap { position: relative; width: 150px; height: 150px; margin: 0 auto 22px; }
+  .ring-wrap svg { transform: rotate(-90deg); }
+  .ring-bg { fill: none; stroke: rgba(255,255,255,0.18); stroke-width: 10; }
+  .ring-fg { fill: none; stroke: var(--cloud-white); stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 0.1s linear; }
+  .ring-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 2rem; }
+  #hud { position: fixed; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: flex-start; padding: 18px 20px; z-index: 20; pointer-events: none; }
+  #hud > * { pointer-events: auto; }
+  #encourage-caption { font-family: var(--display-font); font-weight: 700; font-size: clamp(1rem, 3.5vw, 1.4rem); background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 999px; padding: 10px 22px; opacity: 0; transition: opacity 0.4s ease; max-width: 70vw; }
+  #encourage-caption.visible { opacity: 1; }
+  .icon-btn { background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 999px; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; box-shadow: 0 8px 20px rgba(0,0,0,0.2); padding: 0; color: var(--cloud-white); backdrop-filter: blur(8px); transition: transform 0.15s ease, box-shadow 0.15s ease; }
+  .icon-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(0,0,0,0.25); }
+  .icon-btn:active { transform: translateY(1px); }
+  #settings-panel { position: fixed; top: 74px; right: 18px; background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 20px 20px 28px 20px; padding: 18px 20px; z-index: 30; width: 240px; text-align: left; backdrop-filter: blur(10px); box-shadow: 0 16px 40px rgba(0,0,0,0.25); }
+  #settings-panel h3 { font-family: var(--display-font); margin: 0 0 12px; font-size: 1.1rem; }
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; font-weight: 700; font-size: 0.95rem; }
+  .switch { position: relative; width: 46px; height: 26px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch-track { position: absolute; inset: 0; background: rgba(255,255,255,0.25); border-radius: 999px; transition: background 0.2s ease; cursor: pointer; }
+  .switch-track::before { content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px; background: var(--cloud-white); border-radius: 50%; transition: transform 0.2s ease; }
+  .switch input:checked + .switch-track { background: var(--mint); }
+  .switch input:checked + .switch-track::before { transform: translateX(20px); }
+  #settings-panel button.secondary { width: 100%; margin-top: 4px; }
+  #success-overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 40; background: rgba(201, 123, 139, 0.45); }
+  #success-overlay .panel { text-align: center; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+
+<canvas id="scene-canvas" aria-hidden="true"></canvas>
+
+<div id="screen-start" class="screen">
+  <div class="panel">
+    <div class="mic-icon">🫧</div>
+    <h1 class="title">Bubble Wrap Pop</h1>
+    <p class="subtitle">Say a quick "HA!" burst to pop a bubble on the sheet!</p>
+    <button id="btn-start">Let's Play!</button>
+  </div>
+</div>
+
+<div id="screen-mic-error" class="screen hidden">
+  <div class="panel">
+    <div class="mic-icon">🎤</div>
+    <h1 class="title" style="font-size: 1.6rem;">We need to hear you!</h1>
+    <p class="error-text" id="mic-error-detail">Please allow microphone access so we can hear your burst.</p>
+    <button id="btn-retry-mic">Try Again</button>
+  </div>
+</div>
+
+<div id="screen-calibrate" class="screen hidden">
+  <div class="panel">
+    <div class="ring-wrap">
+      <svg width="150" height="150">
+        <circle class="ring-bg" cx="75" cy="75" r="60"></circle>
+        <circle class="ring-fg" id="calib-ring" cx="75" cy="75" r="60" stroke-dasharray="377" stroke-dashoffset="377"></circle>
+      </svg>
+      <div class="ring-label" id="calib-emoji">🤫</div>
+    </div>
+    <h1 class="title" id="calib-title" style="font-size: 1.6rem;">Let's find quiet...</h1>
+    <p class="subtitle" id="calib-subtitle">Stay nice and quiet for a moment</p>
+  </div>
+</div>
+
+<div id="hud" class="hidden">
+  <div id="encourage-caption"></div>
+  <button id="btn-settings" class="icon-btn" aria-label="Settings">⚙️</button>
+</div>
+
+<div id="settings-panel" class="hidden">
+  <h3>Settings</h3>
+  <div class="toggle-row"><span>Reduce motion</span><label class="switch"><input type="checkbox" id="toggle-motion"><span class="switch-track"></span></label></div>
+  <div class="toggle-row"><span>Mute sounds</span><label class="switch"><input type="checkbox" id="toggle-mute"><span class="switch-track"></span></label></div>
+  <button id="btn-recalibrate" class="secondary">Recalibrate mic</button>
+</div>
+
+<div id="success-overlay" class="hidden">
+  <div class="panel">
+    <div class="mic-icon">🎉</div>
+    <h1 class="title">Sheet complete!</h1>
+    <p class="subtitle">You popped every bubble!</p>
+    <p id="agent-feedback" style="font-size: 0.95rem; opacity: 0.85; margin: -14px 0 20px;"></p>
+    <button id="btn-play-again">New Sheet!</button>
+  </div>
+</div>
+
+<div class="visually-hidden" id="aria-live" aria-live="polite"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ============================================================
+  // Pure logic — same as level_logic/bubble_wrap_logic.js, unit tested
+  // separately. Do not change without re-running bubble_wrap_logic.test.js
+  // against an equivalent copy.
+  // ============================================================
+  const MIN_PEAK_RMS_DEFAULT = 0.05, MAX_EXPECTED_PEAK_RMS_DEFAULT = 0.4, MAX_BURST_DURATION_S = 0.5;
+  function scoreBurst(rmsEnvelope, durationS, minPeakRms = MIN_PEAK_RMS_DEFAULT, maxExpectedPeakRms = MAX_EXPECTED_PEAK_RMS_DEFAULT) {
+    if (!rmsEnvelope.length) return { score: 0, isValidAttempt: false };
+    const peakRms = Math.max(...rmsEnvelope);
+    if (peakRms < minPeakRms) return { score: 0, isValidAttempt: false, peakRms };
+    const durationPenalty = durationS <= MAX_BURST_DURATION_S ? 1.0 : Math.max(0, 1.0 - (durationS - MAX_BURST_DURATION_S));
+    const magnitudeScore = Math.max(0, Math.min(1, (peakRms - minPeakRms) / (maxExpectedPeakRms - minPeakRms)));
+    return { score: magnitudeScore * durationPenalty, isValidAttempt: true, peakRms };
+  }
+  function personalizeBurstRange(peakRmsReadings, noiseFloor, fallbackMax = MAX_EXPECTED_PEAK_RMS_DEFAULT) {
+    const valid = peakRmsReadings.filter(p => p > 0);
+    const minPeakRms = Math.max(0.01, noiseFloor * 2);
+    if (valid.length < 2) return { minPeakRms, maxExpectedPeakRms: fallbackMax, usedFallback: true };
+    const maxObserved = Math.max(...valid);
+    const maxExpectedPeakRms = Math.max(minPeakRms + 0.05, maxObserved);
+    return { minPeakRms, maxExpectedPeakRms, usedFallback: false };
+  }
+  function popNextBubble(poppedFlags, burstScore, popThreshold = 0.3) {
+    if (burstScore < popThreshold) return { poppedFlags, justPopped: -1 };
+    const nextIndex = poppedFlags.indexOf(false);
+    if (nextIndex === -1) return { poppedFlags, justPopped: -1 };
+    const next = poppedFlags.slice();
+    next[nextIndex] = true;
+    return { poppedFlags: next, justPopped: nextIndex };
+  }
+  function computeRMS(samples) {
+    let s = 0;
+    for (let i = 0; i < samples.length; i++) s += samples[i] * samples[i];
+    return Math.sqrt(s / samples.length);
+  }
+
+  // Grid size is now the difficulty knob (per direct feedback): a small
+  // sheet is an easy, quick win; the agent grows sheet size as the child
+  // succeeds. Burst-detection (popThreshold) stays fixed and generous —
+  // whether a clear "HA!" registers should always be reliable; HOW MANY
+  // bubbles to pop is the actual fun progression, not recognition strictness.
+  const MIN_TARGET_POPS = 6, MAX_TARGET_POPS = 20;
+  let GRID_COLS = 3, GRID_ROWS = 2; // recomputed by computeGridForTargetPops() each new sheet
+  const BASE_POP_THRESHOLD = 0.1; // fixed, generous — no longer adjusted by the difficulty agent
+
+  function computeGridForTargetPops(targetPops) {
+    const cols = Math.min(6, Math.max(2, Math.round(Math.sqrt(targetPops * 1.3))));
+    const rows = Math.ceil(targetPops / cols);
+    return { cols, rows };
+  }
+
+  const DIFFICULTY_AGENT = {
+    SAFE_RANGE: [MIN_TARGET_POPS, MAX_TARGET_POPS],
+    STEP: 2,
+    FAST_S: 8,
+    SLOW_S: 22,
+    decide(timeToFillSeconds) {
+      if (timeToFillSeconds < this.FAST_S) return { action: 'raise', message: "Great strong bursts! Let's add a couple more bubbles next time 🫧" };
+      if (timeToFillSeconds > this.SLOW_S) return { action: 'lower', message: "Nice effort! Let's make the next sheet a little smaller 💛" };
+      return { action: 'hold', message: "Great steady bursts! Let's keep this sheet size for now 🌟" };
+    },
+    apply(targetPops, decision) {
+      let next = targetPops;
+      if (decision.action === 'raise') next += this.STEP;
+      if (decision.action === 'lower') next -= this.STEP;
+      return Math.max(this.SAFE_RANGE[0], Math.min(this.SAFE_RANGE[1], next));
+    },
+  };
+
+  // ============================================================
+  // Backend integration — calls the real trained agent (/agent/decide,
+  // per-child tabular Q by default) instead of only the client-side
+  // rule-based DIFFICULTY_AGENT above. DIFFICULTY_AGENT.apply()'s safety
+  // envelope (SAFE_RANGE clamp) still runs on whatever action comes back,
+  // whether it's the trained agent's or the local fallback's.
+  //
+  // Falls back to DIFFICULTY_AGENT.decide() locally if the backend is
+  // unreachable, same pattern as the other games — a win never stalls
+  // waiting on a fetch.
+  // ============================================================
+  const BACKEND_URL = 'http://localhost:8001';
+  const LEVEL_ID = 'ha_bubble_wrap';
+  const AGENT_POLICY = 'tabular_q';
+
+  function getChildId() {
+    let id = localStorage.getItem('chime_child_id');
+    if (!id) {
+      id = 'child_' + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem('chime_child_id', id);
+    }
+    return id;
+  }
+  const CHILD_ID = getChildId();
+  let attemptNumber = 0;
+
+  async function logEventToBackend(payload) {
+    try {
+      await fetch(`${BACKEND_URL}/events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch (err) {
+      console.warn('Backend event logging unavailable:', err);
+    }
+  }
+
+  async function fetchAgentDecision() {
+    try {
+      const resp = await fetch(`${BACKEND_URL}/agent/decide/${CHILD_ID}/${LEVEL_ID}?policy=${AGENT_POLICY}`);
+      if (!resp.ok) throw new Error(`backend returned ${resp.status}`);
+      return await resp.json();
+    } catch (err) {
+      console.warn('Trained-agent endpoint unavailable, falling back to local rule-based agent:', err);
+      return null;
+    }
+  }
+
+  function timeToScore(timeToFillSeconds) {
+    if (timeToFillSeconds <= DIFFICULTY_AGENT.FAST_S) return 1.0;
+    if (timeToFillSeconds >= DIFFICULTY_AGENT.SLOW_S) return 0.2;
+    const t = (timeToFillSeconds - DIFFICULTY_AGENT.FAST_S) / (DIFFICULTY_AGENT.SLOW_S - DIFFICULTY_AGENT.FAST_S);
+    return 1.0 - t * 0.8;
+  }
+
+  async function updateDifficultyFromAttempt(timeToFillSeconds) {
+    attemptNumber++;
+    const score = timeToScore(timeToFillSeconds);
+
+    await logEventToBackend({
+      child_id: CHILD_ID,
+      level_id: LEVEL_ID,
+      attempt_number: attemptNumber,
+      score,
+      is_valid_attempt: true,
+      // Sheet size isn't naturally 0-1 like other levels' thresholds —
+      // normalized against MAX_TARGET_POPS as the closest honest analogue.
+      threshold_at_time: state.targetPops / MAX_TARGET_POPS,
+      quit_flag: false,
+    });
+
+    let decision = await fetchAgentDecision();
+    if (!decision) {
+      decision = DIFFICULTY_AGENT.decide(timeToFillSeconds); // offline fallback
+    }
+
+    state.targetPops = DIFFICULTY_AGENT.apply(state.targetPops, decision);
+    document.getElementById('agent-feedback').textContent = decision.message;
+  }
+
+  const state = {
+    audioCtx: null, analyser: null, timeDomainData: null,
+    noiseFloor: 0.01,
+    targetPops: MIN_TARGET_POPS,
+    poppedFlags: new Array(GRID_COLS * GRID_ROWS).fill(false),
+    popThreshold: BASE_POP_THRESHOLD,
+    burstEnvelope: [], inBurst: false, burstStartTime: 0,
+    popPulse: [], // per-bubble pop animation timer
+    minPeakRms: MIN_PEAK_RMS_DEFAULT,
+    maxExpectedPeakRms: MAX_EXPECTED_PEAK_RMS_DEFAULT,
+    lastFrameTime: 0, quietStreak: 0,
+    reduceMotion: localStorage.getItem('bubble_reduce_motion') === 'true',
+    muted: localStorage.getItem('bubble_muted') === 'true',
+    hasFinished: false, particles: [],
+    attemptStartTime: 0,
+  };
+  state.popPulse = new Array(GRID_COLS * GRID_ROWS).fill(0);
+
+  const canvas = document.getElementById('scene-canvas');
+  const ctx = canvas.getContext('2d');
+  const screens = { start: document.getElementById('screen-start'), micError: document.getElementById('screen-mic-error'), calibrate: document.getElementById('screen-calibrate') };
+  const hud = document.getElementById('hud');
+  const settingsPanel = document.getElementById('settings-panel');
+  const successOverlay = document.getElementById('success-overlay');
+  const encourageCaption = document.getElementById('encourage-caption');
+  const ariaLive = document.getElementById('aria-live');
+  document.getElementById('toggle-motion').checked = state.reduceMotion;
+  document.getElementById('toggle-mute').checked = state.muted;
+
+  function showScreen(name) {
+    Object.values(screens).forEach(s => s.classList.add('hidden'));
+    if (name && screens[name]) screens[name].classList.remove('hidden');
+  }
+
+  let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+  function resizeCanvas() {
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  function playPopSound() {
+    if (state.muted || !state.audioCtx) return;
+    const a = state.audioCtx;
+    const osc = a.createOscillator(), gain = a.createGain();
+    osc.type = 'square'; osc.frequency.setValueAtTime(280, a.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(90, a.currentTime + 0.08);
+    gain.gain.setValueAtTime(0.09, a.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.1);
+    osc.connect(gain).connect(a.destination);
+    osc.start(); osc.stop(a.currentTime + 0.12);
+  }
+  function playSuccessChime() { [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => setTimeout(() => {
+    if (state.muted || !state.audioCtx) return;
+    const a = state.audioCtx; const osc = a.createOscillator(), gain = a.createGain();
+    osc.type = 'triangle'; osc.frequency.value = f;
+    gain.gain.setValueAtTime(0, a.currentTime); gain.gain.linearRampToValueAtTime(0.045, a.currentTime + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.5);
+    osc.connect(gain).connect(a.destination); osc.start(); osc.stop(a.currentTime + 0.55);
+  }, i * 110)); }
+
+  async function requestMicAndCalibrate() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } });
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      state.audioCtx = new AudioContextClass();
+      const source = state.audioCtx.createMediaStreamSource(stream);
+      state.analyser = state.audioCtx.createAnalyser();
+      state.analyser.fftSize = 2048;
+      state.timeDomainData = new Float32Array(state.analyser.fftSize);
+      source.connect(state.analyser);
+      runCalibration();
+    } catch (err) {
+      document.getElementById('mic-error-detail').textContent = err.name === 'NotAllowedError'
+        ? 'Please allow microphone access so we can hear your burst.'
+        : 'Something went wrong reaching the microphone. Please try again.';
+      showScreen('micError');
+    }
+  }
+
+  function readCurrentRMS() {
+    state.analyser.getFloatTimeDomainData(state.timeDomainData);
+    let s = 0;
+    for (let i = 0; i < state.timeDomainData.length; i++) s += state.timeDomainData[i] * state.timeDomainData[i];
+    return Math.sqrt(s / state.timeDomainData.length);
+  }
+
+  function runCalibration() {
+    showScreen('calibrate');
+    const ring = document.getElementById('calib-ring');
+    const CIRC = 2 * Math.PI * 60;
+    ring.setAttribute('stroke-dasharray', CIRC);
+    const QUIET_MS = 1200; // lowered from 2000 — faster into gameplay
+    const LOUD_MS = 1800; // lowered from 2500
+    let quietSamples = [];
+    let burstPeaks = [];
+    function setRing(p) { ring.setAttribute('stroke-dashoffset', CIRC * (1 - p)); }
+    document.getElementById('calib-title').textContent = "Let's find quiet...";
+    document.getElementById('calib-subtitle').textContent = 'Stay nice and quiet for a moment';
+    document.getElementById('calib-emoji').textContent = '🤫';
+    const quietStart = performance.now();
+    function quietStep(now) {
+      const elapsed = now - quietStart;
+      quietSamples.push(readCurrentRMS());
+      setRing(Math.min(1, elapsed / QUIET_MS));
+      if (elapsed < QUIET_MS) { requestAnimationFrame(quietStep); }
+      else {
+        const sorted = [...quietSamples].sort((a, b) => a - b);
+        const p90 = sorted[Math.floor(sorted.length * 0.9)] || 0.01;
+        state.noiseFloor = Math.max(0.006, p90 * 1.4);
+        startLoudPhase();
+      }
+    }
+
+    function startLoudPhase() {
+      document.getElementById('calib-title').textContent = 'Now say "HA!"';
+      document.getElementById('calib-subtitle').textContent = 'A few quick, strong bursts';
+      document.getElementById('calib-emoji').textContent = '💥';
+      setRing(0);
+      const loudStart = performance.now();
+      let inBurst = false, currentBurstPeak = 0;
+      const burstGate = state.noiseFloor * 2;
+      function loudStep(now) {
+        const elapsed = now - loudStart;
+        const rms = readCurrentRMS();
+        if (rms >= burstGate) {
+          inBurst = true;
+          currentBurstPeak = Math.max(currentBurstPeak, rms);
+        } else if (inBurst) {
+          burstPeaks.push(currentBurstPeak);
+          inBurst = false;
+          currentBurstPeak = 0;
+        }
+        setRing(Math.min(1, elapsed / LOUD_MS));
+        if (elapsed < LOUD_MS) {
+          requestAnimationFrame(loudStep);
+        } else {
+          if (inBurst) burstPeaks.push(currentBurstPeak);
+          const { minPeakRms, maxExpectedPeakRms } = personalizeBurstRange(burstPeaks, state.noiseFloor);
+          state.minPeakRms = minPeakRms;
+          state.maxExpectedPeakRms = maxExpectedPeakRms;
+          finishCalibration();
+        }
+      }
+      requestAnimationFrame(loudStep);
+    }
+
+    requestAnimationFrame(quietStep);
+  }
+
+  function finishCalibration() {
+    showScreen(null);
+    hud.classList.remove('hidden');
+    const grid = computeGridForTargetPops(state.targetPops);
+    GRID_COLS = grid.cols; GRID_ROWS = grid.rows;
+    state.poppedFlags = new Array(GRID_COLS * GRID_ROWS).fill(false);
+    state.popPulse = new Array(GRID_COLS * GRID_ROWS).fill(0);
+    state.hasFinished = false;
+    state.lastFrameTime = performance.now();
+    state.attemptStartTime = performance.now();
+    ariaLive.textContent = 'Ready! Say a quick "ha!" to pop a bubble.';
+    requestAnimationFrame(gameLoop);
+  }
+
+  function gameLoop(now) {
+    const dt = Math.min(0.1, (now - state.lastFrameTime) / 1000);
+    state.lastFrameTime = now;
+
+    const rms = readCurrentRMS();
+    const burstThreshold = state.noiseFloor * 2.5;
+
+    if (rms >= burstThreshold) {
+      if (!state.inBurst) { state.inBurst = true; state.burstStartTime = now; state.burstEnvelope = []; }
+      state.burstEnvelope.push(rms);
+    } else if (state.inBurst) {
+      // burst just ended — score it
+      const durationS = (now - state.burstStartTime) / 1000;
+      const { score, isValidAttempt } = scoreBurst(state.burstEnvelope, durationS, state.minPeakRms, state.maxExpectedPeakRms);
+      if (isValidAttempt) {
+        const result = popNextBubble(state.poppedFlags, score, state.popThreshold);
+        if (result.justPopped >= 0) {
+          state.poppedFlags = result.poppedFlags;
+          state.popPulse[result.justPopped] = 1;
+          playPopSound();
+        }
+      }
+      state.inBurst = false;
+      state.burstEnvelope = [];
+    }
+
+    for (let i = 0; i < state.popPulse.length; i++) if (state.popPulse[i] > 0) state.popPulse[i] = Math.max(0, state.popPulse[i] - dt * 2.5);
+
+    const numPopped = state.poppedFlags.filter(Boolean).length;
+    if (rms < state.noiseFloor * 1.5) state.quietStreak += dt; else state.quietStreak = 0;
+    encourageCaption.classList.toggle('visible', state.quietStreak > 4 && numPopped === 0);
+    if (state.quietStreak > 4) encourageCaption.textContent = 'Try a quick, strong "HA!" burst!';
+
+    render();
+
+    if (numPopped >= state.targetPops && !state.hasFinished) { state.hasFinished = true; onSheetSuccess(); }
+    if (!state.hasFinished) requestAnimationFrame(gameLoop);
+  }
+
+  function onSheetSuccess() {
+    playSuccessChime();
+    ariaLive.textContent = 'You popped every bubble on the sheet!';
+    spawnCelebrationParticles();
+    const timeToFillSeconds = (performance.now() - state.attemptStartTime) / 1000;
+    updateDifficultyFromAttempt(timeToFillSeconds); // async — doesn't block the celebration below
+    let frames = 0;
+    function celebrateLoop() { render(); frames++; if (frames < 90) requestAnimationFrame(celebrateLoop); }
+    requestAnimationFrame(celebrateLoop);
+    setTimeout(() => successOverlay.classList.remove('hidden'), 500);
+  }
+
+  function spawnCelebrationParticles() {
+    const count = state.reduceMotion ? 16 : 50;
+    for (let i = 0; i < count; i++) {
+      state.particles.push({ x: W / 2, y: H / 2, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6 - 1, life: 1, color: ['#FFD166', '#6BCB77', '#FF6B6B', '#FFF8EC'][i % 4], r: Math.random() * 3 + 2 });
+    }
+  }
+
+  function render() {
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, '#FFDDE1'); grad.addColorStop(1, '#C97B8B');
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+    drawParticles(); drawBubbleSheet();
+  }
+
+  function drawParticles() {
+    ctx.save();
+    state.particles = state.particles.filter(p => p.life > 0);
+    for (const p of state.particles) {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life -= 0.014;
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawBubbleSheet() {
+    const cellSize = Math.min((W * 0.8) / GRID_COLS, (H * 0.6) / GRID_ROWS);
+    const sheetW = cellSize * GRID_COLS, sheetH = cellSize * GRID_ROWS;
+    const originX = (W - sheetW) / 2, originY = (H - sheetH) / 2;
+
+    // sheet backing
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.beginPath();
+    const pad = cellSize * 0.15;
+    ctx.roundRect ? ctx.roundRect(originX - pad, originY - pad, sheetW + pad * 2, sheetH + pad * 2, 20)
+                  : ctx.rect(originX - pad, originY - pad, sheetW + pad * 2, sheetH + pad * 2);
+    ctx.fill();
+
+    for (let row = 0; row < GRID_ROWS; row++) {
+      for (let col = 0; col < GRID_COLS; col++) {
+        const idx = row * GRID_COLS + col;
+        const cx = originX + col * cellSize + cellSize / 2;
+        const cy = originY + row * cellSize + cellSize / 2;
+        const r = cellSize * 0.38;
+        const popped = state.poppedFlags[idx];
+        const pulse = state.popPulse[idx];
+
+        if (popped && pulse <= 0.01) {
+          // popped, settled — just a faint ring outline where the bubble was
+          ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.arc(cx, cy, r * 0.85, 0, Math.PI * 2); ctx.stroke();
+          continue;
+        }
+
+        const scale = popped ? (1 + pulse * 0.6) : 1;
+        const alpha = popped ? Math.max(0, 1 - pulse) : 1;
+
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        const bubbleGrad = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.3, r * 0.1, cx, cy, r * scale);
+        bubbleGrad.addColorStop(0, 'rgba(255,255,255,0.9)');
+        bubbleGrad.addColorStop(0.5, 'rgba(255,255,255,0.55)');
+        bubbleGrad.addColorStop(1, 'rgba(255,255,255,0.25)');
+        ctx.fillStyle = bubbleGrad;
+        ctx.beginPath(); ctx.arc(cx, cy, r * scale, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // highlight
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.beginPath(); ctx.ellipse(cx - r * 0.35, cy - r * 0.35, r * 0.22, r * 0.14, -0.5, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+    }
+  }
+
+  document.getElementById('btn-start').addEventListener('click', requestMicAndCalibrate);
+  document.getElementById('btn-retry-mic').addEventListener('click', requestMicAndCalibrate);
+  document.getElementById('btn-settings').addEventListener('click', () => settingsPanel.classList.toggle('hidden'));
+  document.getElementById('toggle-motion').addEventListener('change', (e) => { state.reduceMotion = e.target.checked; localStorage.setItem('bubble_reduce_motion', state.reduceMotion); });
+  document.getElementById('toggle-mute').addEventListener('change', (e) => { state.muted = e.target.checked; localStorage.setItem('bubble_muted', state.muted); });
+  document.getElementById('btn-recalibrate').addEventListener('click', () => { settingsPanel.classList.add('hidden'); hud.classList.add('hidden'); runCalibration(); });
+  document.getElementById('btn-play-again').addEventListener('click', () => {
+    successOverlay.classList.add('hidden');
+    const grid = computeGridForTargetPops(state.targetPops);
+    GRID_COLS = grid.cols; GRID_ROWS = grid.rows;
+    state.poppedFlags = new Array(GRID_COLS * GRID_ROWS).fill(false);
+    state.popPulse = new Array(GRID_COLS * GRID_ROWS).fill(0);
+    state.hasFinished = false; state.particles = [];
+    state.lastFrameTime = performance.now(); state.attemptStartTime = performance.now();
+    requestAnimationFrame(gameLoop);
+  });
+
+  resizeCanvas();
+  render();
+})();
+</script>
+</body>
+</html>

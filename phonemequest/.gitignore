@@ -1,0 +1,14 @@
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+.ipynb_checkpoints/
+*.egg-info/
+.DS_Store
+.vscode/
+.idea/
+agent/models/
+retraining/chime_sessions.db
+agent/models/q_tables/
+agent/models/q_prior.json

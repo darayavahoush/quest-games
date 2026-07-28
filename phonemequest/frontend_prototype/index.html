@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chime — Choose a Level</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-top: #FFF3D6;
+    --bg-bottom: #FFE0A6;
+    --ink: #3A2E1F;
+    --panel-border: rgba(58, 46, 31, 0.1);
+    --display-font: 'Baloo 2', sans-serif;
+    --body-font: 'Quicksand', sans-serif;
+    --shadow-soft: 0 10px 28px rgba(58, 46, 31, 0.12);
+    --shadow-lift: 0 18px 40px rgba(58, 46, 31, 0.18);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100%;
+    background: linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+    font-family: var(--body-font);
+    color: var(--ink);
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 48px 24px 64px; }
+  header { text-align: center; margin-bottom: 44px; }
+  header .logo { font-size: 3rem; margin-bottom: 6px; filter: drop-shadow(0 6px 14px rgba(58,46,31,0.15)); }
+  h1 {
+    font-family: var(--display-font); font-weight: 800; font-size: clamp(2.2rem, 6vw, 3.2rem);
+    margin: 0 0 8px; color: var(--ink); letter-spacing: -0.01em;
+  }
+  header p {
+    font-size: clamp(1rem, 2.5vw, 1.2rem); font-weight: 600; color: #7A5C2E; margin: 0;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 22px;
+  }
+
+  .card {
+    position: relative;
+    display: flex; flex-direction: column;
+    border-radius: 26px 26px 36px 26px;
+    padding: 26px 22px;
+    text-decoration: none;
+    color: #FFF8EC;
+    min-height: 210px;
+    box-shadow: 0 12px 0 rgba(0,0,0,0.12), 0 20px 40px rgba(0,0,0,0.18);
+    transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.18s ease;
+    overflow: hidden;
+  }
+  .card:hover { transform: translateY(-6px) scale(1.015); box-shadow: 0 16px 0 rgba(0,0,0,0.12), 0 28px 50px rgba(0,0,0,0.22); }
+  .card:active { transform: translateY(2px) scale(1); box-shadow: 0 6px 0 rgba(0,0,0,0.12), 0 10px 24px rgba(0,0,0,0.18); }
+  .card:focus-visible { outline: 3px solid #FFF8EC; outline-offset: 3px; }
+
+  .card .icon { font-size: 2.6rem; margin-bottom: 10px; }
+  .card .phoneme-tag {
+    position: absolute; top: 18px; right: 20px;
+    font-family: var(--display-font); font-weight: 700; font-size: 0.95rem;
+    background: rgba(255,255,255,0.22); border-radius: 999px; padding: 3px 12px;
+  }
+  .card h2 { font-family: var(--display-font); font-weight: 700; font-size: 1.45rem; margin: 0 0 6px; }
+  .card p { font-size: 0.95rem; font-weight: 700; line-height: 1.4; margin: 0; opacity: 0.92; }
+  .card .skill-tag {
+    margin-top: auto; padding-top: 14px;
+    font-size: 0.8rem; font-weight: 700; opacity: 0.8;
+  }
+
+  .card.rocket { background: linear-gradient(160deg, #3D2E7C, #1B1440); }
+  .card.submarine { background: linear-gradient(160deg, #1E5F8C, #0A2A45); }
+  .card.drum { background: linear-gradient(160deg, #2E7D5B, #1E5240); }
+  .card.bubble-garden { background: linear-gradient(160deg, #7B5EA7, #2A2158); }
+  .card.bubble-wrap { background: linear-gradient(160deg, #FFB6C1, #C97B8B); color: #4A2530; }
+  .card.bubble-wrap .phoneme-tag { background: rgba(255,255,255,0.35); }
+
+  .card.locked {
+    background: repeating-linear-gradient(135deg, #D8CDBA, #D8CDBA 10px, #CFC3AE 10px, #CFC3AE 20px);
+    color: #6B5C42; cursor: default; pointer-events: none;
+  }
+  .card.locked .icon { opacity: 0.6; }
+
+  footer { text-align: center; margin-top: 44px; font-size: 0.85rem; color: #8A6D3A; }
+
+  .section-heading {
+    font-family: var(--display-font); font-weight: 800; font-size: 1.4rem;
+    margin: 0 0 16px; color: var(--ink); text-align: center;
+  }
+  .dashboard {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px; margin-bottom: 40px;
+  }
+  .dash-card {
+    background: rgba(255,255,255,0.88); border-radius: 22px 22px 30px 22px; padding: 24px 26px;
+    box-shadow: var(--shadow-soft); border: 1px solid var(--panel-border);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+  }
+  .dash-card:hover { box-shadow: var(--shadow-lift); transform: translateY(-2px); }
+  .dash-card h3 {
+    font-family: var(--display-font); font-weight: 700; font-size: 1.1rem;
+    margin: 0 0 12px; display: flex; align-items: center; gap: 8px;
+  }
+  .dash-row {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    font-size: 0.9rem; font-weight: 700; padding: 8px 0; border-bottom: 1px dashed var(--panel-border);
+  }
+  .dash-row:last-child { border-bottom: none; }
+  .dash-empty { font-size: 0.88rem; color: #8A6D3A; font-weight: 600; line-height: 1.5; }
+  .dash-badge {
+    display: inline-block; font-family: var(--display-font); font-weight: 700;
+    font-size: 0.8rem; padding: 3px 12px; border-radius: 999px; color: #fff;
+  }
+  .dash-badge.raise { background: #4F9E5C; }
+  .dash-badge.lower { background: #C4487A; }
+  .dash-badge.hold { background: #C9862E; }
+  .dash-policy-select {
+    font-family: var(--body-font); font-weight: 700; font-size: 0.8rem;
+    border: 2px solid var(--panel-border); border-radius: 999px; padding: 4px 10px;
+    background: #fff; color: var(--ink);
+  }
+  .dash-child-id { font-size: 0.78rem; color: #8A6D3A; font-weight: 600; margin-top: 12px; }
+  .dash-reset-btn {
+    font-family: var(--body-font); font-weight: 700; font-size: 0.78rem;
+    background: none; border: none; text-decoration: underline; color: #8A6D3A;
+    cursor: pointer; padding: 0; margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="logo">🎵</div>
+    <h1>Chime</h1>
+    <p>Pick a world and practice a sound!</p>
+  </header>
+
+  <section class="dashboard" id="dashboard">
+    <div class="dash-card">
+      <h3>📊 Your progress</h3>
+      <div id="progress-content" class="dash-empty">Loading…</div>
+      <div class="dash-child-id" id="child-id-display"></div>
+      <button class="dash-reset-btn" id="btn-reset-profile">Start a new profile</button>
+    </div>
+    <div class="dash-card">
+      <h3>🤖 Agent status
+        <select id="policy-select" class="dash-policy-select" style="margin-left:auto;">
+          <option value="tabular_q">Tabular Q (per-child)</option>
+          <option value="rule_based">Rule-based</option>
+          <option value="bandit">Bandit</option>
+          <option value="ppo">PPO</option>
+          <option value="recurrent_ppo">Recurrent PPO</option>
+        </select>
+      </h3>
+      <div style="font-size:0.75rem;color:#8A6D3A;margin-bottom:8px;">Live decision for Rocket Launch (aa_rocket)</div>
+      <div id="agent-content" class="dash-empty">Loading…</div>
+    </div>
+  </section>
+
+  <h2 class="section-heading">Choose a world</h2>
+  <div class="grid">
+    <a class="card rocket" href="rocket_launch.html">
+      <span class="phoneme-tag">aa</span>
+      <div class="icon">🚀</div>
+      <h2>Rocket Launch</h2>
+      <p>Say a big loud "aaa" to blast off into space.</p>
+      <div class="skill-tag">Voice loudness &amp; pitch</div>
+    </a>
+
+    <a class="card submarine" href="submarine_dive.html">
+      <span class="phoneme-tag">oo</span>
+      <div class="icon">🤿</div>
+      <h2>Submarine Dive</h2>
+      <p>Hold a long, round "oooo" to dive to the ocean floor.</p>
+      <div class="skill-tag">Vowel duration &amp; quality</div>
+    </a>
+
+    <a class="card drum" href="drum_island.html">
+      <span class="phoneme-tag">ma</span>
+      <div class="icon">🫙</div>
+      <h2>Firefly Jar</h2>
+      <p>Say "ma" clearly to catch fireflies and fill the jar with light.</p>
+      <div class="skill-tag">Repetition &amp; clarity</div>
+    </a>
+
+    <a class="card bubble-garden" href="wind_chime_garden.html">
+      <span class="phoneme-tag">fa</span>
+      <div class="icon">🫧</div>
+      <h2>Bubble Garden</h2>
+      <p>Blow a long "ffff" to fill the twilight sky with bubbles.</p>
+      <div class="skill-tag">Sustained airflow</div>
+    </a>
+
+    <a class="card bubble-wrap" href="bubble_wrap_pop.html">
+      <span class="phoneme-tag">ha</span>
+      <div class="icon">🫙</div>
+      <h2>Bubble Wrap Pop</h2>
+      <p>Say a quick "HA!" burst to pop every bubble on the sheet.</p>
+      <div class="skill-tag">Breath bursts</div>
+    </a>
+
+    <a class="card" style="background: linear-gradient(160deg, #6FBF73, #4F9E54);" href="village_builder.html">
+      <span class="phoneme-tag">word</span>
+      <div class="icon">🏘️</div>
+      <h2>Village Builder</h2>
+      <p>Say the word on screen to build a new house in your village.</p>
+      <div class="skill-tag">Word intelligibility</div>
+    </a>
+  </div>
+
+  <footer>Six worlds, six sounds — all unlocked. Pick one and start practicing.</footer>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const BACKEND_URL = 'http://localhost:8001';
+  const LEVEL_LABELS = {
+    aa_rocket: { icon: '🚀', name: 'Rocket Launch' },
+    word_village: { icon: '🏘️', name: 'Village Builder' },
+    oo_submarine: { icon: '🤿', name: 'Submarine Dive' },
+    ma_firefly: { icon: '🫙', name: 'Firefly Jar' },
+    ha_bubble_wrap: { icon: '🫧', name: 'Bubble Wrap Pop' },
+    fa_chime_garden: { icon: '🫧', name: 'Bubble Garden' },
+  };
+  const OFFLINE_MSG = 'Backend offline — start it with <code>uvicorn backend.main:app --reload --port 8001</code> to see this here.';
+
+  function getChildId() {
+    let id = localStorage.getItem('chime_child_id');
+    if (!id) {
+      id = 'child_' + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem('chime_child_id', id);
+    }
+    return id;
+  }
+  const childId = getChildId();
+  document.getElementById('child-id-display').textContent = `Playing as: ${childId}`;
+
+  document.getElementById('btn-reset-profile').addEventListener('click', () => {
+    const ok = confirm('Start a brand-new profile? Your current progress stays saved under your old ID — this just switches which one this browser tracks going forward.');
+    if (!ok) return;
+    localStorage.removeItem('chime_child_id');
+    location.reload();
+  });
+
+  async function loadProgress() {
+    const el = document.getElementById('progress-content');
+    try {
+      const resp = await fetch(`${BACKEND_URL}/events/${childId}`);
+      if (!resp.ok) throw new Error(`backend returned ${resp.status}`);
+      const events = await resp.json();
+      if (events.length === 0) {
+        el.innerHTML = `<span class="dash-empty">No sessions yet — play a world below to see progress here!</span>`;
+        return;
+      }
+      const byLevel = {};
+      for (const e of events) {
+        (byLevel[e.level_id] = byLevel[e.level_id] || []).push(e);
+      }
+      let html = '';
+      for (const [levelId, evs] of Object.entries(byLevel)) {
+        const label = LEVEL_LABELS[levelId] || { icon: '🎮', name: levelId };
+        const successCount = evs.filter(e => e.is_valid_attempt && e.score >= 0.6).length;
+        const rate = Math.round((successCount / evs.length) * 100);
+        html += `<div class="dash-row"><span>${label.icon} ${label.name}</span><span>${evs.length} attempts · ${rate}% success</span></div>`;
+      }
+      el.innerHTML = html;
+    } catch (err) {
+      console.warn('Progress unavailable:', err);
+      el.innerHTML = `<span class="dash-empty">${OFFLINE_MSG}</span>`;
+    }
+  }
+
+  async function loadAgentStatus(policy) {
+    const el = document.getElementById('agent-content');
+    el.innerHTML = `<span class="dash-empty">Loading…</span>`;
+    try {
+      const resp = await fetch(`${BACKEND_URL}/agent/decide/${childId}/aa_rocket?policy=${policy}`);
+      if (!resp.ok) throw new Error(`backend returned ${resp.status}`);
+      const data = await resp.json();
+      el.innerHTML = `
+        <div class="dash-row"><span>Suggested next move</span><span class="dash-badge ${data.action}">${data.action}</span></div>
+        <div class="dash-row"><span>Based on</span><span>${data.n_events_considered} recent attempts</span></div>
+        <div style="margin-top:10px; font-size:0.85rem; color:#7A5C2E; font-weight:600;">${data.message}</div>
+      `;
+    } catch (err) {
+      console.warn('Agent status unavailable:', err);
+      el.innerHTML = `<span class="dash-empty">${OFFLINE_MSG}</span>`;
+    }
+  }
+
+  document.getElementById('policy-select').addEventListener('change', (e) => {
+    loadAgentStatus(e.target.value);
+  });
+
+  loadProgress();
+  loadAgentStatus('tabular_q');
+})();
+</script>
+
+</body>
+</html>

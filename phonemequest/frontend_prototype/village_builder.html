@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Village Builder — Chime</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* Sunrise Village: sky and ground shift from dusk to warm morning as
+       houses get built — see drawSun()/render() below. These CSS vars set
+       the resting (start) state; JS interpolates toward the "day" values
+       inline as progress climbs, so they're not both referenced from CSS. */
+    --sky-top: #342B5C; --sky-bottom: #C97B84;
+    --grass: #4F9E5C; --grass-dark: #3B7A45;
+    --gold: #D9713C; --coral: #C4487A;
+    --cloud-white: #FFF8EC;
+    --panel-bg: rgba(79, 158, 92, 0.72);
+    --panel-border: rgba(255, 248, 236, 0.2);
+    --display-font: 'Baloo 2', sans-serif;
+    --body-font: 'Quicksand', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--grass-dark); font-family: var(--body-font); color: #2E4A2E; -webkit-tap-highlight-color: transparent; }
+  #scene-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; z-index: 10; }
+  .hidden { display: none !important; }
+  .panel { background: rgba(255,255,255,0.94); border: 1px solid rgba(0,0,0,0.06); border-radius: 28px 28px 40px 28px; padding: 40px 36px; max-width: 460px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.2); color: #2E4A2E; }
+  h1.title { font-family: var(--display-font); font-weight: 800; font-size: clamp(2rem, 6vw, 2.8rem); margin: 0 0 8px; }
+  p.subtitle { font-size: clamp(1rem, 3vw, 1.2rem); font-weight: 600; margin: 0 0 28px; color: #B5502E; line-height: 1.5; }
+  button { font-family: var(--display-font); font-weight: 700; font-size: 1.3rem; border: none; border-radius: 999px; padding: 16px 40px; cursor: pointer; color: #2E4A2E; background: var(--gold); box-shadow: 0 6px 0 #A8502A, 0 10px 24px rgba(0,0,0,0.15); transition: transform 0.1s ease, box-shadow 0.1s ease; }
+  button:hover { transform: translateY(-2px); }
+  button:active { transform: translateY(3px); box-shadow: 0 3px 0 #A8502A, 0 6px 14px rgba(0,0,0,0.15); }
+  button:focus-visible { outline: 3px solid #2E4A2E; outline-offset: 3px; }
+  button.secondary { background: transparent; color: #2E4A2E; box-shadow: none; border: 2px solid rgba(0,0,0,0.15); font-size: 1rem; padding: 10px 22px; margin-top: 14px; }
+  .mic-icon { font-size: 3.4rem; margin-bottom: 12px; display: inline-block; }
+  .error-text { font-size: 0.95rem; color: #C94C4C; margin-top: 14px; line-height: 1.5; }
+  #hud { position: fixed; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: flex-start; padding: 18px 20px; z-index: 20; pointer-events: none; }
+  #hud > * { pointer-events: auto; }
+  #target-word-box {
+    font-family: var(--display-font); font-weight: 800; font-size: clamp(1.6rem, 6vw, 2.4rem);
+    background: rgba(255,255,255,0.92); border-radius: 24px; padding: 14px 34px;
+    color: #2E4A2E; box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    display: flex; align-items: center; gap: 4px;
+  }
+  #mic-meter {
+    margin-top: 8px; width: 140px; height: 10px; border-radius: 999px;
+    background: rgba(0,0,0,0.15); overflow: hidden;
+  }
+  #mic-meter-fill {
+    height: 100%; width: 0%; background: #6FBF73; border-radius: 999px;
+    transition: width 0.06s linear, background 0.1s linear;
+  }
+  #listening-indicator {
+    font-family: var(--display-font); font-weight: 700; font-size: 1rem;
+    background: rgba(255,255,255,0.85); border-radius: 999px; padding: 6px 18px;
+    margin-top: 8px; display: inline-block; color: #4F9E54;
+  }
+  .icon-btn { background: rgba(255,255,255,0.85); border: 1px solid rgba(0,0,0,0.08); border-radius: 999px; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; box-shadow: none; padding: 0; color: #2E4A2E; }
+  .icon-btn:active { transform: translateY(1px); }
+  #settings-panel { position: fixed; top: 74px; right: 18px; background: rgba(255,255,255,0.92); border-radius: 20px; padding: 18px 20px; z-index: 30; width: 240px; text-align: left; color: #2E4A2E; }
+  #settings-panel h3 { font-family: var(--display-font); margin: 0 0 12px; font-size: 1.1rem; }
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; font-weight: 700; font-size: 0.95rem; }
+  .switch { position: relative; width: 46px; height: 26px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch-track { position: absolute; inset: 0; background: rgba(0,0,0,0.15); border-radius: 999px; transition: background 0.2s ease; cursor: pointer; }
+  .switch-track::before { content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: transform 0.2s ease; }
+  .switch input:checked + .switch-track { background: #6BCB77; }
+  .switch input:checked + .switch-track::before { transform: translateX(20px); }
+  #settings-panel button.secondary { width: 100%; margin-top: 4px; }
+  #success-overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 40; background: rgba(79, 158, 84, 0.4); }
+  #success-overlay .panel { text-align: center; }
+  #recent-attempt {
+    position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%);
+    background: rgba(255,255,255,0.92); border-radius: 999px; padding: 10px 22px;
+    font-weight: 700; font-size: 0.95rem; opacity: 0; transition: opacity 0.3s ease; z-index: 20;
+    color: #2E4A2E;
+  }
+  #recent-attempt.visible { opacity: 1; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+
+<canvas id="scene-canvas" aria-hidden="true"></canvas>
+
+<div id="screen-start" class="screen">
+  <div class="panel">
+    <div class="mic-icon">🏘️</div>
+    <h1 class="title">Village Builder</h1>
+    <p class="subtitle">Say the word to bring a new house to life — watch your village wake up as you go!</p>
+    <div style="text-align: left; margin-bottom: 20px;">
+      <div style="font-weight: 700; font-size: 0.9rem; margin-bottom: 6px; color: #2E4A2E;">Custom words (optional)</div>
+      <input type="text" id="custom-words-input" placeholder="e.g. mango, elephant, umbrella" autocomplete="off" autocapitalize="off" spellcheck="false"
+             style="width: 100%; box-sizing: border-box; font-family: var(--body-font); font-size: 0.9rem; font-weight: 700; border: 2px solid rgba(0,0,0,0.15); border-radius: 12px; padding: 10px 14px; color: #2E4A2E;" />
+      <div style="font-size: 0.8rem; color: #7A5C2E; margin-top: 4px;">Comma separated. Leave blank to use the default words.</div>
+    </div>
+    <button id="btn-start">Let's Play!</button>
+  </div>
+</div>
+
+<div id="screen-mic-error" class="screen hidden">
+  <div class="panel">
+    <div class="mic-icon">🎤</div>
+    <h1 class="title" style="font-size: 1.6rem;">We need to hear you!</h1>
+    <p class="error-text" id="mic-error-detail">Please allow microphone access so your village can hear your words.</p>
+    <button id="btn-retry-mic">Try Again</button>
+  </div>
+</div>
+
+<div id="hud" class="hidden">
+  <div>
+    <div id="target-word-box">
+      <span id="target-word-text">ball</span>
+      <button id="btn-hear-word" class="icon-btn" style="width:36px;height:36px;font-size:1.1rem;vertical-align:middle;margin-left:8px;" aria-label="Hear the word">🔊</button>
+    </div>
+    <div id="listening-indicator">🎙️ Listening...</div>
+    <div id="mic-meter"><div id="mic-meter-fill"></div></div>
+  </div>
+  <button id="btn-settings" class="icon-btn" aria-label="Settings">⚙️</button>
+</div>
+
+<div id="settings-panel" class="hidden">
+  <h3>Settings</h3>
+  <div class="toggle-row"><span>Reduce motion</span><label class="switch"><input type="checkbox" id="toggle-motion"><span class="switch-track"></span></label></div>
+  <div class="toggle-row"><span>Mute sounds</span><label class="switch"><input type="checkbox" id="toggle-mute"><span class="switch-track"></span></label></div>
+</div>
+
+<div id="recent-attempt"></div>
+
+<div id="success-overlay" class="hidden">
+  <div class="panel">
+    <div class="mic-icon">🎉</div>
+    <h1 class="title">Village complete!</h1>
+    <p class="subtitle">You built every house!</p>
+    <button id="btn-play-again">Build Again!</button>
+  </div>
+</div>
+
+<div class="visually-hidden" id="aria-live" aria-live="polite"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ============================================================
+  // Backend integration — the first level actually wired to the real
+  // backend (backend/main.py) instead of being purely client-side. Run
+  // the backend locally first:
+  //     cd chime && uvicorn backend.main:app --reload --port 8001
+  // If the backend isn't reachable, word-scoring and event-logging calls
+  // fail silently (caught and logged to console) rather than breaking the
+  // game — the child's experience shouldn't depend on a fetch succeeding.
+  // ============================================================
+  const BACKEND_URL = 'http://localhost:8001';
+
+  function getChildId() {
+    let id = localStorage.getItem('chime_child_id');
+    if (!id) {
+      id = 'child_' + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem('chime_child_id', id);
+    }
+    return id;
+  }
+
+  async function scoreWordViaBackend(transcript, targetWord, confidence) {
+    try {
+      const resp = await fetch(`${BACKEND_URL}/village-builder/score-word`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcript, target_word: targetWord, asr_confidence: confidence }),
+      });
+      if (!resp.ok) throw new Error(`backend returned ${resp.status}`);
+      return await resp.json();
+    } catch (err) {
+      console.warn('Backend word-scoring unavailable, falling back to local match:', err);
+      return localWordMatch(transcript, targetWord, confidence);
+    }
+  }
+
+  async function logEventToBackend(payload) {
+    try {
+      await fetch(`${BACKEND_URL}/events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch (err) {
+      console.warn('Backend event logging unavailable:', err);
+    }
+  }
+
+  // ============================================================
+  // Difficulty wiring — calls the real trained agent (/agent/decide,
+  // per-child tabular Q by default) to adjust state.matchThreshold between
+  // attempts, same pattern as rocket_launch.html. Bounded by
+  // WORD_DIFFICULTY_AGENT.apply()'s SAFE_RANGE regardless of whether the
+  // action came from the backend or the local fallback — the safety
+  // envelope matters more than which policy chose it.
+  // ============================================================
+  const LEVEL_ID = 'word_village';
+  const AGENT_POLICY = 'tabular_q';
+
+  async function fetchAgentDecision() {
+    try {
+      const resp = await fetch(`${BACKEND_URL}/agent/decide/${state.childId}/${LEVEL_ID}?policy=${AGENT_POLICY}`);
+      if (!resp.ok) throw new Error(`backend returned ${resp.status}`);
+      return await resp.json();
+    } catch (err) {
+      console.warn('Trained-agent endpoint unavailable, falling back to local rule-based agent:', err);
+      return null;
+    }
+  }
+
+  const WORD_DIFFICULTY_AGENT = {
+    SAFE_RANGE: [0.45, 0.75],
+    STEP: 0.05,
+    decide(lastMatchScore) {
+      if (lastMatchScore >= 0.85) {
+        return { action: 'raise', message: "Great job! Let's listen a little more closely next time." };
+      }
+      if (lastMatchScore < 0.4) {
+        return { action: 'lower', message: "Let's make the next word a bit more forgiving." };
+      }
+      return { action: 'hold', message: "Nice and steady!" };
+    },
+    apply(threshold, decision) {
+      let next = threshold;
+      if (decision.action === 'raise') next += this.STEP;
+      if (decision.action === 'lower') next -= this.STEP;
+      return Math.max(this.SAFE_RANGE[0], Math.min(this.SAFE_RANGE[1], next));
+    },
+  };
+
+  async function updateWordDifficulty(lastMatchScore) {
+    let decision = await fetchAgentDecision();
+    if (!decision) decision = WORD_DIFFICULTY_AGENT.decide(lastMatchScore); // offline fallback
+    state.matchThreshold = WORD_DIFFICULTY_AGENT.apply(state.matchThreshold, decision);
+  }
+
+  // Local fallback matching the same logic as word_level/asr_match.py,
+  // used only if the backend is unreachable so the game still works offline.
+  function localWordMatch(transcript, targetWord, confidence) {
+    if (!transcript || !transcript.trim()) {
+      return { transcript: '', confidence: 0, match_score: 0, is_valid_attempt: false };
+    }
+    const a = transcript.trim().toLowerCase(), b = targetWord.trim().toLowerCase();
+    const dist = levenshtein(a, b);
+    const maxLen = Math.max(a.length, b.length);
+    const similarity = maxLen > 0 ? 1 - dist / maxLen : 1;
+    return { transcript, confidence, match_score: Math.max(0, similarity), is_valid_attempt: true };
+  }
+  function levenshtein(a, b) {
+    const dp = Array.from({ length: a.length + 1 }, (_, i) => [i, ...new Array(b.length).fill(0)]);
+    for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+    for (let i = 1; i <= a.length; i++) {
+      for (let j = 1; j <= b.length; j++) {
+        dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1]
+          : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      }
+    }
+    return dp[a.length][b.length];
+  }
+
+  let WORD_LIST = ['ball', 'cat', 'dog', 'cup', 'hat', 'sun', 'bus', 'book'];
+  const NUM_HOUSES = WORD_LIST.length;
+
+  const state = {
+    mediaStream: null,
+    mediaRecorder: null,
+    analyser: null,
+    currentRms: 0,
+    matchThreshold: 0.45, // starts at the SAFE_RANGE floor (see WORD_DIFFICULTY_AGENT) — easiest first attempt
+    currentWordIndex: 0,
+    housesBuilt: 0,
+    houseGrowPulse: new Array(NUM_HOUSES).fill(0),
+    childId: getChildId(),
+    attemptNumber: 0,
+    muted: localStorage.getItem('village_muted') === 'true',
+    reduceMotion: localStorage.getItem('village_reduce_motion') === 'true',
+    hasFinished: false,
+    particles: [],
+    clouds: [],
+    audioCtx: null,
+    listening: false,
+  };
+
+  const canvas = document.getElementById('scene-canvas');
+  const ctx = canvas.getContext('2d');
+  const screens = {
+    start: document.getElementById('screen-start'),
+    micError: document.getElementById('screen-mic-error'),
+  };
+  const hud = document.getElementById('hud');
+  const settingsPanel = document.getElementById('settings-panel');
+  const successOverlay = document.getElementById('success-overlay');
+  const targetWordText = document.getElementById('target-word-text');
+  const listeningIndicator = document.getElementById('listening-indicator');
+  const recentAttempt = document.getElementById('recent-attempt');
+  const ariaLive = document.getElementById('aria-live');
+  document.getElementById('toggle-motion').checked = state.reduceMotion;
+  document.getElementById('toggle-mute').checked = state.muted;
+
+  function showScreen(name) {
+    Object.values(screens).forEach(s => s.classList.add('hidden'));
+    if (name && screens[name]) screens[name].classList.remove('hidden');
+  }
+
+  let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+  function resizeCanvas() {
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    initClouds();
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  function initClouds() {
+    state.clouds = Array.from({ length: 4 }, () => ({
+      x: Math.random() * W, y: Math.random() * H * 0.3, speed: Math.random() * 0.15 + 0.05, scale: Math.random() * 0.5 + 0.7,
+    }));
+  }
+
+  function playTone(freq, duration, type = 'sine', gainPeak = 0.06) {
+    if (state.muted || !state.audioCtx) return;
+    const a = state.audioCtx;
+    const osc = a.createOscillator(), gain = a.createGain();
+    osc.type = type; osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, a.currentTime);
+    gain.gain.linearRampToValueAtTime(gainPeak, a.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + duration);
+    osc.connect(gain).connect(a.destination);
+    osc.start(); osc.stop(a.currentTime + duration + 0.05);
+  }
+  function playBuildSound() { [440, 660].forEach((f, i) => setTimeout(() => playTone(f, 0.15, 'sine', 0.07), i * 60)); }
+  function playSuccessChime() { [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => setTimeout(() => playTone(f, 0.5, 'triangle', 0.05), i * 110)); }
+
+  // Speaking the target word aloud, preferring an Indian English voice if
+  // the browser/OS exposes one. Voice lists load asynchronously in some
+  // browsers, so this re-checks on the voiceschanged event too rather than
+  // assuming getVoices() is populated on first call.
+  function pickIndianEnglishVoice() {
+    const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+    return voices.find(v => v.lang === 'en-IN')
+      || voices.find(v => v.lang && v.lang.toLowerCase().startsWith('en-in'))
+      || voices.find(v => /india/i.test(v.name))
+      || null;
+  }
+
+  function speakTargetWord() {
+    if (!window.speechSynthesis) return;
+    const word = WORD_LIST[state.currentWordIndex];
+    const utterance = new SpeechSynthesisUtterance(word);
+    const indianVoice = pickIndianEnglishVoice();
+    if (indianVoice) {
+      utterance.voice = indianVoice;
+    } else {
+      // no Indian English voice available on this system — still speak the
+      // word with whatever default voice exists, just not accent-matched
+      utterance.lang = 'en-IN';
+    }
+    utterance.rate = 0.85;
+    window.speechSynthesis.cancel(); // avoid queueing if tapped repeatedly
+    window.speechSynthesis.speak(utterance);
+  }
+  if (window.speechSynthesis) {
+    window.speechSynthesis.onvoiceschanged = () => {}; // just ensures voices load; picked fresh each call
+  }
+
+  async function startGame() {
+    const customInput = document.getElementById('custom-words-input').value;
+    const customList = buildWordListFromInput(customInput);
+    if (customList) WORD_LIST = customList;
+
+    if (!state.audioCtx) {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      state.audioCtx = new AudioContextClass();
+    }
+
+    const micOk = await initMic();
+    if (!micOk) return; // initMic() already shows the mic-error screen
+
+    showScreen(null);
+    hud.classList.remove('hidden');
+    setTargetWord(0);
+    startListenCycle();
+  }
+
+  // ============================================================
+  // Microphone capture — replaces the old browser SpeechRecognition flow
+  // entirely. One shared getUserMedia stream powers both the visual mic
+  // meter AND the MediaRecorder used for real transcription (avoids a
+  // second permission prompt / device open). Recording is voice-activated:
+  // starts immediately, ends after SILENCE_MS of quiet once speech has been
+  // detected (or MAX_RECORD_MS as a hard cap) — mimics SpeechRecognition's
+  // old auto-end-of-speech behavior without the unreliable browser engine.
+  // ============================================================
+  const RMS_SPEECH_THRESHOLD = 0.015;
+  const SILENCE_MS = 400; // safe to lower again — MIN_RECORD_MS below now guards against too-short clips independently
+  const MAX_RECORD_MS = 4000;
+  const MIN_RECORD_MS = 400; // this is what actually prevents premature cutoff now, not SILENCE_MS
+
+  async function initMic() {
+    if (state.mediaStream) return true;
+    try {
+      state.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (err) {
+      console.warn('Mic permission denied or unavailable:', err);
+      showScreen('micError');
+      return false;
+    }
+    const source = state.audioCtx.createMediaStreamSource(state.mediaStream);
+    const analyser = state.audioCtx.createAnalyser();
+    analyser.fftSize = 1024;
+    source.connect(analyser);
+    state.analyser = analyser;
+    startMeterLoop();
+    return true;
+  }
+
+  function startMeterLoop() {
+    const data = new Float32Array(state.analyser.fftSize);
+    const fill = document.getElementById('mic-meter-fill');
+    function tick() {
+      state.analyser.getFloatTimeDomainData(data);
+      let sum = 0;
+      for (let i = 0; i < data.length; i++) sum += data[i] * data[i];
+      const rms = Math.sqrt(sum / data.length);
+      state.currentRms = rms;
+      const pct = Math.min(100, rms * 600); // rough visual scaling — bumped so quiet input still shows movement
+      fill.style.width = pct + '%';
+      fill.style.background = pct > 60 ? '#FF6B6B' : pct > 8 ? '#6FBF73' : '#B0B0B0';
+      requestAnimationFrame(tick);
+    }
+    tick();
+  }
+
+  async function transcribeViaBackend(blob) {
+    try {
+      const form = new FormData();
+      form.append('audio', blob, 'attempt.webm');
+      const resp = await fetch(`${BACKEND_URL}/village-builder/transcribe`, { method: 'POST', body: form });
+      if (!resp.ok) throw new Error(`backend returned ${resp.status}`);
+      const data = await resp.json();
+      return { transcript: data.transcript, confidence: data.confidence };
+    } catch (err) {
+      console.warn('Backend transcription unavailable:', err);
+      return { transcript: null, confidence: 0 };
+    }
+  }
+
+  function startListenCycle() {
+    if (state.hasFinished || state.listening || !state.mediaStream) return;
+    state.listening = true;
+    listeningIndicator.textContent = '🎙️ Listening...';
+
+    const chunks = [];
+    let recorder;
+    try {
+      recorder = new MediaRecorder(state.mediaStream, { mimeType: 'audio/webm;codecs=opus' });
+    } catch (err) {
+      console.warn('MediaRecorder unavailable:', err);
+      state.listening = false;
+      // No manual-typing fallback exists anymore — this browser genuinely
+      // can't play the voice part of this game (rare, old-browser case).
+      listeningIndicator.textContent = "😕 Voice input isn't available in this browser.";
+      return;
+    }
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+
+    const startTime = performance.now();
+    let speechStarted = false;
+    let lastAboveThreshold = startTime;
+
+    const vadInterval = setInterval(() => {
+      const now = performance.now();
+      if (state.currentRms > RMS_SPEECH_THRESHOLD) {
+        speechStarted = true;
+        lastAboveThreshold = now;
+      }
+      const elapsed = now - startTime;
+      if (elapsed > MAX_RECORD_MS) { finishRecording(); return; }
+      if (speechStarted && (now - lastAboveThreshold) > SILENCE_MS && elapsed > MIN_RECORD_MS) {
+        finishRecording();
+      }
+    }, 100);
+
+    function finishRecording() {
+      clearInterval(vadInterval);
+      if (recorder.state !== 'inactive') recorder.stop();
+    }
+
+    recorder.onstop = async () => {
+      clearInterval(vadInterval);
+      state.listening = false;
+      if (state.hasFinished) return;
+      if (!speechStarted || chunks.length === 0) {
+        // nothing heard — just listen again rather than treating it as an error
+        listeningIndicator.textContent = '🔁 Trying again...';
+        setTimeout(() => { if (!state.hasFinished) startListenCycle(); }, 150);
+        return;
+      }
+      listeningIndicator.textContent = '⏳ Checking...';
+      const blob = new Blob(chunks, { type: 'audio/webm;codecs=opus' });
+      const clipDurationMs = performance.now() - startTime;
+      const { transcript, confidence } = await transcribeViaBackend(blob);
+      console.log(`[Chime] clip ${clipDurationMs.toFixed(0)}ms / ${blob.size} bytes -> "${transcript}" (confidence ${confidence})`);
+      if (transcript === null) {
+        // backend unreachable — no manual-typing fallback exists anymore,
+        // so keep retrying automatically rather than leaving the child
+        // stuck with no way to continue.
+        listeningIndicator.textContent = '🔁 Having trouble connecting — trying again...';
+        setTimeout(() => { if (!state.hasFinished) startListenCycle(); }, 1500);
+        return;
+      }
+      await handleAttempt(transcript, confidence);
+    };
+
+    recorder.start();
+    state.mediaRecorder = recorder;
+  }
+
+  function setTargetWord(index) {
+    state.currentWordIndex = index;
+    targetWordText.textContent = WORD_LIST[index];
+    ariaLive.textContent = `Say or type the word: ${WORD_LIST[index]}`;
+  }
+
+  // Builds the word list from the start screen's custom-words input.
+  // Called once, before the game starts — not mid-game. Cycles the given
+  // words to fill all NUM_HOUSES slots if fewer words than houses were
+  // given; truncates if more. Returns null if the input was empty, so the
+  // caller can fall back to the default WORD_LIST.
+  function buildWordListFromInput(rawInput) {
+    const words = rawInput.split(',').map(w => w.trim().toLowerCase()).filter(Boolean);
+    if (words.length === 0) return null;
+    const list = [];
+    for (let i = 0; i < NUM_HOUSES; i++) list.push(words[i % words.length]);
+    return list;
+  }
+
+  async function handleManualSubmit() {
+    const input = document.getElementById('manual-word-input');
+    const typed = input.value.trim();
+    if (!typed) return;
+    input.value = '';
+    listeningIndicator.textContent = '⏳ Checking...';
+    await handleAttempt(typed, 1.0); // typed input has no ASR confidence concept — treat as fully confident
+  }
+
+  async function handleAttempt(transcript, confidence) {
+    state.attemptNumber++;
+    const targetWord = WORD_LIST[state.currentWordIndex];
+    const result = await scoreWordViaBackend(transcript, targetWord, confidence);
+    const passedThreshold = result.match_score >= state.matchThreshold;
+
+    await logEventToBackend({
+      child_id: state.childId,
+      level_id: 'word_village',
+      attempt_number: state.attemptNumber,
+      score: result.match_score,
+      is_valid_attempt: result.is_valid_attempt,
+      threshold_at_time: state.matchThreshold,
+      raw_features: { transcript: result.transcript, target_word: targetWord },
+    });
+
+    updateWordDifficulty(result.match_score); // async — doesn't block house-building below
+
+    showRecentAttempt(transcript, passedThreshold);
+
+    if (result.is_valid_attempt && passedThreshold && state.housesBuilt < NUM_HOUSES) {
+      buildHouse(state.housesBuilt);
+      state.housesBuilt++;
+      playBuildSound();
+      if (state.housesBuilt < NUM_HOUSES) {
+        setTargetWord(state.housesBuilt);
+      }
+    }
+
+    if (state.housesBuilt >= NUM_HOUSES && !state.hasFinished) {
+      state.hasFinished = true;
+      onVillageComplete();
+      return;
+    }
+
+    listeningIndicator.textContent = '🎙️ Listening...';
+    setTimeout(() => startListenCycle(), 150);
+  }
+
+  function showRecentAttempt(transcript, matched) {
+    recentAttempt.textContent = matched ? `✅ Heard "${transcript}" — great job!` : `Heard "${transcript}" — try again!`;
+    recentAttempt.classList.add('visible');
+    setTimeout(() => recentAttempt.classList.remove('visible'), 1800);
+  }
+
+  function buildHouse(index) {
+    state.houseGrowPulse[index] = 1;
+  }
+
+  function onVillageComplete() {
+    playSuccessChime();
+    spawnCelebrationParticles();
+    if (state.mediaRecorder && state.mediaRecorder.state !== 'inactive') {
+      try { state.mediaRecorder.stop(); } catch (e) {}
+    }
+    let frames = 0;
+    function celebrateLoop() { render(); frames++; if (frames < 90) requestAnimationFrame(celebrateLoop); }
+    requestAnimationFrame(celebrateLoop);
+    setTimeout(() => successOverlay.classList.remove('hidden'), 500);
+  }
+
+  function spawnCelebrationParticles() {
+    const count = state.reduceMotion ? 16 : 50;
+    for (let i = 0; i < count; i++) {
+      state.particles.push({ x: W / 2, y: H * 0.6, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6 - 2, life: 1, color: ['#FFD166', '#FF6B6B', '#6FBF73', '#FFF8EC'][i % 4], r: Math.random() * 3 + 2 });
+    }
+  }
+
+  let animFrame = 0;
+  function gameLoop() {
+    animFrame++;
+    for (let i = 0; i < state.houseGrowPulse.length; i++) if (state.houseGrowPulse[i] > 0) state.houseGrowPulse[i] = Math.max(0, state.houseGrowPulse[i] - 0.02);
+    render();
+    if (!state.hasFinished) requestAnimationFrame(gameLoop);
+  }
+
+  function hexToRgb(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function lerpColor(hexA, hexB, t) {
+    const a = hexToRgb(hexA), b = hexToRgb(hexB);
+    const r = Math.round(a[0] + (b[0] - a[0]) * t);
+    const g = Math.round(a[1] + (b[1] - a[1]) * t);
+    const bl = Math.round(a[2] + (b[2] - a[2]) * t);
+    return `rgb(${r},${g},${bl})`;
+  }
+
+  function render() {
+    // Sunrise Village: the sky and ground warm up as houses get built —
+    // an ambient, non-verbal progress signal alongside the house count.
+    const progress = NUM_HOUSES > 0 ? state.housesBuilt / NUM_HOUSES : 0;
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, lerpColor('#342B5C', '#8FD3F4', progress));
+    grad.addColorStop(1, lerpColor('#C97B84', '#FFE7B8', progress));
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H * 0.75);
+    drawHills(progress);
+    ctx.fillStyle = lerpColor('#3B7A45', '#4F9E5C', progress);
+    ctx.fillRect(0, H * 0.72, W, H * 0.28);
+    drawSun(progress);
+    drawClouds();
+    drawParticles();
+    drawVillage();
+  }
+
+  // Soft rolling-hill silhouettes behind the village, for depth — two
+  // overlapping layers so the horizon doesn't read as a flat backdrop.
+  function drawHills(progress) {
+    const baseY = H * 0.74;
+    ctx.save();
+    ctx.fillStyle = lerpColor('#2E5940', '#3B7A45', progress);
+    ctx.globalAlpha = 0.55;
+    ctx.beginPath();
+    ctx.moveTo(0, baseY);
+    ctx.bezierCurveTo(W * 0.2, baseY - H * 0.09, W * 0.35, baseY - H * 0.02, W * 0.55, baseY - H * 0.07);
+    ctx.bezierCurveTo(W * 0.75, baseY - H * 0.12, W * 0.9, baseY - H * 0.03, W, baseY - H * 0.06);
+    ctx.lineTo(W, baseY + 20); ctx.lineTo(0, baseY + 20);
+    ctx.closePath(); ctx.fill();
+
+    ctx.fillStyle = lerpColor('#245038', '#2F6538', progress);
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(0, baseY + 8);
+    ctx.bezierCurveTo(W * 0.15, baseY - H * 0.04, W * 0.4, baseY + H * 0.03, W * 0.6, baseY - H * 0.02);
+    ctx.bezierCurveTo(W * 0.8, baseY - H * 0.06, W * 0.9, baseY + H * 0.02, W, baseY - H * 0.01);
+    ctx.lineTo(W, baseY + 30); ctx.lineTo(0, baseY + 30);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  // The signature element: a little sun that rises with progress, giving
+  // the child a second visible sign of how close they are to finishing —
+  // useful alongside the house count for kids who track motion better
+  // than counting. Respects reduceMotion by moving in discrete steps
+  // rather than tying to a continuous animation loop of its own.
+  function drawSun(progress) {
+    const sunX = W * 0.82;
+    const sunY = (H * 0.7) - progress * (H * 0.48);
+    ctx.save();
+    const glow = ctx.createRadialGradient(sunX, sunY, 4, sunX, sunY, 46);
+    glow.addColorStop(0, 'rgba(255, 231, 184, 0.9)');
+    glow.addColorStop(1, 'rgba(255, 231, 184, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(sunX, sunY, 46, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#FFE7B8';
+    ctx.beginPath(); ctx.arc(sunX, sunY, 18, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawClouds() {
+    ctx.save();
+    for (const c of state.clouds) {
+      if (!state.reduceMotion) { c.x += c.speed; if (c.x > W + 60) c.x = -60; }
+      ctx.globalAlpha = 0.8;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      ctx.scale(c.scale, c.scale);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 26, 14, 0, 0, Math.PI * 2);
+      ctx.ellipse(20, -6, 18, 12, 0, 0, Math.PI * 2);
+      ctx.ellipse(-20, -4, 16, 11, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  function drawParticles() {
+    ctx.save();
+    state.particles = state.particles.filter(p => p.life > 0);
+    for (const p of state.particles) {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life -= 0.014;
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  const HOUSE_COLORS = ['#C4487A', '#4ECDC4', '#D9713C', '#B983FF', '#FF8C69', '#4F9E5C', '#E8A33D', '#5EC8D8'];
+
+  function drawVillage() {
+    const groundY = H * 0.78;
+    const spacing = Math.min(120, (W - 80) / NUM_HOUSES);
+    const startX = W / 2 - (spacing * (NUM_HOUSES - 1)) / 2;
+
+    // Stone path connecting the row — deterministic offsets (trig on x,
+    // not Math.random) so dots don't jitter frame to frame.
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    for (let px = startX - spacing * 0.5; px < startX + spacing * (NUM_HOUSES - 0.5); px += 14) {
+      const wob = Math.sin(px * 0.15) * 3;
+      ctx.beginPath(); ctx.arc(px, groundY + 14 + wob, 3, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+
+    for (let i = 0; i < NUM_HOUSES; i++) {
+      const x = startX + i * spacing;
+      const built = i < state.housesBuilt;
+      const pulse = state.houseGrowPulse[i];
+
+      drawShrub(x - spacing / 2 + 14, groundY, i);
+
+      if (!built && pulse <= 0.01) {
+        ctx.save();
+        ctx.globalAlpha = 0.2;
+        ctx.strokeStyle = '#2E4A2E'; ctx.lineWidth = 2;
+        ctx.strokeRect(x - 22, groundY - 40, 44, 40);
+        ctx.restore();
+        continue;
+      }
+      drawHouse(x, groundY, HOUSE_COLORS[i % HOUSE_COLORS.length], pulse, i);
+    }
+  }
+
+  function drawShrub(x, groundY, seed) {
+    const wobble = Math.sin(seed * 3.7) * 6;
+    ctx.save();
+    ctx.translate(x + wobble, groundY);
+    ctx.fillStyle = '#3B7A45';
+    ctx.beginPath();
+    ctx.arc(0, -8, 7, 0, Math.PI * 2);
+    ctx.arc(-6, -4, 5, 0, Math.PI * 2);
+    ctx.arc(6, -4, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Four distinct silhouettes cycling by index — cottage, A-frame cabin,
+  // tower, and dome hut — each with a chimney puff and a flower box, so
+  // the row reads as an actual village rather than one template restyled.
+  function drawHouse(x, groundY, color, pulse, index) {
+    const scale = 1 + pulse * 0.2;
+    const archetype = index % 4;
+    ctx.save();
+    ctx.translate(x, groundY);
+    ctx.scale(scale, scale);
+
+    if (archetype === 0) drawCottage(color);
+    else if (archetype === 1) drawCabin(color);
+    else if (archetype === 2) drawTower(color);
+    else drawDomeHut(color);
+
+    drawFlowerBox(index);
+    ctx.restore();
+
+    if (!state.reduceMotion) drawChimneySmoke(x, groundY, archetype, index);
+  }
+
+  function drawCottage(color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(-22, -40, 44, 40);
+    ctx.fillStyle = '#7A4327';
+    ctx.beginPath();
+    ctx.moveTo(-28, -40); ctx.lineTo(0, -64); ctx.lineTo(28, -40);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#5A3820';
+    ctx.fillRect(-8, -20, 16, 20);
+    ctx.fillStyle = '#EAF9FF';
+    ctx.fillRect(8, -32, 10, 10);
+    drawChimneyStack(16, -58);
+  }
+
+  function drawCabin(color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(-24, -34, 48, 34);
+    ctx.fillStyle = '#5A3820';
+    ctx.beginPath();
+    ctx.moveTo(-30, -34); ctx.lineTo(0, -66); ctx.lineTo(30, -34);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#3E2A16';
+    ctx.beginPath();
+    ctx.moveTo(-7, -34); ctx.lineTo(0, -50); ctx.lineTo(7, -34);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#5A3820'; ctx.fillRect(-8, -18, 16, 18);
+    drawChimneyStack(-20, -58);
+  }
+
+  function drawTower(color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(-18, -56, 36, 56);
+    ctx.fillStyle = '#7A4327';
+    ctx.beginPath();
+    ctx.moveTo(-22, -56); ctx.lineTo(0, -76); ctx.lineTo(22, -56);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#5A3820'; ctx.fillRect(-7, -18, 14, 18);
+    ctx.fillStyle = '#EAF9FF';
+    ctx.fillRect(-12, -46, 8, 8);
+    ctx.fillRect(4, -46, 8, 8);
+    ctx.fillRect(-4, -30, 8, 8);
+    drawChimneyStack(12, -70);
+  }
+
+  function drawDomeHut(color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(-20, -30, 40, 30);
+    ctx.beginPath();
+    ctx.arc(0, -30, 20, Math.PI, 0);
+    ctx.fill();
+    ctx.fillStyle = '#5A3820'; ctx.fillRect(-8, -18, 16, 18);
+    ctx.fillStyle = '#EAF9FF';
+    ctx.beginPath(); ctx.arc(11, -24, 5, 0, Math.PI * 2); ctx.fill();
+    drawChimneyStack(-14, -44);
+  }
+
+  function drawChimneyStack(x, y) {
+    ctx.fillStyle = '#6B6B6B';
+    ctx.fillRect(x - 4, y, 8, 14);
+  }
+
+  function drawChimneySmoke(houseX, groundY, archetype, index) {
+    const chimneyOffsets = [[16, -58], [-20, -58], [12, -70], [-14, -44]];
+    const [ox, oy] = chimneyOffsets[archetype];
+    const baseX = houseX + ox, baseY = groundY + oy;
+    for (let p = 0; p < 3; p++) {
+      const t = ((animFrame * 0.6 + p * 20 + index * 7) % 60) / 60;
+      const puffX = baseX + Math.sin((animFrame * 0.05) + p + index) * 4;
+      const puffY = baseY - t * 26;
+      const alpha = 0.35 * (1 - t);
+      const r = 3 + t * 5;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#FFF8EC';
+      ctx.beginPath(); ctx.arc(puffX, puffY, r, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  function drawFlowerBox(index) {
+    ctx.save();
+    ctx.fillStyle = '#7A4327';
+    ctx.fillRect(4, -14, 14, 5);
+    const flowerColors = ['#FF6B6B', '#FFD166', '#EAF9FF'];
+    for (let f = 0; f < 3; f++) {
+      ctx.fillStyle = flowerColors[(f + index) % flowerColors.length];
+      ctx.beginPath(); ctx.arc(6 + f * 5, -16, 2, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  document.getElementById('btn-start').addEventListener('click', startGame);
+  document.getElementById('btn-hear-word').addEventListener('click', speakTargetWord);
+  if (!window.speechSynthesis) {
+    document.getElementById('btn-hear-word').style.display = 'none';
+  }
+  document.getElementById('btn-retry-mic').addEventListener('click', startGame);
+  document.getElementById('btn-settings').addEventListener('click', () => settingsPanel.classList.toggle('hidden'));
+  document.getElementById('toggle-motion').addEventListener('change', (e) => { state.reduceMotion = e.target.checked; localStorage.setItem('village_reduce_motion', state.reduceMotion); });
+  document.getElementById('toggle-mute').addEventListener('change', (e) => { state.muted = e.target.checked; localStorage.setItem('village_muted', state.muted); });
+  document.getElementById('btn-play-again').addEventListener('click', () => {
+    successOverlay.classList.add('hidden');
+    state.housesBuilt = 0; state.houseGrowPulse = new Array(NUM_HOUSES).fill(0); state.hasFinished = false; state.particles = [];
+    setTargetWord(0);
+    requestAnimationFrame(gameLoop);
+    startListenCycle();
+  });
+
+  resizeCanvas();
+  render();
+  requestAnimationFrame(gameLoop);
+})();
+</script>
+</body>
+</html>

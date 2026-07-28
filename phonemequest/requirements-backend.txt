@@ -1,0 +1,6 @@
+# Install with: pip install -r requirements-backend.txt
+fastapi
+uvicorn[standard]
+httpx
+faster-whisper
+python-multipart

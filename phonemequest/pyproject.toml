@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chime"
+version = "0.1.0"
+description = "Speech-sound practice game module for VaakSiddhi, designed to merge into BreathQuest"
+requires-python = ">=3.10"
+
+[tool.setuptools]
+packages = ["audio_features", "word_level", "simulator", "agent", "schemas"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

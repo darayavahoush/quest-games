@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Bubble Garden — Chime</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --dusk-top: #4A3B7C;
+    --dusk-mid: #7B5EA7;
+    --dusk-low: #2A2158;
+    --garden-green: #3E6B4F;
+    --bubble-cyan: #A6E8FF;
+    --chime-gold: #FFD166;
+    --coral: #FF6B6B;
+    --cloud-white: #FFF8EC;
+    --panel-bg: rgba(42, 33, 88, 0.65);
+    --panel-border: rgba(255, 248, 236, 0.14);
+    --display-font: 'Baloo 2', sans-serif;
+    --body-font: 'Quicksand', sans-serif;
+    --shadow-lift: 0 24px 60px rgba(0,0,0,0.45);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--dusk-low); font-family: var(--body-font); color: var(--cloud-white); -webkit-tap-highlight-color: transparent; }
+  #scene-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; z-index: 10; }
+  .hidden { display: none !important; }
+  .panel { background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 28px 28px 40px 28px; padding: 40px 36px; max-width: 460px; width: 100%; backdrop-filter: blur(10px); box-shadow: var(--shadow-lift); }
+  h1.title { font-family: var(--display-font); font-weight: 800; font-size: clamp(2rem, 6vw, 2.8rem); margin: 0 0 8px; color: var(--cloud-white); text-shadow: 0 4px 0 rgba(0,0,0,0.15); }
+  p.subtitle { font-size: clamp(1rem, 3vw, 1.2rem); font-weight: 700; margin: 0 0 28px; color: var(--chime-gold); line-height: 1.5; }
+  button { font-family: var(--display-font); font-weight: 700; font-size: 1.3rem; border: none; border-radius: 999px; padding: 16px 40px; cursor: pointer; color: var(--dusk-low); background: var(--chime-gold); box-shadow: 0 6px 0 #C99A2E, 0 10px 24px rgba(0,0,0,0.25); transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.18s ease; }
+  button:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 9px 0 #C99A2E, 0 16px 32px rgba(0,0,0,0.32); }
+  button:active { transform: translateY(3px) scale(1); box-shadow: 0 3px 0 #C99A2E, 0 6px 14px rgba(0,0,0,0.25); }
+  button:focus-visible { outline: 3px solid var(--cloud-white); outline-offset: 3px; }
+  button.secondary { background: transparent; color: var(--cloud-white); box-shadow: none; border: 2px solid var(--panel-border); font-size: 1rem; padding: 10px 22px; margin-top: 14px; }
+  .mic-icon { font-size: 3.4rem; margin-bottom: 12px; display: inline-block; }
+  .error-text { font-size: 0.95rem; color: #FFD3D3; margin-top: 14px; line-height: 1.5; }
+  .ring-wrap { position: relative; width: 150px; height: 150px; margin: 0 auto 22px; }
+  .ring-wrap svg { transform: rotate(-90deg); }
+  .ring-bg { fill: none; stroke: rgba(255,255,255,0.12); stroke-width: 10; }
+  .ring-fg { fill: none; stroke: var(--chime-gold); stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 0.1s linear; }
+  .ring-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 2rem; }
+  #hud { position: fixed; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: flex-start; padding: 18px 20px; z-index: 20; pointer-events: none; }
+  #hud > * { pointer-events: auto; }
+  #encourage-caption { font-family: var(--display-font); font-weight: 700; font-size: clamp(1rem, 3.5vw, 1.4rem); background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 999px; padding: 10px 22px; opacity: 0; transition: opacity 0.4s ease; max-width: 70vw; }
+  #encourage-caption.visible { opacity: 1; }
+  .icon-btn { background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 999px; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; box-shadow: 0 8px 20px rgba(0,0,0,0.25); padding: 0; color: var(--cloud-white); backdrop-filter: blur(8px); transition: transform 0.15s ease, box-shadow 0.15s ease; }
+  .icon-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(0,0,0,0.3); }
+  .icon-btn:active { transform: translateY(1px); }
+  #settings-panel { position: fixed; top: 74px; right: 18px; background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 20px 20px 28px 20px; padding: 18px 20px; z-index: 30; width: 240px; text-align: left; backdrop-filter: blur(10px); box-shadow: 0 16px 40px rgba(0,0,0,0.3); }
+  #settings-panel h3 { font-family: var(--display-font); margin: 0 0 12px; font-size: 1.1rem; }
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; font-weight: 700; font-size: 0.95rem; }
+  .switch { position: relative; width: 46px; height: 26px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch-track { position: absolute; inset: 0; background: rgba(255,255,255,0.2); border-radius: 999px; transition: background 0.2s ease; cursor: pointer; }
+  .switch-track::before { content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px; background: var(--cloud-white); border-radius: 50%; transition: transform 0.2s ease; }
+  .switch input:checked + .switch-track { background: var(--garden-green); }
+  .switch input:checked + .switch-track::before { transform: translateX(20px); }
+  #settings-panel button.secondary { width: 100%; margin-top: 4px; }
+  #success-overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 40; background: rgba(42, 33, 88, 0.4); }
+  #success-overlay .panel { text-align: center; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+
+<canvas id="scene-canvas" aria-hidden="true"></canvas>
+
+<div id="screen-start" class="screen">
+  <div class="panel">
+    <div class="mic-icon">🫧</div>
+    <h1 class="title">Bubble Garden</h1>
+    <p class="subtitle">Say a long "ffff" to blow glowing bubbles into the evening sky!</p>
+    <button id="btn-start">Let's Play!</button>
+  </div>
+</div>
+
+<div id="screen-mic-error" class="screen hidden">
+  <div class="panel">
+    <div class="mic-icon">🎤</div>
+    <h1 class="title" style="font-size: 1.6rem;">We need to hear you!</h1>
+    <p class="error-text" id="mic-error-detail">Please allow microphone access so the garden can hear your voice.</p>
+    <button id="btn-retry-mic">Try Again</button>
+  </div>
+</div>
+
+<div id="screen-calibrate" class="screen hidden">
+  <div class="panel">
+    <div class="ring-wrap">
+      <svg width="150" height="150">
+        <circle class="ring-bg" cx="75" cy="75" r="60"></circle>
+        <circle class="ring-fg" id="calib-ring" cx="75" cy="75" r="60" stroke-dasharray="377" stroke-dashoffset="377"></circle>
+      </svg>
+      <div class="ring-label" id="calib-emoji">🤫</div>
+    </div>
+    <h1 class="title" id="calib-title" style="font-size: 1.6rem;">Let's find quiet...</h1>
+    <p class="subtitle" id="calib-subtitle">Stay nice and quiet for a moment</p>
+  </div>
+</div>
+
+<div id="hud" class="hidden">
+  <div id="encourage-caption"></div>
+  <button id="btn-settings" class="icon-btn" aria-label="Settings">⚙️</button>
+</div>
+
+<div id="settings-panel" class="hidden">
+  <h3>Settings</h3>
+  <div class="toggle-row"><span>Reduce motion</span><label class="switch"><input type="checkbox" id="toggle-motion"><span class="switch-track"></span></label></div>
+  <div class="toggle-row"><span>Mute sounds</span><label class="switch"><input type="checkbox" id="toggle-mute"><span class="switch-track"></span></label></div>
+  <button id="btn-recalibrate" class="secondary">Recalibrate mic</button>
+</div>
+
+<div id="success-overlay" class="hidden">
+  <div class="panel">
+    <div class="mic-icon">✨</div>
+    <h1 class="title">Sky full of bubbles!</h1>
+    <p class="subtitle">You filled the evening with glowing bubbles!</p>
+    <p id="agent-feedback" style="font-size: 0.95rem; opacity: 0.85; margin: -14px 0 20px;"></p>
+    <button id="btn-play-again">Play Again!</button>
+  </div>
+</div>
+
+<div class="visually-hidden" id="aria-live" aria-live="polite"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ============================================================
+  // Pure logic — same as level_logic/chime_garden_logic.js, unit tested
+  // separately. updateChimeRotation's "one full rotation = one event" math
+  // is reused here as "one bubble spawned" — same tested accumulator, new
+  // visual meaning. Do not change the math without re-running
+  // chime_garden_logic.test.js against an equivalent copy.
+  // ============================================================
+  function computeSpectralCentroid(dbMagnitudes, sampleRate, fftSize) {
+    const binHz = sampleRate / fftSize;
+    let weightedSum = 0, magSum = 0;
+    for (let i = 0; i < dbMagnitudes.length; i++) {
+      const linearMag = Math.pow(10, dbMagnitudes[i] / 20);
+      weightedSum += (i * binHz) * linearMag;
+      magSum += linearMag;
+    }
+    return magSum > 0 ? weightedSum / magSum : 0;
+  }
+  const MIN_CENTROID_HZ_DEFAULT = 2500.0, MAX_EXPECTED_CENTROID_HZ_DEFAULT = 6000.0;
+  function computeFricationScore(rms, centroidHz, noiseFloor = 0.01,
+                                  minCentroid = MIN_CENTROID_HZ_DEFAULT, maxCentroid = MAX_EXPECTED_CENTROID_HZ_DEFAULT) {
+    if (rms < noiseFloor) return { score: 0, isValidAttempt: false };
+    if (centroidHz < minCentroid) return { score: 0.05, isValidAttempt: true };
+    const score = Math.max(0, Math.min(1, (centroidHz - minCentroid) / (maxCentroid - minCentroid)));
+    return { score, isValidAttempt: true };
+  }
+  function personalizeCentroidRange(centroidReadings, fallbackMin = MIN_CENTROID_HZ_DEFAULT, fallbackMax = MAX_EXPECTED_CENTROID_HZ_DEFAULT) {
+    const valid = centroidReadings.filter(c => c > 0);
+    if (valid.length < 3) return { minCentroid: fallbackMin, maxCentroid: fallbackMax, usedFallback: true };
+    const mean = valid.reduce((s, c) => s + c, 0) / valid.length;
+    const minCentroid = Math.max(1200, mean * 0.6);
+    const maxCentroid = Math.min(8000, mean * 1.3);
+    return { minCentroid, maxCentroid, usedFallback: false };
+  }
+  function updateChimeRotation(currentAngle, currentSpeed, fricationScore, dt, config) {
+    const { maxSpeed, spinUpRate, decayRate } = config;
+    const targetSpeed = fricationScore * maxSpeed;
+    const nextSpeed = currentSpeed < targetSpeed ? Math.min(targetSpeed, currentSpeed + spinUpRate * dt) : Math.max(targetSpeed, currentSpeed - decayRate * dt);
+    const nextAngle = currentAngle + nextSpeed * dt;
+    const fullRotations = Math.floor(nextAngle / (2 * Math.PI)) - Math.floor(currentAngle / (2 * Math.PI));
+    return { angle: nextAngle, speed: nextSpeed, chimesRung: fullRotations };
+  }
+
+  const ROTATION_CONFIG = { maxSpeed: 5, spinUpRate: 8, decayRate: 3 };
+  const TARGET_BUBBLES_DEFAULT = 4; // starts at the SAFE_RANGE floor — fewest bubbles needed, easiest first attempt
+
+  const DIFFICULTY_AGENT = {
+    SAFE_RANGE: [4, 14],
+    STEP: 1,
+    FAST_S: 6,
+    SLOW_S: 18,
+    decide(timeToWinSeconds) {
+      if (timeToWinSeconds < this.FAST_S) return { action: 'more', message: "Beautiful sustained breath! Let's blow a few more bubbles next time 🫧" };
+      if (timeToWinSeconds > this.SLOW_S) return { action: 'fewer', message: "Lovely effort! Let's blow a few less bubbles next time 🌙" };
+      return { action: 'hold', message: "Wonderful, steady airflow! Let's keep this the same for now 💛" };
+    },
+    apply(targetBubbles, decision) {
+      let next = targetBubbles;
+      if (decision.action === 'more') next += this.STEP;
+      if (decision.action === 'fewer') next -= this.STEP;
+      return Math.max(this.SAFE_RANGE[0], Math.min(this.SAFE_RANGE[1], next));
+    },
+  };
+
+  // ============================================================
+  // Backend integration — calls the real trained agent (/agent/decide,
+  // per-child tabular Q by default) instead of only the client-side
+  // rule-based DIFFICULTY_AGENT above. DIFFICULTY_AGENT.apply()'s safety
+  // envelope (SAFE_RANGE clamp) still runs on whatever action comes back,
+  // whether it's the trained agent's or the local fallback's.
+  //
+  // Falls back to DIFFICULTY_AGENT.decide() locally if the backend is
+  // unreachable, same pattern as the other games — a win never stalls
+  // waiting on a fetch.
+  // ============================================================
+  const BACKEND_URL = 'http://localhost:8001';
+  const LEVEL_ID = 'fa_chime_garden';
+  const AGENT_POLICY = 'tabular_q';
+
+  function getChildId() {
+    let id = localStorage.getItem('chime_child_id');
+    if (!id) {
+      id = 'child_' + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem('chime_child_id', id);
+    }
+    return id;
+  }
+  const CHILD_ID = getChildId();
+  let attemptNumber = 0;
+
+  async function logEventToBackend(payload) {
+    try {
+      await fetch(`${BACKEND_URL}/events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch (err) {
+      console.warn('Backend event logging unavailable:', err);
+    }
+  }
+
+  async function fetchAgentDecision() {
+    try {
+      const resp = await fetch(`${BACKEND_URL}/agent/decide/${CHILD_ID}/${LEVEL_ID}?policy=${AGENT_POLICY}`);
+      if (!resp.ok) throw new Error(`backend returned ${resp.status}`);
+      return await resp.json();
+    } catch (err) {
+      console.warn('Trained-agent endpoint unavailable, falling back to local rule-based agent:', err);
+      return null;
+    }
+  }
+
+  function timeToScore(timeToWinSeconds) {
+    if (timeToWinSeconds <= DIFFICULTY_AGENT.FAST_S) return 1.0;
+    if (timeToWinSeconds >= DIFFICULTY_AGENT.SLOW_S) return 0.2;
+    const t = (timeToWinSeconds - DIFFICULTY_AGENT.FAST_S) / (DIFFICULTY_AGENT.SLOW_S - DIFFICULTY_AGENT.FAST_S);
+    return 1.0 - t * 0.8;
+  }
+
+  // Backend only ever returns raise/lower/hold; this game's DIFFICULTY_AGENT
+  // speaks more/fewer/hold (it adjusts a bubble COUNT, not a 0-1 threshold).
+  const REMOTE_ACTION_MAP = { raise: 'more', lower: 'fewer', hold: 'hold' };
+
+  async function updateDifficultyFromAttempt(timeToWinSeconds) {
+    attemptNumber++;
+    const score = timeToScore(timeToWinSeconds);
+
+    await logEventToBackend({
+      child_id: CHILD_ID,
+      level_id: LEVEL_ID,
+      attempt_number: attemptNumber,
+      score,
+      is_valid_attempt: true,
+      // Bubble count isn't naturally 0-1 like other levels' thresholds —
+      // normalized against this game's own SAFE_RANGE ceiling as the
+      // closest honest analogue for the shared event schema.
+      threshold_at_time: state.targetBubbles / DIFFICULTY_AGENT.SAFE_RANGE[1],
+      quit_flag: false,
+    });
+
+    let decision = await fetchAgentDecision();
+    if (decision) {
+      decision = { action: REMOTE_ACTION_MAP[decision.action], message: decision.message };
+    } else {
+      decision = DIFFICULTY_AGENT.decide(timeToWinSeconds); // offline fallback
+    }
+
+    state.targetBubbles = DIFFICULTY_AGENT.apply(state.targetBubbles, decision);
+    document.getElementById('agent-feedback').textContent = decision.message;
+  }
+
+  const state = {
+    audioCtx: null, analyser: null, timeDomainData: null, freqData: null,
+    noiseFloor: 0.01,
+    angle: 0, speed: 0, bubblesSpawned: 0, targetBubbles: TARGET_BUBBLES_DEFAULT,
+    smoothedScore: 0,
+    lastFrameTime: 0, quietStreak: 0,
+    reduceMotion: localStorage.getItem('chime_reduce_motion') === 'true',
+    muted: localStorage.getItem('chime_muted') === 'true',
+    hasFinished: false, particles: [],
+    attemptStartTime: 0,
+    stars: [],
+    fireflies: [],
+    bubbles: [], // floating bubble objects, the actual visual payoff
+    minCentroid: MIN_CENTROID_HZ_DEFAULT,
+    maxCentroid: MAX_EXPECTED_CENTROID_HZ_DEFAULT,
+    bubbleNotes: [523.25, 587.33, 659.25, 698.46, 783.99, 880.0, 987.77, 1046.5],
+  };
+
+  const canvas = document.getElementById('scene-canvas');
+  const ctx = canvas.getContext('2d');
+  const screens = { start: document.getElementById('screen-start'), micError: document.getElementById('screen-mic-error'), calibrate: document.getElementById('screen-calibrate') };
+  const hud = document.getElementById('hud');
+  const settingsPanel = document.getElementById('settings-panel');
+  const successOverlay = document.getElementById('success-overlay');
+  const encourageCaption = document.getElementById('encourage-caption');
+  const ariaLive = document.getElementById('aria-live');
+  document.getElementById('toggle-motion').checked = state.reduceMotion;
+  document.getElementById('toggle-mute').checked = state.muted;
+
+  function showScreen(name) {
+    Object.values(screens).forEach(s => s.classList.add('hidden'));
+    if (name && screens[name]) screens[name].classList.remove('hidden');
+  }
+
+  let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+  function resizeCanvas() {
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    initStars();
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  function initStars() {
+    const count = Math.floor((W * H) / 12000);
+    state.stars = Array.from({ length: count }, () => ({ x: Math.random() * W, y: Math.random() * H * 0.5, r: Math.random() * 1.4 + 0.5, phase: Math.random() * Math.PI * 2 }));
+    const fireflyCount = Math.floor((W * H) / 55000);
+    state.fireflies = Array.from({ length: fireflyCount }, () => ({
+      x: Math.random() * W, y: H * 0.4 + Math.random() * H * 0.5,
+      phase: Math.random() * Math.PI * 2, driftPhase: Math.random() * Math.PI * 2,
+      speed: Math.random() * 0.3 + 0.15,
+    }));
+  }
+
+  function playBubbleNote(index) {
+    if (state.muted || !state.audioCtx) return;
+    const freq = state.bubbleNotes[index % state.bubbleNotes.length];
+    const a = state.audioCtx;
+    const osc = a.createOscillator(), gain = a.createGain();
+    osc.type = 'sine'; osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, a.currentTime);
+    gain.gain.linearRampToValueAtTime(0.045, a.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.6);
+    osc.connect(gain).connect(a.destination);
+    osc.start(); osc.stop(a.currentTime + 0.65);
+  }
+  function playSuccessChime() { [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => setTimeout(() => {
+    if (state.muted || !state.audioCtx) return;
+    const a = state.audioCtx; const osc = a.createOscillator(), gain = a.createGain();
+    osc.type = 'triangle'; osc.frequency.value = f;
+    gain.gain.setValueAtTime(0, a.currentTime); gain.gain.linearRampToValueAtTime(0.045, a.currentTime + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.5);
+    osc.connect(gain).connect(a.destination); osc.start(); osc.stop(a.currentTime + 0.55);
+  }, i * 110)); }
+
+  async function requestMicAndCalibrate() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } });
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      state.audioCtx = new AudioContextClass();
+      const source = state.audioCtx.createMediaStreamSource(stream);
+      state.analyser = state.audioCtx.createAnalyser();
+      state.analyser.fftSize = 2048;
+      state.timeDomainData = new Float32Array(state.analyser.fftSize);
+      state.freqData = new Float32Array(state.analyser.frequencyBinCount);
+      source.connect(state.analyser);
+      runCalibration();
+    } catch (err) {
+      document.getElementById('mic-error-detail').textContent = err.name === 'NotAllowedError'
+        ? 'Please allow microphone access so the garden can hear your voice.'
+        : 'Something went wrong reaching the microphone. Please try again.';
+      showScreen('micError');
+    }
+  }
+
+  function readCurrentRMS() {
+    state.analyser.getFloatTimeDomainData(state.timeDomainData);
+    let s = 0;
+    for (let i = 0; i < state.timeDomainData.length; i++) s += state.timeDomainData[i] * state.timeDomainData[i];
+    return Math.sqrt(s / state.timeDomainData.length);
+  }
+
+  function runCalibration() {
+    showScreen('calibrate');
+    const ring = document.getElementById('calib-ring');
+    const CIRC = 2 * Math.PI * 60;
+    ring.setAttribute('stroke-dasharray', CIRC);
+    const QUIET_MS = 1200; // lowered from 2000 — faster into gameplay
+    const LOUD_MS = 1800; // lowered from 2500
+    let quietSamples = [];
+    let centroidReadings = [];
+    function setRing(p) { ring.setAttribute('stroke-dashoffset', CIRC * (1 - p)); }
+    document.getElementById('calib-title').textContent = "Let's find quiet...";
+    document.getElementById('calib-subtitle').textContent = 'Stay nice and quiet for a moment';
+    document.getElementById('calib-emoji').textContent = '🤫';
+    const quietStart = performance.now();
+    function quietStep(now) {
+      const elapsed = now - quietStart;
+      quietSamples.push(readCurrentRMS());
+      setRing(Math.min(1, elapsed / QUIET_MS));
+      if (elapsed < QUIET_MS) { requestAnimationFrame(quietStep); }
+      else {
+        const sorted = [...quietSamples].sort((a, b) => a - b);
+        const p90 = sorted[Math.floor(sorted.length * 0.9)] || 0.01;
+        state.noiseFloor = Math.max(0.006, p90 * 1.4);
+        startLoudPhase();
+      }
+    }
+
+    function startLoudPhase() {
+      document.getElementById('calib-title').textContent = 'Now say "ffff"!';
+      document.getElementById('calib-subtitle').textContent = 'Like blowing gently through your teeth';
+      document.getElementById('calib-emoji').textContent = '💨';
+      setRing(0);
+      const loudStart = performance.now();
+      function loudStep(now) {
+        const elapsed = now - loudStart;
+        const rms = readCurrentRMS();
+        if (rms > state.noiseFloor * 1.5) {
+          state.analyser.getFloatFrequencyData(state.freqData);
+          centroidReadings.push(computeSpectralCentroid(state.freqData, state.audioCtx.sampleRate, state.analyser.fftSize));
+        }
+        setRing(Math.min(1, elapsed / LOUD_MS));
+        if (elapsed < LOUD_MS) {
+          requestAnimationFrame(loudStep);
+        } else {
+          const { minCentroid, maxCentroid } = personalizeCentroidRange(centroidReadings);
+          state.minCentroid = minCentroid;
+          state.maxCentroid = maxCentroid;
+          finishCalibration();
+        }
+      }
+      requestAnimationFrame(loudStep);
+    }
+
+    requestAnimationFrame(quietStep);
+  }
+
+  function finishCalibration() {
+    showScreen(null);
+    hud.classList.remove('hidden');
+    state.angle = 0; state.speed = 0; state.bubblesSpawned = 0; state.bubbles = []; state.hasFinished = false;
+    state.lastFrameTime = performance.now();
+    state.attemptStartTime = performance.now();
+    ariaLive.textContent = 'Ready! Say a long "ffff" to blow bubbles.';
+    requestAnimationFrame(gameLoop);
+  }
+
+  function spawnBubble(index) {
+    state.bubbles.push({
+      x: W / 2 + (Math.random() - 0.5) * 40,
+      y: H * 0.85,
+      r: Math.random() * 22 + 32, // bigger and more varied — was 14-24, now 32-54
+      vy: -(0.35 + Math.random() * 0.3), // slightly slower, bigger bubbles read as more majestic
+      swayPhase: Math.random() * Math.PI * 2,
+      swayAmount: Math.random() * 22 + 12,
+      shimmerPhase: Math.random() * Math.PI * 2,
+      hue: index / state.bubbleNotes.length,
+    });
+    playBubbleNote(index);
+  }
+
+  function gameLoop(now) {
+    const dt = Math.min(0.1, (now - state.lastFrameTime) / 1000);
+    state.lastFrameTime = now;
+
+    const rms = readCurrentRMS();
+    state.analyser.getFloatFrequencyData(state.freqData);
+    const centroid = computeSpectralCentroid(state.freqData, state.audioCtx.sampleRate, state.analyser.fftSize);
+    const { score } = computeFricationScore(rms, centroid, state.noiseFloor, state.minCentroid, state.maxCentroid);
+    state.smoothedScore = state.smoothedScore * 0.7 + score * 0.3;
+
+    const result = updateChimeRotation(state.angle, state.speed, score, dt, ROTATION_CONFIG);
+    state.angle = result.angle; state.speed = result.speed;
+    if (result.chimesRung > 0 && state.bubblesSpawned < state.targetBubbles) {
+      for (let i = 0; i < result.chimesRung && state.bubblesSpawned < state.targetBubbles; i++) {
+        spawnBubble(state.bubblesSpawned);
+        state.bubblesSpawned++;
+      }
+    }
+
+    if (score < 0.1) state.quietStreak += dt; else state.quietStreak = 0;
+    encourageCaption.classList.toggle('visible', state.quietStreak > 3 && state.bubblesSpawned < 1);
+    if (state.quietStreak > 3) encourageCaption.textContent = 'Try a long "ffff" sound, like blowing gently!';
+
+    render();
+
+    if (state.bubblesSpawned >= state.targetBubbles && !state.hasFinished) { state.hasFinished = true; onGardenSuccess(); }
+    if (!state.hasFinished) requestAnimationFrame(gameLoop);
+  }
+
+  function onGardenSuccess() {
+    playSuccessChime();
+    ariaLive.textContent = 'You filled the sky with bubbles!';
+    spawnCelebrationParticles();
+    const timeToWinSeconds = (performance.now() - state.attemptStartTime) / 1000;
+    updateDifficultyFromAttempt(timeToWinSeconds); // async — doesn't block the celebration below
+    let frames = 0;
+    function celebrateLoop() { render(); frames++; if (frames < 90) requestAnimationFrame(celebrateLoop); }
+    requestAnimationFrame(celebrateLoop);
+    setTimeout(() => successOverlay.classList.remove('hidden'), 500);
+  }
+
+  function spawnCelebrationParticles() {
+    const count = state.reduceMotion ? 16 : 50;
+    for (let i = 0; i < count; i++) {
+      state.particles.push({ x: W / 2, y: H * 0.35, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6 - 1, life: 1, color: ['#FFD166', '#A6E8FF', '#7B5EA7', '#FFF8EC'][i % 4], r: Math.random() * 3 + 2 });
+    }
+  }
+
+  function render() {
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, '#4A3B7C'); grad.addColorStop(0.5, '#7B5EA7'); grad.addColorStop(1, '#2A2158');
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+    drawMoon(); drawStars(); drawFireflies(); drawParticles(); drawFloatingBubbles(); drawGardenSilhouette(); drawWand();
+  }
+
+  function drawMoon() {
+    ctx.save();
+    const mx = W * 0.82, my = H * 0.14, r = 30;
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = '#FFF3D6';
+    ctx.beginPath(); ctx.arc(mx, my, r, 0, Math.PI * 2); ctx.fill();
+    // crescent shadow
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath(); ctx.arc(mx - r * 0.4, my - r * 0.15, r * 0.9, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  let starTime = 0;
+  function drawStars() {
+    if (!state.reduceMotion) starTime += 0.016;
+    ctx.save();
+    for (const s of state.stars) {
+      ctx.globalAlpha = 0.5 + 0.5 * Math.sin(starTime + s.phase);
+      ctx.fillStyle = '#FFF8EC';
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawFireflies() {
+    ctx.save();
+    for (const f of state.fireflies) {
+      if (!state.reduceMotion) {
+        f.phase += 0.03;
+        f.driftPhase += 0.008;
+        f.y -= f.speed * 0.15;
+        if (f.y < H * 0.35) f.y = H * 0.95;
+      }
+      const bx = f.x + Math.sin(f.driftPhase) * 18;
+      const glow = 0.35 + 0.65 * Math.max(0, Math.sin(f.phase));
+      const grad = ctx.createRadialGradient(bx, f.y, 0, bx, f.y, 7);
+      grad.addColorStop(0, `rgba(255, 245, 180, ${0.8 * glow})`);
+      grad.addColorStop(1, 'rgba(255, 245, 180, 0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(bx, f.y, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = `rgba(255, 255, 230, ${glow})`;
+      ctx.beginPath(); ctx.arc(bx, f.y, 1.5, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawParticles() {
+    ctx.save();
+    state.particles = state.particles.filter(p => p.life > 0);
+    for (const p of state.particles) {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.life -= 0.014;
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawGardenSilhouette() {
+    ctx.save();
+    ctx.fillStyle = 'rgba(20, 15, 45, 0.75)';
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    ctx.lineTo(0, H * 0.93);
+    for (let x = 0; x <= W; x += W / 12) {
+      const bumpH = 18 + 14 * Math.sin(x * 0.02 + 1.5);
+      ctx.quadraticCurveTo(x + W / 24, H * 0.93 - bumpH, x + W / 12, H * 0.93);
+    }
+    ctx.lineTo(W, H);
+    ctx.closePath();
+    ctx.fill();
+
+    // a few simple flower silhouettes poking up from the hill line
+    const flowerXs = [W * 0.15, W * 0.32, W * 0.68, W * 0.85];
+    for (const fx of flowerXs) {
+      const fy = H * 0.9;
+      ctx.strokeStyle = 'rgba(20, 15, 45, 0.75)'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(fx, fy + 14); ctx.lineTo(fx, fy - 6); ctx.stroke();
+      ctx.fillStyle = 'rgba(166, 232, 255, 0.5)';
+      for (let i = 0; i < 5; i++) {
+        const angle = (i / 5) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.ellipse(fx + Math.cos(angle) * 6, fy - 6 + Math.sin(angle) * 6, 4, 2.5, angle, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawFloatingBubbles() {
+    ctx.save();
+    for (const b of state.bubbles) {
+      if (!state.reduceMotion) { b.y += b.vy; b.swayPhase += 0.02; b.shimmerPhase += 0.03; }
+      const sway = Math.sin(b.swayPhase) * b.swayAmount;
+      const bx = b.x + sway, by = b.y;
+      const shimmer = Math.sin(b.shimmerPhase) * 25; // iridescent hue drift, alive rather than static
+
+      const bubbleGrad = ctx.createRadialGradient(bx - b.r * 0.3, by - b.r * 0.3, b.r * 0.1, bx, by, b.r);
+      bubbleGrad.addColorStop(0, 'rgba(255,255,255,0.9)');
+      bubbleGrad.addColorStop(0.45, `hsla(${185 + b.hue * 90 + shimmer}, 95%, 82%, 0.5)`);
+      bubbleGrad.addColorStop(0.8, `hsla(${260 + b.hue * 60 - shimmer}, 90%, 75%, 0.35)`);
+      bubbleGrad.addColorStop(1, 'rgba(255,255,255,0.12)');
+      ctx.fillStyle = bubbleGrad;
+      ctx.beginPath(); ctx.arc(bx, by, b.r, 0, Math.PI * 2); ctx.fill();
+
+      // thin iridescent rim
+      ctx.strokeStyle = `hsla(${200 + shimmer}, 100%, 90%, 0.6)`;
+      ctx.lineWidth = 1.3;
+      ctx.stroke();
+
+      // two highlight glints instead of one flat ellipse — reads more like glass/soap film
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.beginPath(); ctx.ellipse(bx - b.r * 0.35, by - b.r * 0.35, b.r * 0.2, b.r * 0.12, -0.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.beginPath(); ctx.ellipse(bx + b.r * 0.3, by + b.r * 0.25, b.r * 0.12, b.r * 0.08, 0.3, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawWand() {
+    const wandX = W / 2, wandY = H * 0.9;
+    const pulse = 1 + state.smoothedScore * 0.35;
+    ctx.save();
+    ctx.translate(wandX, wandY);
+
+    // handle
+    const handleGrad = ctx.createLinearGradient(0, 34, 0, 6);
+    handleGrad.addColorStop(0, '#C99A2E'); handleGrad.addColorStop(1, '#FFD166');
+    ctx.strokeStyle = handleGrad; ctx.lineWidth = 6; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(0, 34); ctx.lineTo(0, 4); ctx.stroke();
+
+    // wand loop — glows and shows a soap-film shimmer when actively blowing
+    ctx.save();
+    ctx.scale(pulse, pulse);
+    ctx.strokeStyle = '#FFD166'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(0, -10, 20, 13, 0, 0, Math.PI * 2); ctx.stroke();
+    if (state.smoothedScore > 0.1) {
+      const filmGrad = ctx.createRadialGradient(-4, -14, 1, 0, -10, 16);
+      filmGrad.addColorStop(0, `hsla(${190 + shimmerAngle()}, 90%, 85%, 0.5)`);
+      filmGrad.addColorStop(1, 'rgba(255,255,255,0.05)');
+      ctx.fillStyle = filmGrad;
+      ctx.beginPath(); ctx.ellipse(0, -10, 19, 12, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+    ctx.restore();
+  }
+  function shimmerAngle() { return (performance.now() * 0.05) % 360; }
+
+  document.getElementById('btn-start').addEventListener('click', requestMicAndCalibrate);
+  document.getElementById('btn-retry-mic').addEventListener('click', requestMicAndCalibrate);
+  document.getElementById('btn-settings').addEventListener('click', () => settingsPanel.classList.toggle('hidden'));
+  document.getElementById('toggle-motion').addEventListener('change', (e) => { state.reduceMotion = e.target.checked; localStorage.setItem('chime_reduce_motion', state.reduceMotion); });
+  document.getElementById('toggle-mute').addEventListener('change', (e) => { state.muted = e.target.checked; localStorage.setItem('chime_muted', state.muted); });
+  document.getElementById('btn-recalibrate').addEventListener('click', () => { settingsPanel.classList.add('hidden'); hud.classList.add('hidden'); runCalibration(); });
+  document.getElementById('btn-play-again').addEventListener('click', () => {
+    successOverlay.classList.add('hidden');
+    state.angle = 0; state.speed = 0; state.bubblesSpawned = 0; state.bubbles = []; state.hasFinished = false; state.particles = [];
+    state.lastFrameTime = performance.now(); state.attemptStartTime = performance.now();
+    requestAnimationFrame(gameLoop);
+  });
+
+  resizeCanvas();
+  render();
+})();
+</script>
+</body>
+</html>

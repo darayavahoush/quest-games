@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Submarine Dive — Chime</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sea-surface: #1E5F8C;
+    --sea-deep: #0A2A45;
+    --sea-abyss: #061A2E;
+    --sub-teal: #4ECDC4;
+    --sub-teal-dark: #2FA89F;
+    --gold: #FFD166;
+    --coral: #FF6B6B;
+    --cloud-white: #FFF8EC;
+    --panel-bg: rgba(10, 42, 69, 0.65);
+    --panel-border: rgba(255, 248, 236, 0.14);
+    --display-font: 'Baloo 2', sans-serif;
+    --body-font: 'Quicksand', sans-serif;
+    --shadow-lift: 0 24px 60px rgba(0,0,0,0.45);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--sea-abyss); font-family: var(--body-font); color: var(--cloud-white); -webkit-tap-highlight-color: transparent; }
+  #scene-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; z-index: 10; }
+  .hidden { display: none !important; }
+  .panel { background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 28px 28px 40px 28px; padding: 40px 36px; max-width: 460px; width: 100%; backdrop-filter: blur(10px); box-shadow: var(--shadow-lift); }
+  h1.title { font-family: var(--display-font); font-weight: 800; font-size: clamp(2rem, 6vw, 2.8rem); margin: 0 0 8px; color: var(--cloud-white); text-shadow: 0 4px 0 rgba(0,0,0,0.15); }
+  p.subtitle { font-size: clamp(1rem, 3vw, 1.2rem); font-weight: 700; margin: 0 0 28px; color: var(--sub-teal); line-height: 1.5; }
+  button { font-family: var(--display-font); font-weight: 700; font-size: 1.3rem; border: none; border-radius: 999px; padding: 16px 40px; cursor: pointer; color: var(--sea-abyss); background: var(--sub-teal); box-shadow: 0 6px 0 var(--sub-teal-dark), 0 10px 24px rgba(0,0,0,0.25); transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.18s ease; }
+  button:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 9px 0 var(--sub-teal-dark), 0 16px 32px rgba(0,0,0,0.32); }
+  button:active { transform: translateY(3px) scale(1); box-shadow: 0 3px 0 var(--sub-teal-dark), 0 6px 14px rgba(0,0,0,0.25); }
+  button:focus-visible { outline: 3px solid var(--cloud-white); outline-offset: 3px; }
+  button.secondary { background: transparent; color: var(--cloud-white); box-shadow: none; border: 2px solid var(--panel-border); font-size: 1rem; padding: 10px 22px; margin-top: 14px; }
+  .mic-icon { font-size: 3.4rem; margin-bottom: 12px; display: inline-block; }
+  .error-text { font-size: 0.95rem; color: #FFD3D3; margin-top: 14px; line-height: 1.5; }
+  .ring-wrap { position: relative; width: 150px; height: 150px; margin: 0 auto 22px; }
+  .ring-wrap svg { transform: rotate(-90deg); }
+  .ring-bg { fill: none; stroke: rgba(255,255,255,0.12); stroke-width: 10; }
+  .ring-fg { fill: none; stroke: var(--sub-teal); stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 0.1s linear; }
+  .ring-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 2rem; }
+  #hud { position: fixed; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: flex-start; padding: 18px 20px; z-index: 20; pointer-events: none; }
+  #hud > * { pointer-events: auto; }
+  #encourage-caption { font-family: var(--display-font); font-weight: 700; font-size: clamp(1rem, 3.5vw, 1.4rem); background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 999px; padding: 10px 22px; opacity: 0; transition: opacity 0.4s ease; max-width: 70vw; }
+  #encourage-caption.visible { opacity: 1; }
+  .icon-btn { background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 999px; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; box-shadow: 0 8px 20px rgba(0,0,0,0.25); padding: 0; color: var(--cloud-white); backdrop-filter: blur(8px); transition: transform 0.15s ease, box-shadow 0.15s ease; }
+  .icon-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(0,0,0,0.3); }
+  .icon-btn:active { transform: translateY(1px); }
+  #settings-panel { position: fixed; top: 74px; right: 18px; background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 20px 20px 28px 20px; padding: 18px 20px; z-index: 30; width: 240px; text-align: left; backdrop-filter: blur(10px); box-shadow: 0 16px 40px rgba(0,0,0,0.3); }
+  #settings-panel h3 { font-family: var(--display-font); margin: 0 0 12px; font-size: 1.1rem; }
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; font-weight: 700; font-size: 0.95rem; }
+  .switch { position: relative; width: 46px; height: 26px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch-track { position: absolute; inset: 0; background: rgba(255,255,255,0.2); border-radius: 999px; transition: background 0.2s ease; cursor: pointer; }
+  .switch-track::before { content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px; background: var(--cloud-white); border-radius: 50%; transition: transform 0.2s ease; }
+  .switch input:checked + .switch-track { background: var(--sub-teal); }
+  .switch input:checked + .switch-track::before { transform: translateX(20px); }
+  #settings-panel button.secondary { width: 100%; margin-top: 4px; }
+  #success-overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 40; background: rgba(6, 26, 46, 0.4); }
+  #success-overlay .panel { text-align: center; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+
+<canvas id="scene-canvas" aria-hidden="true"></canvas>
+
+<div id="screen-start" class="screen">
+  <div class="panel">
+    <div class="mic-icon">🤿</div>
+    <h1 class="title">Submarine Dive</h1>
+    <p class="subtitle">Say a long, round "OOOO" to dive your submarine deep!</p>
+    <button id="btn-start">Let's Play!</button>
+  </div>
+</div>
+
+<div id="screen-mic-error" class="screen hidden">
+  <div class="panel">
+    <div class="mic-icon">🎤</div>
+    <h1 class="title" style="font-size: 1.6rem;">We need to hear you!</h1>
+    <p class="error-text" id="mic-error-detail">Please allow microphone access so your submarine can hear your voice.</p>
+    <button id="btn-retry-mic">Try Again</button>
+  </div>
+</div>
+
+<div id="screen-calibrate" class="screen hidden">
+  <div class="panel">
+    <div class="ring-wrap">
+      <svg width="150" height="150">
+        <circle class="ring-bg" cx="75" cy="75" r="60"></circle>
+        <circle class="ring-fg" id="calib-ring" cx="75" cy="75" r="60" stroke-dasharray="377" stroke-dashoffset="377"></circle>
+      </svg>
+      <div class="ring-label" id="calib-emoji">🤫</div>
+    </div>
+    <h1 class="title" id="calib-title" style="font-size: 1.6rem;">Let's find quiet...</h1>
+    <p class="subtitle" id="calib-subtitle">Stay nice and quiet for a moment</p>
+  </div>
+</div>
+
+<div id="hud" class="hidden">
+  <div id="encourage-caption"></div>
+  <button id="btn-settings" class="icon-btn" aria-label="Settings">⚙️</button>
+</div>
+
+<div id="settings-panel" class="hidden">
+  <h3>Settings</h3>
+  <div class="toggle-row"><span>Reduce motion</span><label class="switch"><input type="checkbox" id="toggle-motion"><span class="switch-track"></span></label></div>
+  <div class="toggle-row"><span>Mute sounds</span><label class="switch"><input type="checkbox" id="toggle-mute"><span class="switch-track"></span></label></div>
+  <button id="btn-recalibrate" class="secondary">Recalibrate mic</button>
+</div>
+
+<div id="success-overlay" class="hidden">
+  <div class="panel">
+    <div class="mic-icon">🐚</div>
+    <h1 class="title">You reached the deep!</h1>
+    <p class="subtitle">Your submarine found the ocean floor!</p>
+    <p id="agent-feedback" style="font-size: 0.95rem; opacity: 0.85; margin: -14px 0 20px;"></p>
+    <button id="btn-play-again">Dive Again!</button>
+  </div>
+</div>
+
+<div class="visually-hidden" id="aria-live" aria-live="polite"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ============================================================
+  // Pure logic — same as level_logic/submarine_logic.js, unit tested
+  // separately. Do not change without re-running submarine_logic.test.js
+  // against an equivalent copy.
+  // ============================================================
+  function hammingWindow(N) {
+    const w = new Float64Array(N);
+    for (let i = 0; i < N; i++) w[i] = 0.54 - 0.46 * Math.cos((2 * Math.PI * i) / (N - 1));
+    return w;
+  }
+  function autocorrelate(x, maxLag) {
+    const N = x.length;
+    const r = new Float64Array(maxLag + 1);
+    for (let lag = 0; lag <= maxLag; lag++) {
+      let sum = 0;
+      for (let i = 0; i < N - lag; i++) sum += x[i] * x[i + lag];
+      r[lag] = sum;
+    }
+    return r;
+  }
+  function levinsonDurbin(r, order) {
+    let a = new Float64Array(order + 1);
+    a[0] = 1;
+    let e = r[0];
+    if (e === 0) return { a, error: 0 };
+    for (let i = 1; i <= order; i++) {
+      let acc = r[i];
+      for (let j = 1; j < i; j++) acc += a[j] * r[i - j];
+      const k = -acc / e;
+      const newA = a.slice();
+      newA[i] = k;
+      for (let j = 1; j < i; j++) newA[j] = a[j] + k * a[i - j];
+      a = newA;
+      e *= (1 - k * k);
+      if (e <= 0) break;
+    }
+    return { a, error: e };
+  }
+  function lpcMagnitudeSpectrum(a, sampleRate, numPoints, maxFreq) {
+    const mags = new Float64Array(numPoints);
+    for (let i = 0; i < numPoints; i++) {
+      const freq = (i / numPoints) * maxFreq;
+      const omega = (2 * Math.PI * freq) / sampleRate;
+      let real = 0, imag = 0;
+      for (let k = 0; k < a.length; k++) {
+        real += a[k] * Math.cos(-omega * k);
+        imag += a[k] * Math.sin(-omega * k);
+      }
+      const denom = Math.sqrt(real * real + imag * imag);
+      mags[i] = denom > 1e-9 ? 1 / denom : 0;
+    }
+    return mags;
+  }
+  function findFormants(samples, sampleRate, order = 12, numPoints = 512, maxFreq = 4000) {
+    const N = samples.length;
+    const win = hammingWindow(N);
+    const windowed = new Float64Array(N);
+    for (let i = 0; i < N; i++) windowed[i] = samples[i] * win[i];
+    const pre = new Float64Array(N);
+    pre[0] = windowed[0];
+    for (let i = 1; i < N; i++) pre[i] = windowed[i] - 0.97 * windowed[i - 1];
+    const r = autocorrelate(pre, order);
+    if (r[0] === 0) return { f1: 0, f2: 0 };
+    const { a } = levinsonDurbin(r, order);
+    const mags = lpcMagnitudeSpectrum(a, sampleRate, numPoints, maxFreq);
+    // relaxed to immediate-neighbor peaks (real voice is noisier than the synthetic test signal)
+    const peaks = [];
+    for (let i = 1; i < numPoints - 1; i++) {
+      if (mags[i] > mags[i - 1] && mags[i] > mags[i + 1]) {
+        peaks.push({ freq: (i / numPoints) * maxFreq, mag: mags[i] });
+      }
+    }
+    peaks.sort((p1, p2) => p1.freq - p2.freq);
+    return { f1: peaks.length > 0 ? peaks[0].freq : 0, f2: peaks.length > 1 ? peaks[1].freq : 0 };
+  }
+  const TARGET_F1 = 300.0, TARGET_F2 = 870.0, FORMANT_TOLERANCE_HZ = 450.0;
+  function computeVowelQualityScore(f1, f2, targetF1 = TARGET_F1, targetF2 = TARGET_F2, tolerance = FORMANT_TOLERANCE_HZ) {
+    if (f1 <= 0 && f2 <= 0) return 0;
+    if (f2 <= 0) {
+      const f1Dist = Math.abs(f1 - targetF1);
+      return Math.max(0, 1 - f1Dist / tolerance) * 0.6; // partial credit, one formant resolved
+    }
+    const f1Dist = Math.abs(f1 - targetF1), f2Dist = Math.abs(f2 - targetF2);
+    return Math.max(0, 1 - (f1Dist + f2Dist) / (2 * tolerance));
+  }
+  function computeLoudnessComponent(rms, noiseFloor, maxExpectedRms) {
+    if (rms <= noiseFloor * 1.3) return 0;
+    return Math.max(0, Math.min(1, (rms - noiseFloor) / (maxExpectedRms - noiseFloor)));
+  }
+  // The actual dive score: primarily driven by sustained loudness (robust,
+  // always detectable), with formant match as a BONUS multiplier rather than
+  // a gate. Real play-testing showed gating everything on formant match made
+  // the game feel broken whenever LPC didn't resolve cleanly — client-side
+  // LPC on real voices just isn't reliable enough to be the sole signal.
+  function computeDiveScore(rms, f1, f2, noiseFloor, maxExpectedRms, targetF1, targetF2, tolerance) {
+    const loudness = computeLoudnessComponent(rms, noiseFloor, maxExpectedRms);
+    if (loudness <= 0) return 0;
+    const formant = computeVowelQualityScore(f1, f2, targetF1, targetF2, tolerance);
+    return loudness * (0.6 + 0.4 * formant);
+  }
+  function personalizeFormantTarget(formantReadings, fallbackF1 = TARGET_F1, fallbackF2 = TARGET_F2) {
+    const valid = formantReadings.filter(r => r.f1 > 0 && r.f2 > 0);
+    if (valid.length < 3) return { targetF1: fallbackF1, targetF2: fallbackF2, usedFallback: true };
+    const targetF1 = valid.reduce((s, r) => s + r.f1, 0) / valid.length;
+    const targetF2 = valid.reduce((s, r) => s + r.f2, 0) / valid.length;
+    return { targetF1, targetF2, usedFallback: false };
+  }
+  function updateDepth(currentDepth, qualityScore, dt, config) {
+    const { sinkRate, riseRate, scoreThreshold } = config;
+    if (qualityScore >= scoreThreshold) {
+      const intensity = (qualityScore - scoreThreshold) / (1 - scoreThreshold);
+      return Math.max(0, Math.min(1, currentDepth + sinkRate * (0.4 + 0.6 * intensity) * dt));
+    }
+    return Math.max(0, Math.min(1, currentDepth - riseRate * dt));
+  }
+
+  function computeRMS(floatSamples) {
+    let s = 0;
+    for (let i = 0; i < floatSamples.length; i++) s += floatSamples[i] * floatSamples[i];
+    return Math.sqrt(s / floatSamples.length);
+  }
+
+  const BASE_DEPTH_CONFIG = { sinkRate: 0.5, riseRate: 0.2, scoreThreshold: 0.08 }; // lowered further — still felt too hard at 0.12
+  const NOISE_FLOOR_RMS_DEFAULT = 0.01;
+
+  // Same rule-based difficulty agent pattern as rocket_launch.html, adapted
+  // to this level's scoreThreshold. See agent/baselines.py's RuleBasedAgent
+  // for the Python-side equivalent; see that file's README section on what
+  // connecting the trained models would take.
+  const DIFFICULTY_AGENT = {
+    SAFE_RANGE: [0.08, 0.55], // lowered further — still felt too hard at 0.12
+    STEP: 0.05,
+    FAST_S: 5,
+    SLOW_S: 14,
+    decide(timeToDiveSeconds) {
+      if (timeToDiveSeconds < this.FAST_S) return { action: 'raise', message: "That was smooth! Let's make the next dive a bit trickier 🌊" };
+      if (timeToDiveSeconds > this.SLOW_S) return { action: 'lower', message: "Great effort! Let's make the next dive a little easier 🐚" };
+      return { action: 'hold', message: "Nice steady diving! Let's keep this level for now 💙" };
+    },
+    apply(config, decision) {
+      const next = { ...config };
+      if (decision.action === 'raise') next.scoreThreshold += this.STEP;
+      if (decision.action === 'lower') next.scoreThreshold -= this.STEP;
+      next.scoreThreshold = Math.max(this.SAFE_RANGE[0], Math.min(this.SAFE_RANGE[1], next.scoreThreshold));
+      return next;
+    },
+  };
+
+  // ============================================================
+  // Backend integration — calls the real trained agent (/agent/decide,
+  // per-child tabular Q by default) instead of only the client-side
+  // rule-based DIFFICULTY_AGENT above. DIFFICULTY_AGENT.apply()'s safety
+  // envelope (SAFE_RANGE clamp) still runs on whatever action comes back,
+  // whether it's the trained agent's or the local fallback's.
+  //
+  // Falls back to DIFFICULTY_AGENT.decide() locally if the backend is
+  // unreachable, same pattern as the other games — a win never stalls
+  // waiting on a fetch.
+  // ============================================================
+  const BACKEND_URL = 'http://localhost:8001';
+  const LEVEL_ID = 'oo_submarine';
+  const AGENT_POLICY = 'tabular_q';
+
+  function getChildId() {
+    let id = localStorage.getItem('chime_child_id');
+    if (!id) {
+      id = 'child_' + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem('chime_child_id', id);
+    }
+    return id;
+  }
+  const CHILD_ID = getChildId();
+  let attemptNumber = 0;
+
+  async function logEventToBackend(payload) {
+    try {
+      await fetch(`${BACKEND_URL}/events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch (err) {
+      console.warn('Backend event logging unavailable:', err);
+    }
+  }
+
+  async function fetchAgentDecision() {
+    try {
+      const resp = await fetch(`${BACKEND_URL}/agent/decide/${CHILD_ID}/${LEVEL_ID}?policy=${AGENT_POLICY}`);
+      if (!resp.ok) throw new Error(`backend returned ${resp.status}`);
+      return await resp.json();
+    } catch (err) {
+      console.warn('Trained-agent endpoint unavailable, falling back to local rule-based agent:', err);
+      return null;
+    }
+  }
+
+  function timeToScore(timeToDiveSeconds) {
+    if (timeToDiveSeconds <= DIFFICULTY_AGENT.FAST_S) return 1.0;
+    if (timeToDiveSeconds >= DIFFICULTY_AGENT.SLOW_S) return 0.2;
+    const t = (timeToDiveSeconds - DIFFICULTY_AGENT.FAST_S) / (DIFFICULTY_AGENT.SLOW_S - DIFFICULTY_AGENT.FAST_S);
+    return 1.0 - t * 0.8;
+  }
+
+  async function updateDifficultyFromAttempt(timeToDiveSeconds) {
+    attemptNumber++;
+    const score = timeToScore(timeToDiveSeconds);
+
+    await logEventToBackend({
+      child_id: CHILD_ID,
+      level_id: LEVEL_ID,
+      attempt_number: attemptNumber,
+      score,
+      is_valid_attempt: true,
+      threshold_at_time: state.difficultyConfig.scoreThreshold,
+      quit_flag: false,
+    });
+
+    let decision = await fetchAgentDecision();
+    if (!decision) {
+      decision = DIFFICULTY_AGENT.decide(timeToDiveSeconds); // offline fallback
+    }
+
+    state.difficultyConfig = DIFFICULTY_AGENT.apply(state.difficultyConfig, decision);
+    document.getElementById('agent-feedback').textContent = decision.message;
+  }
+
+  const state = {
+    audioCtx: null, analyser: null, timeDomainData: null,
+    noiseFloor: NOISE_FLOOR_RMS_DEFAULT,
+    maxExpectedRms: 0.3,
+    depth: 0, smoothedQuality: 0,
+    lastFrameTime: 0, frameCount: 0,
+    reduceMotion: localStorage.getItem('sub_reduce_motion') === 'true',
+    muted: localStorage.getItem('sub_muted') === 'true',
+    hasFinished: false, quietStreak: 0,
+    bubbles: [], particles: [],
+    difficultyConfig: { ...BASE_DEPTH_CONFIG },
+    attemptStartTime: 0,
+    formantBuffer: [],
+    targetF1: TARGET_F1,
+    targetF2: TARGET_F2,
+    fish: [], seaweed: [], corals: [],
+    buddyAppear: 0, // 0-1, how visible the turtle buddy is right now
+  };
+
+  const canvas = document.getElementById('scene-canvas');
+  const ctx = canvas.getContext('2d');
+  const screens = { start: document.getElementById('screen-start'), micError: document.getElementById('screen-mic-error'), calibrate: document.getElementById('screen-calibrate') };
+  const hud = document.getElementById('hud');
+  const settingsPanel = document.getElementById('settings-panel');
+  const successOverlay = document.getElementById('success-overlay');
+  const encourageCaption = document.getElementById('encourage-caption');
+  const ariaLive = document.getElementById('aria-live');
+  document.getElementById('toggle-motion').checked = state.reduceMotion;
+  document.getElementById('toggle-mute').checked = state.muted;
+
+  function showScreen(name) {
+    Object.values(screens).forEach(s => s.classList.add('hidden'));
+    if (name && screens[name]) screens[name].classList.remove('hidden');
+  }
+
+  let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+  function resizeCanvas() {
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    initBubbles();
+    initOceanLife();
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  function initBubbles() {
+    const count = Math.floor((W * H) / 22000);
+    state.bubbles = Array.from({ length: count }, () => ({
+      x: Math.random() * W, y: Math.random() * H, r: Math.random() * 3 + 1.5,
+      speed: Math.random() * 0.4 + 0.2, drift: Math.random() * 0.6 - 0.3,
+    }));
+  }
+
+  const FISH_COLORS = ['#FF8C69', '#FFD166', '#A6E8FF', '#FF6B9D', '#7FE8C0'];
+  function initOceanLife() {
+    const fishCount = Math.floor((W * H) / 45000) + 4;
+    state.fish = Array.from({ length: fishCount }, () => ({
+      x: Math.random() * W,
+      y: H * 0.2 + Math.random() * H * 0.7,
+      size: Math.random() * 10 + 8,
+      speed: (Math.random() * 0.5 + 0.3) * (Math.random() < 0.5 ? 1 : -1),
+      bobPhase: Math.random() * Math.PI * 2,
+      color: FISH_COLORS[Math.floor(Math.random() * FISH_COLORS.length)],
+    }));
+
+    const seaweedCount = Math.floor(W / 90) + 3;
+    state.seaweed = Array.from({ length: seaweedCount }, (_, i) => ({
+      x: (i + 0.5) * (W / seaweedCount) + (Math.random() - 0.5) * 30,
+      height: Math.random() * 50 + 40,
+      swayPhase: Math.random() * Math.PI * 2,
+      swaySpeed: Math.random() * 0.4 + 0.3,
+      hueShift: Math.random() * 20,
+    }));
+
+    const coralCount = Math.floor(W / 220) + 2;
+    state.corals = Array.from({ length: coralCount }, () => ({
+      x: Math.random() * W,
+      scale: Math.random() * 0.5 + 0.7,
+      hue: Math.random() < 0.5 ? '#FF6B6B' : '#FFD166',
+    }));
+  }
+
+  function playTone(freq, duration, type = 'sine', gainPeak = 0.05) {
+    if (state.muted || !state.audioCtx) return;
+    const a = state.audioCtx;
+    const osc = a.createOscillator(), gain = a.createGain();
+    osc.type = type; osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, a.currentTime);
+    gain.gain.linearRampToValueAtTime(gainPeak, a.currentTime + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + duration);
+    osc.connect(gain).connect(a.destination);
+    osc.start(); osc.stop(a.currentTime + duration + 0.05);
+  }
+  function playSuccessChime() {
+    [392, 493.88, 587.33, 783.99].forEach((f, i) => setTimeout(() => playTone(f, 0.5, 'sine', 0.045), i * 120));
+  }
+
+  async function requestMicAndCalibrate() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } });
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      state.audioCtx = new AudioContextClass();
+      const source = state.audioCtx.createMediaStreamSource(stream);
+      state.analyser = state.audioCtx.createAnalyser();
+      state.analyser.fftSize = 2048;
+      state.timeDomainData = new Float32Array(state.analyser.fftSize);
+      source.connect(state.analyser);
+      runCalibration();
+    } catch (err) {
+      document.getElementById('mic-error-detail').textContent = err.name === 'NotAllowedError'
+        ? 'Please allow microphone access so your submarine can hear your voice.'
+        : 'Something went wrong reaching the microphone. Please try again.';
+      showScreen('micError');
+    }
+  }
+
+  function readCurrentRMS() {
+    state.analyser.getFloatTimeDomainData(state.timeDomainData);
+    return computeRMS(state.timeDomainData);
+  }
+
+  function runCalibration() {
+    showScreen('calibrate');
+    const ring = document.getElementById('calib-ring');
+    const CIRC = 2 * Math.PI * 60;
+    ring.setAttribute('stroke-dasharray', CIRC);
+    const QUIET_MS = 1200; // lowered from 2000 — faster into gameplay
+    const LOUD_MS = 1800; // lowered from 2500
+    let quietSamples = [];
+    let formantReadings = [];
+    function setRing(p) { ring.setAttribute('stroke-dashoffset', CIRC * (1 - p)); }
+    document.getElementById('calib-title').textContent = "Let's find quiet...";
+    document.getElementById('calib-subtitle').textContent = 'Stay nice and quiet for a moment';
+    document.getElementById('calib-emoji').textContent = '🤫';
+    const quietStart = performance.now();
+    function quietStep(now) {
+      const elapsed = now - quietStart;
+      quietSamples.push(readCurrentRMS());
+      setRing(Math.min(1, elapsed / QUIET_MS));
+      if (elapsed < QUIET_MS) { requestAnimationFrame(quietStep); }
+      else {
+        const sorted = [...quietSamples].sort((a, b) => a - b);
+        const p90 = sorted[Math.floor(sorted.length * 0.9)] || 0.01;
+        state.noiseFloor = Math.max(0.006, p90 * 1.4);
+        startLoudPhase();
+      }
+    }
+
+    function startLoudPhase() {
+      document.getElementById('calib-title').textContent = 'Now say "oooo"!';
+      document.getElementById('calib-subtitle').textContent = 'Like the middle of the word "boo" — nice and round';
+      document.getElementById('calib-emoji').textContent = '🗣️';
+      setRing(0);
+      const loudStart = performance.now();
+      let loudRmsSamples = [];
+      function loudStep(now) {
+        const elapsed = now - loudStart;
+        const rms = readCurrentRMS();
+        loudRmsSamples.push(rms);
+        if (rms > state.noiseFloor * 1.5) {
+          state.analyser.getFloatTimeDomainData(state.timeDomainData);
+          formantReadings.push(findFormants(state.timeDomainData, state.audioCtx.sampleRate));
+        }
+        setRing(Math.min(1, elapsed / LOUD_MS));
+        if (elapsed < LOUD_MS) {
+          requestAnimationFrame(loudStep);
+        } else {
+          const { targetF1, targetF2 } = personalizeFormantTarget(formantReadings);
+          state.targetF1 = targetF1;
+          state.targetF2 = targetF2;
+          // Was p90 (near-peak burst volume) — but gameplay needs SUSTAINED
+          // loud speech for seconds at a time, which decays below peak
+          // almost immediately. Calibrating the ceiling against a peak you
+          // can't hold made quality hover right at the threshold the whole
+          // attempt. p55 reflects typical sustained loudness instead.
+          const sortedLoud = [...loudRmsSamples].sort((a, b) => a - b);
+          const loudSustained = sortedLoud[Math.floor(sortedLoud.length * 0.55)] || 0.2;
+          state.maxExpectedRms = Math.max(state.noiseFloor + 0.05, loudSustained);
+          finishCalibration();
+        }
+      }
+      requestAnimationFrame(loudStep);
+    }
+
+    requestAnimationFrame(quietStep);
+  }
+
+  function finishCalibration() {
+    showScreen(null);
+    hud.classList.remove('hidden');
+    state.depth = 0; state.hasFinished = false;
+    state.lastFrameTime = performance.now();
+    state.attemptStartTime = performance.now();
+    ariaLive.textContent = 'Ready! Say a long "oooo" to dive.';
+    requestAnimationFrame(gameLoop);
+  }
+
+  function gameLoop(now) {
+    const dt = Math.min(0.1, (now - state.lastFrameTime) / 1000);
+    state.lastFrameTime = now;
+    state.frameCount++;
+
+    const rms = readCurrentRMS();
+    let f1 = 0, f2 = 0;
+    if (rms > state.noiseFloor * 1.5) {
+      // formant tracking needs a real window, not one tiny frame — buffer a
+      // rolling ~46ms worth of samples (2048 at 44.1kHz) from the analyser directly
+      state.analyser.getFloatTimeDomainData(state.timeDomainData);
+      const formants = findFormants(state.timeDomainData, state.audioCtx.sampleRate);
+      f1 = formants.f1; f2 = formants.f2;
+    }
+    const qualityScore = computeDiveScore(rms, f1, f2, state.noiseFloor, state.maxExpectedRms, state.targetF1, state.targetF2, FORMANT_TOLERANCE_HZ);
+    state.smoothedQuality = state.smoothedQuality * 0.7 + qualityScore * 0.3;
+    // Drive depth off the SMOOTHED score, not the raw per-frame one — sustained
+    // speech naturally dips frame-to-frame (breath, brief pauses within a long
+    // "oooo"), and gating the dive on a single noisy frame made the sub yo-yo:
+    // sink briefly, then instantly rise the moment one frame dipped low.
+    state.depth = updateDepth(state.depth, state.smoothedQuality, dt, state.difficultyConfig);
+
+    if (state.frameCount % 20 === 0) {
+      console.log(`[Chime] rms=${rms.toFixed(3)} noiseFloor=${state.noiseFloor.toFixed(3)} maxExpected=${state.maxExpectedRms.toFixed(3)} f1=${f1.toFixed(0)} f2=${f2.toFixed(0)} quality=${qualityScore.toFixed(2)} smoothed=${state.smoothedQuality.toFixed(2)} threshold=${state.difficultyConfig.scoreThreshold.toFixed(2)} depth=${state.depth.toFixed(2)}`);
+    }
+
+    if (qualityScore < 0.15) state.quietStreak += dt; else state.quietStreak = 0;
+    const showEncouragement = state.quietStreak > 3 && state.depth < 0.15;
+    encourageCaption.classList.toggle('visible', showEncouragement);
+    if (showEncouragement) encourageCaption.textContent = '🐢 Try a long, round "oooo" like you\'re saying "boo"!';
+    state.buddyAppear = showEncouragement
+      ? Math.min(1, state.buddyAppear + dt * 1.5)
+      : Math.max(0, state.buddyAppear - dt * 1.5);
+
+    render();
+
+    if (state.depth >= 0.999 && !state.hasFinished) { state.hasFinished = true; onDiveSuccess(); }
+    if (!state.hasFinished) requestAnimationFrame(gameLoop);
+  }
+
+  function onDiveSuccess() {
+    playSuccessChime();
+    ariaLive.textContent = 'You reached the ocean floor!';
+    spawnCelebrationParticles();
+    const timeToDiveSeconds = (performance.now() - state.attemptStartTime) / 1000;
+    updateDifficultyFromAttempt(timeToDiveSeconds); // async — doesn't block the celebration below
+    let frames = 0;
+    function celebrateLoop() { render(); frames++; if (frames < 90) requestAnimationFrame(celebrateLoop); }
+    requestAnimationFrame(celebrateLoop);
+    setTimeout(() => successOverlay.classList.remove('hidden'), 500);
+  }
+
+  function spawnCelebrationParticles() {
+    const count = state.reduceMotion ? 16 : 50;
+    for (let i = 0; i < count; i++) {
+      state.particles.push({ x: W / 2, y: H * 0.85, vx: (Math.random() - 0.5) * 5, vy: -Math.random() * 3 - 1, life: 1, color: ['#4ECDC4', '#FFD166', '#FF6B6B', '#FFF8EC'][i % 4], r: Math.random() * 3 + 2 });
+    }
+  }
+
+  function render() {
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, '#1E5F8C'); grad.addColorStop(0.5, '#0A2A45'); grad.addColorStop(1, '#061A2E');
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+    drawLightRays();
+    drawBubbles();
+    drawFish();
+    drawParticles();
+    drawOceanFloor();
+    drawSeaweed();
+    drawCorals();
+    drawSubmarine();
+    drawBuddyTurtle();
+  }
+
+  let rayTime = 0;
+  function drawLightRays() {
+    if (!state.reduceMotion) rayTime += 0.005;
+    ctx.save();
+    ctx.globalAlpha = 0.06;
+    ctx.fillStyle = '#EAF9FF';
+    for (let i = 0; i < 5; i++) {
+      const baseX = (i / 5) * W + Math.sin(rayTime + i) * 30;
+      ctx.beginPath();
+      ctx.moveTo(baseX - 40, 0);
+      ctx.lineTo(baseX + 40, 0);
+      ctx.lineTo(baseX + 90, H * 0.75);
+      ctx.lineTo(baseX - 90, H * 0.75);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  let fishTime = 0;
+  function drawFish() {
+    if (!state.reduceMotion) fishTime += 0.02;
+    ctx.save();
+    for (const f of state.fish) {
+      if (!state.reduceMotion) {
+        f.x += f.speed;
+        if (f.x < -20) f.x = W + 20;
+        if (f.x > W + 20) f.x = -20;
+      }
+      const bob = Math.sin(fishTime + f.bobPhase) * 4;
+      const facingRight = f.speed > 0;
+      ctx.save();
+      ctx.translate(f.x, f.y + bob);
+      ctx.scale(facingRight ? 1 : -1, 1);
+      ctx.globalAlpha = 0.85;
+      // tail
+      ctx.fillStyle = f.color;
+      ctx.beginPath();
+      ctx.moveTo(-f.size * 0.9, 0);
+      ctx.lineTo(-f.size * 1.6, -f.size * 0.5);
+      ctx.lineTo(-f.size * 1.6, f.size * 0.5);
+      ctx.closePath();
+      ctx.fill();
+      // body
+      ctx.beginPath();
+      ctx.ellipse(0, 0, f.size, f.size * 0.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // eye
+      ctx.fillStyle = '#1E1B14';
+      ctx.beginPath(); ctx.arc(f.size * 0.4, -f.size * 0.1, f.size * 0.1, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  function drawSeaweed() {
+    ctx.save();
+    for (const sw of state.seaweed) {
+      if (!state.reduceMotion) sw.swayPhase += 0.02 * sw.swaySpeed;
+      const baseY = H - 34;
+      ctx.strokeStyle = `hsl(${150 + sw.hueShift}, 45%, 32%)`;
+      ctx.lineWidth = 6;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(sw.x, baseY);
+      const segments = 4;
+      for (let s = 1; s <= segments; s++) {
+        const t = s / segments;
+        const sway = Math.sin(sw.swayPhase + t * 2) * 14 * t;
+        ctx.lineTo(sw.x + sway, baseY - sw.height * t);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawCorals() {
+    ctx.save();
+    for (const c of state.corals) {
+      const baseY = H - 30;
+      ctx.save();
+      ctx.translate(c.x, baseY);
+      ctx.scale(c.scale, c.scale);
+      ctx.fillStyle = c.hue;
+      ctx.globalAlpha = 0.85;
+      for (const [dx, h, w] of [[-14, 26, 10], [0, 34, 12], [14, 22, 9]]) {
+        ctx.beginPath();
+        ctx.ellipse(dx, -h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  function drawBubbles() {
+    ctx.save();
+    for (const b of state.bubbles) {
+      if (!state.reduceMotion) { b.y -= b.speed; b.x += Math.sin(b.y * 0.02) * b.drift * 0.1; }
+      if (b.y < -10) b.y = H + 10;
+      ctx.globalAlpha = 0.35;
+      ctx.strokeStyle = '#B8F2FF'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawParticles() {
+    ctx.save();
+    state.particles = state.particles.filter(p => p.life > 0);
+    for (const p of state.particles) {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.03; p.life -= 0.014;
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawBuddyTurtle() {
+    if (state.buddyAppear <= 0.01) return;
+    const targetX = W * 0.22, targetY = H * 0.22;
+    const startX = -60;
+    const t = state.buddyAppear;
+    const x = startX + (targetX - startX) * t;
+    const y = targetY + Math.sin(performance.now() * 0.003) * 6;
+    ctx.save();
+    ctx.globalAlpha = t;
+    ctx.translate(x, y);
+    const flipperPhase = Math.sin(performance.now() * 0.006);
+
+    // flippers
+    ctx.fillStyle = '#3F8F63';
+    ctx.beginPath(); ctx.ellipse(-14, 8 + flipperPhase * 3, 9, 5, 0.4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(14, 8 - flipperPhase * 3, 9, 5, -0.4, 0, Math.PI * 2); ctx.fill();
+
+    // shell
+    const shellGrad = ctx.createRadialGradient(-6, -6, 3, 0, 0, 22);
+    shellGrad.addColorStop(0, '#7FE8C0'); shellGrad.addColorStop(1, '#2E7D5B');
+    ctx.fillStyle = shellGrad;
+    ctx.beginPath(); ctx.ellipse(0, 0, 20, 16, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.15)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.ellipse(0, 0, 12, 9, 0, 0, Math.PI * 2); ctx.stroke();
+
+    // head
+    ctx.fillStyle = '#8FE0B8';
+    ctx.beginPath(); ctx.ellipse(22, -2, 8, 6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#1E1B14';
+    ctx.beginPath(); ctx.arc(25, -4, 1.6, 0, Math.PI * 2); ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawOceanFloor() {
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    ctx.beginPath();
+    ctx.moveTo(0, H); ctx.lineTo(0, H - 30);
+    for (let x = 0; x <= W; x += 40) ctx.lineTo(x, H - 30 - Math.sin(x * 0.02) * 10);
+    ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+  }
+
+  function drawSubmarine() {
+    const surfaceY = H * 0.14, floorY = H - 60;
+    const subY = surfaceY + (floorY - surfaceY) * state.depth;
+    const subX = W / 2;
+
+    const bubbleIntensity = state.smoothedQuality;
+    if (bubbleIntensity > 0.05 && Math.random() < bubbleIntensity * 0.4) {
+      state.particles.push({ x: subX - 26, y: subY, vx: -0.5 - Math.random(), vy: -1 - Math.random(), life: 0.7, color: '#B8F2FF', r: Math.random() * 2 + 1 });
+    }
+
+    ctx.save();
+    ctx.translate(subX, subY);
+
+    // shadow
+    ctx.globalAlpha = 0.15 * state.depth;
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.ellipse(0, floorY - subY + 10, 30, 6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // hull
+    const hullGrad = ctx.createLinearGradient(0, -14, 0, 14);
+    hullGrad.addColorStop(0, '#6EE7DE'); hullGrad.addColorStop(0.5, '#4ECDC4'); hullGrad.addColorStop(1, '#2FA89F');
+    ctx.fillStyle = hullGrad;
+    ctx.beginPath();
+    ctx.moveTo(-34, 0);
+    ctx.quadraticCurveTo(-34, -14, -14, -14);
+    ctx.lineTo(20, -14);
+    ctx.quadraticCurveTo(36, -14, 36, 0);
+    ctx.quadraticCurveTo(36, 14, 20, 14);
+    ctx.lineTo(-14, 14);
+    ctx.quadraticCurveTo(-34, 14, -34, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    // porthole windows
+    for (const px of [-10, 8, 22]) {
+      ctx.fillStyle = '#1B3A52';
+      ctx.beginPath(); ctx.arc(px, 0, 5.5, 0, Math.PI * 2); ctx.fill();
+      const glassGrad = ctx.createRadialGradient(px - 1, -1, 0.5, px, 0, 4);
+      glassGrad.addColorStop(0, '#EAF9FF'); glassGrad.addColorStop(1, '#6C5CE7');
+      ctx.fillStyle = glassGrad;
+      ctx.beginPath(); ctx.arc(px, 0, 4, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // conning tower
+    ctx.fillStyle = '#2FA89F';
+    ctx.beginPath();
+    ctx.moveTo(-6, -14); ctx.lineTo(10, -14); ctx.lineTo(8, -26); ctx.lineTo(-4, -26); ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#FFD166';
+    ctx.fillRect(-3, -25, 8, 3);
+
+    // propeller
+    const propSpin = performance.now() * 0.01 * (0.3 + state.smoothedQuality);
+    ctx.save();
+    ctx.translate(-34, 0);
+    ctx.rotate(propSpin);
+    ctx.strokeStyle = '#1B3A52'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(6, 0); ctx.moveTo(0, -6); ctx.lineTo(0, 6); ctx.stroke();
+    ctx.restore();
+
+    ctx.restore();
+  }
+
+  document.getElementById('btn-start').addEventListener('click', requestMicAndCalibrate);
+  document.getElementById('btn-retry-mic').addEventListener('click', requestMicAndCalibrate);
+  document.getElementById('btn-settings').addEventListener('click', () => settingsPanel.classList.toggle('hidden'));
+  document.getElementById('toggle-motion').addEventListener('change', (e) => { state.reduceMotion = e.target.checked; localStorage.setItem('sub_reduce_motion', state.reduceMotion); });
+  document.getElementById('toggle-mute').addEventListener('change', (e) => { state.muted = e.target.checked; localStorage.setItem('sub_muted', state.muted); });
+  document.getElementById('btn-recalibrate').addEventListener('click', () => { settingsPanel.classList.add('hidden'); hud.classList.add('hidden'); runCalibration(); });
+  document.getElementById('btn-play-again').addEventListener('click', () => {
+    successOverlay.classList.add('hidden');
+    state.depth = 0; state.hasFinished = false; state.particles = [];
+    state.buddyAppear = 0; state.quietStreak = 0;
+    state.lastFrameTime = performance.now(); state.attemptStartTime = performance.now();
+    requestAnimationFrame(gameLoop);
+  });
+
+  resizeCanvas();
+  render();
+})();
+</script>
+</body>
+</html>

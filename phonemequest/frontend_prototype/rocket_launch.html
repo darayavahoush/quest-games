@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Rocket Launch — Chime</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sky-deep: #1B1440;
+    --sky-mid: #3D2E7C;
+    --sky-light: #6C5CE7;
+    --star-gold: #FFD166;
+    --rocket-coral: #FF6B6B;
+    --rocket-coral-dark: #E64C4C;
+    --flame-amber: #FFA94D;
+    --flame-hot: #FFE066;
+    --success-mint: #6BCB77;
+    --cloud-white: #FFF8EC;
+    --panel-bg: rgba(27, 20, 64, 0.62);
+    --panel-border: rgba(255, 248, 236, 0.14);
+    --display-font: 'Baloo 2', sans-serif;
+    --body-font: 'Quicksand', sans-serif;
+    --shadow-lift: 0 24px 60px rgba(0,0,0,0.45);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--sky-deep);
+    font-family: var(--body-font);
+    color: var(--cloud-white);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #sky-canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .screen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 24px;
+    z-index: 10;
+  }
+
+  .hidden { display: none !important; }
+
+  .panel {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 28px 28px 40px 28px;
+    padding: 40px 36px;
+    max-width: 460px;
+    width: 100%;
+    backdrop-filter: blur(10px);
+    box-shadow: var(--shadow-lift);
+  }
+
+  h1.title {
+    font-family: var(--display-font);
+    font-weight: 800;
+    font-size: clamp(2rem, 6vw, 2.8rem);
+    margin: 0 0 8px;
+    color: var(--cloud-white);
+    text-shadow: 0 4px 0 rgba(0,0,0,0.15);
+  }
+
+  p.subtitle {
+    font-size: clamp(1rem, 3vw, 1.2rem);
+    font-weight: 700;
+    margin: 0 0 28px;
+    color: var(--star-gold);
+    line-height: 1.5;
+  }
+
+  button {
+    font-family: var(--display-font);
+    font-weight: 700;
+    font-size: 1.3rem;
+    border: none;
+    border-radius: 999px;
+    padding: 16px 40px;
+    cursor: pointer;
+    color: var(--sky-deep);
+    background: var(--star-gold);
+    box-shadow: 0 6px 0 #C99A2E, 0 10px 24px rgba(0,0,0,0.25);
+    transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.18s ease;
+  }
+
+  button:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 9px 0 #C99A2E, 0 16px 32px rgba(0,0,0,0.32); }
+  button:active {
+    transform: translateY(3px) scale(1);
+    box-shadow: 0 3px 0 #C99A2E, 0 6px 14px rgba(0,0,0,0.25);
+  }
+
+  button:focus-visible {
+    outline: 3px solid var(--cloud-white);
+    outline-offset: 3px;
+  }
+
+  button.secondary {
+    background: transparent;
+    color: var(--cloud-white);
+    box-shadow: none;
+    border: 2px solid var(--panel-border);
+    font-size: 1rem;
+    padding: 10px 22px;
+    margin-top: 14px;
+  }
+  button.secondary:active { transform: translateY(1px); }
+
+  .mic-icon {
+    font-size: 3.4rem;
+    margin-bottom: 12px;
+    display: inline-block;
+  }
+
+  .error-text {
+    font-size: 0.95rem;
+    color: #FFD3D3;
+    margin-top: 14px;
+    line-height: 1.5;
+  }
+
+  /* --- calibration ring --- */
+  .ring-wrap {
+    position: relative;
+    width: 150px;
+    height: 150px;
+    margin: 0 auto 22px;
+  }
+  .ring-wrap svg { transform: rotate(-90deg); }
+  .ring-bg { fill: none; stroke: rgba(255,255,255,0.12); stroke-width: 10; }
+  .ring-fg {
+    fill: none;
+    stroke: var(--star-gold);
+    stroke-width: 10;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.1s linear;
+  }
+  .ring-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+  }
+
+  /* --- top HUD during play --- */
+  #hud {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 18px 20px;
+    z-index: 20;
+    pointer-events: none;
+  }
+  #hud > * { pointer-events: auto; }
+
+  #encourage-caption {
+    font-family: var(--display-font);
+    font-weight: 700;
+    font-size: clamp(1rem, 3.5vw, 1.4rem);
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    padding: 10px 22px;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    max-width: 70vw;
+  }
+  #encourage-caption.visible { opacity: 1; }
+
+  .icon-btn {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    width: 46px; height: 46px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+    padding: 0;
+    color: var(--cloud-white);
+    backdrop-filter: blur(8px);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .icon-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(0,0,0,0.3); }
+  .icon-btn:active { transform: translateY(1px); }
+
+  #settings-panel {
+    position: fixed;
+    top: 74px; right: 18px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 20px 20px 28px 20px;
+    padding: 18px 20px;
+    z-index: 30;
+    width: 240px;
+    text-align: left;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 16px 40px rgba(0,0,0,0.3);
+  }
+  #settings-panel h3 {
+    font-family: var(--display-font);
+    margin: 0 0 12px;
+    font-size: 1.1rem;
+  }
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    font-weight: 700;
+    font-size: 0.95rem;
+  }
+  .switch {
+    position: relative;
+    width: 46px; height: 26px;
+    flex-shrink: 0;
+  }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch-track {
+    position: absolute; inset: 0;
+    background: rgba(255,255,255,0.2);
+    border-radius: 999px;
+    transition: background 0.2s ease;
+    cursor: pointer;
+  }
+  .switch-track::before {
+    content: "";
+    position: absolute;
+    width: 20px; height: 20px;
+    left: 3px; top: 3px;
+    background: var(--cloud-white);
+    border-radius: 50%;
+    transition: transform 0.2s ease;
+  }
+  .switch input:checked + .switch-track { background: var(--success-mint); }
+  .switch input:checked + .switch-track::before { transform: translateX(20px); }
+
+  #settings-panel button.secondary {
+    width: 100%;
+    margin-top: 4px;
+  }
+
+  /* --- success overlay --- */
+  #success-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 40;
+    background: rgba(27, 20, 64, 0.35);
+  }
+  #success-overlay .panel {
+    text-align: center;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    button { transition: none; }
+  }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px; height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+</style>
+</head>
+<body>
+
+<canvas id="sky-canvas" aria-hidden="true"></canvas>
+
+<!-- START SCREEN -->
+<div id="screen-start" class="screen">
+  <div class="panel">
+    <div class="mic-icon">🚀</div>
+    <h1 class="title">Rocket Launch</h1>
+    <p class="subtitle">Say a big, loud "AAAA" to blast your rocket into space!</p>
+    <button id="btn-start">Let's Play!</button>
+  </div>
+</div>
+
+<!-- MIC ERROR SCREEN -->
+<div id="screen-mic-error" class="screen hidden">
+  <div class="panel">
+    <div class="mic-icon">🎤</div>
+    <h1 class="title" style="font-size: 1.6rem;">We need to hear you!</h1>
+    <p class="error-text" id="mic-error-detail">Please allow microphone access so your rocket can hear your voice.</p>
+    <button id="btn-retry-mic">Try Again</button>
+  </div>
+</div>
+
+<!-- CALIBRATION SCREEN -->
+<div id="screen-calibrate" class="screen hidden">
+  <div class="panel">
+    <div class="ring-wrap">
+      <svg width="150" height="150">
+        <circle class="ring-bg" cx="75" cy="75" r="60"></circle>
+        <circle class="ring-fg" id="calib-ring" cx="75" cy="75" r="60"
+                stroke-dasharray="377" stroke-dashoffset="377"></circle>
+      </svg>
+      <div class="ring-label" id="calib-emoji">🤫</div>
+    </div>
+    <h1 class="title" id="calib-title" style="font-size: 1.6rem;">Let's find quiet...</h1>
+    <p class="subtitle" id="calib-subtitle">Stay nice and quiet for a moment</p>
+  </div>
+</div>
+
+<!-- PLAY HUD -->
+<div id="hud" class="hidden">
+  <div id="encourage-caption"></div>
+  <button id="btn-settings" class="icon-btn" aria-label="Settings">⚙️</button>
+</div>
+
+<div id="settings-panel" class="hidden">
+  <h3>Settings</h3>
+  <div class="toggle-row">
+    <span>Reduce motion</span>
+    <label class="switch">
+      <input type="checkbox" id="toggle-motion">
+      <span class="switch-track"></span>
+    </label>
+  </div>
+  <div class="toggle-row">
+    <span>Mute sounds</span>
+    <label class="switch">
+      <input type="checkbox" id="toggle-mute">
+      <span class="switch-track"></span>
+    </label>
+  </div>
+  <button id="btn-recalibrate" class="secondary">Recalibrate mic</button>
+</div>
+
+<!-- SUCCESS OVERLAY -->
+<div id="success-overlay" class="hidden">
+  <div class="panel">
+    <div class="mic-icon">🌟</div>
+    <h1 class="title">You did it!</h1>
+    <p class="subtitle">Your rocket reached the stars!</p>
+    <p id="agent-feedback" style="font-size: 0.95rem; opacity: 0.85; margin: -14px 0 20px;"></p>
+    <button id="btn-play-again">Launch Again!</button>
+  </div>
+</div>
+
+<div class="visually-hidden" id="aria-live" aria-live="polite"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ============================================================
+  // Pure scoring/state logic — unit tested in isolation before
+  // being embedded here. Do not change the math without re-running
+  // rocket_logic.test.js against an equivalent copy.
+  // ============================================================
+  function computeRMS(floatSamples) {
+    let sumSquares = 0;
+    for (let i = 0; i < floatSamples.length; i++) {
+      sumSquares += floatSamples[i] * floatSamples[i];
+    }
+    return Math.sqrt(sumSquares / floatSamples.length);
+  }
+
+  function computeLoudnessScore(rms, noiseFloor, maxExpected) {
+    if (rms <= noiseFloor) return 0;
+    const score = (rms - noiseFloor) / (maxExpected - noiseFloor);
+    return Math.max(0, Math.min(1, score));
+  }
+
+  function updateAltitude(currentAltitude, score, dt, config, pitchBoost = 0) {
+    const { riseRate, fallRate, scoreThreshold } = config;
+    let next;
+    if (score >= scoreThreshold) {
+      const intensity = (score - scoreThreshold) / (1 - scoreThreshold);
+      const loudnessMultiplier = 0.4 + 1.4 * intensity;
+      const pitchMultiplier = 1 + 0.5 * pitchBoost;
+      next = currentAltitude + riseRate * loudnessMultiplier * pitchMultiplier * dt;
+    } else {
+      next = currentAltitude - fallRate * dt;
+    }
+    return Math.max(0, Math.min(1, next));
+  }
+
+  // Autocorrelation pitch detection — takes the first strong local peak (shortest
+  // lag), not the global max, to avoid octave errors on clean tones. See
+  // rocket_logic.test.js for the verification this was actually tested against.
+  function detectPitch(floatSamples, sampleRate, minHz = 80, maxHz = 600) {
+    const SIZE = floatSamples.length;
+    const maxLag = Math.floor(sampleRate / minHz);
+    const minLag = Math.floor(sampleRate / maxHz);
+
+    let rms = 0;
+    for (let i = 0; i < SIZE; i++) rms += floatSamples[i] * floatSamples[i];
+    rms = Math.sqrt(rms / SIZE);
+    if (rms < 0.01) return { frequency: 0, confidence: 0 };
+
+    const correlations = [];
+    for (let lag = minLag; lag <= maxLag && lag < SIZE; lag++) {
+      let correlation = 0, normA = 0, normB = 0;
+      for (let i = 0; i < SIZE - lag; i++) {
+        correlation += floatSamples[i] * floatSamples[i + lag];
+        normA += floatSamples[i] * floatSamples[i];
+        normB += floatSamples[i + lag] * floatSamples[i + lag];
+      }
+      const denom = Math.sqrt(normA * normB);
+      correlations.push(denom > 0 ? correlation / denom : 0);
+    }
+
+    const PEAK_THRESHOLD = 0.85;
+    let bestIndex = -1;
+    for (let i = 1; i < correlations.length - 1; i++) {
+      if (correlations[i] > PEAK_THRESHOLD &&
+          correlations[i] >= correlations[i - 1] &&
+          correlations[i] >= correlations[i + 1]) {
+        bestIndex = i;
+        break;
+      }
+    }
+    if (bestIndex === -1) {
+      let bestVal = -1;
+      for (let i = 0; i < correlations.length; i++) {
+        if (correlations[i] > bestVal) { bestVal = correlations[i]; bestIndex = i; }
+      }
+    }
+    if (bestIndex === -1) return { frequency: 0, confidence: 0 };
+    const bestLag = minLag + bestIndex;
+    const bestCorrelation = correlations[bestIndex];
+    if (bestCorrelation <= 0) return { frequency: 0, confidence: 0 };
+    return { frequency: sampleRate / bestLag, confidence: Math.max(0, Math.min(1, bestCorrelation)) };
+  }
+
+  function pitchToBoost(pitchResult, boostMinHz = 220, boostMaxHz = 500, minConfidence = 0.85) {
+    if (pitchResult.confidence < minConfidence || pitchResult.frequency <= 0) return 0;
+    const t = (pitchResult.frequency - boostMinHz) / (boostMaxHz - boostMinHz);
+    return Math.max(0, Math.min(1, t));
+  }
+
+  const BASE_ALTITUDE_CONFIG = { riseRate: 0.55, fallRate: 0.18, scoreThreshold: 0.20 }; // starts at the SAFE_RANGE floor — easiest first attempt, agent gently raises it as the child succeeds
+  const PITCH_CHECK_EVERY_N_FRAMES = 3; // autocorrelation is heavier than RMS — throttle it
+
+  // ============================================================
+  // Difficulty agent (rule-based) — same logic as agent/baselines.py's
+  // RuleBasedAgent (rung 1 of the ladder), ported to JS so the game can give
+  // live feedback between attempts without needing a backend. The trained
+  // tabular-Q / PPO models are Python-side (agent/train_ppo.py, agent/evaluate.py)
+  // and would need a small API to serve live decisions here — documented as a
+  // follow-up in the README, not done in this prototype.
+  //
+  // Bounded on purpose (scoreThreshold only ever moves within SAFE_RANGE): this
+  // mirrors the "safety envelope" principle from the project doc — a rule-based
+  // or learned difficulty controller should only ever nudge within pre-approved
+  // bounds, never make an extreme jump.
+  // ============================================================
+  const DIFFICULTY_AGENT = {
+    SAFE_RANGE: [0.20, 0.55],
+    STEP: 0.05,
+    FAST_S: 4,    // faster than this = felt too easy
+    SLOW_S: 12,   // slower than this = felt like a real struggle
+
+    decide(timeToLaunchSeconds) {
+      if (timeToLaunchSeconds < this.FAST_S) {
+        return { action: 'raise', message: "That was fast! Let's aim a little higher next time 🚀" };
+      }
+      if (timeToLaunchSeconds > this.SLOW_S) {
+        return { action: 'lower', message: "Great effort! Let's make the next one a little easier 🌟" };
+      }
+      return { action: 'hold', message: "Nice and steady! Let's keep this level for now 💛" };
+    },
+
+    apply(config, decision) {
+      const next = { ...config };
+      if (decision.action === 'raise') next.scoreThreshold += this.STEP;
+      if (decision.action === 'lower') next.scoreThreshold -= this.STEP;
+      next.scoreThreshold = Math.max(this.SAFE_RANGE[0], Math.min(this.SAFE_RANGE[1], next.scoreThreshold));
+      return next;
+    },
+  };
+
+  // ============================================================
+  // Backend integration — calls the real trained agent
+  // (backend/main.py's /agent/decide, per-child tabular Q by default via
+  // agent/child_q_store.py) instead of only the client-side rule-based
+  // DIFFICULTY_AGENT above. DIFFICULTY_AGENT.apply()'s safety envelope
+  // (SAFE_RANGE clamp) still runs on whatever action comes back, whether
+  // it's the trained agent's or the local fallback's — that bound matters
+  // more than which policy produced the action.
+  //
+  // Falls back to DIFFICULTY_AGENT.decide() locally if the backend is
+  // unreachable — same fallback pattern as village_builder.html — so a
+  // launch never stalls waiting on a fetch.
+  // ============================================================
+  const BACKEND_URL = 'http://localhost:8001';
+  const LEVEL_ID = 'aa_rocket';
+  const AGENT_POLICY = 'tabular_q'; // per-child, online-updatable — see agent/child_q_store.py
+
+  function getChildId() {
+    let id = localStorage.getItem('chime_child_id');
+    if (!id) {
+      id = 'child_' + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem('chime_child_id', id);
+    }
+    return id;
+  }
+  const CHILD_ID = getChildId();
+  let attemptNumber = 0;
+
+  async function logEventToBackend(payload) {
+    try {
+      await fetch(`${BACKEND_URL}/events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch (err) {
+      console.warn('Backend event logging unavailable:', err);
+    }
+  }
+
+  async function fetchAgentDecision() {
+    try {
+      const resp = await fetch(`${BACKEND_URL}/agent/decide/${CHILD_ID}/${LEVEL_ID}?policy=${AGENT_POLICY}`);
+      if (!resp.ok) throw new Error(`backend returned ${resp.status}`);
+      return await resp.json(); // { policy, action, n_events_considered, message }
+    } catch (err) {
+      console.warn('Trained-agent endpoint unavailable, falling back to local rule-based agent:', err);
+      return null;
+    }
+  }
+
+  // Maps launch time onto the same 0-1 score scale /events expects (success
+  // threshold 0.6) — faster launches score higher. Uses the same FAST_S/
+  // SLOW_S bounds the local rule-based agent already defines, so both paths
+  // agree on what "fast" and "slow" mean.
+  function timeToScore(timeToLaunchSeconds) {
+    if (timeToLaunchSeconds <= DIFFICULTY_AGENT.FAST_S) return 1.0;
+    if (timeToLaunchSeconds >= DIFFICULTY_AGENT.SLOW_S) return 0.2;
+    const t = (timeToLaunchSeconds - DIFFICULTY_AGENT.FAST_S) / (DIFFICULTY_AGENT.SLOW_S - DIFFICULTY_AGENT.FAST_S);
+    return 1.0 - t * 0.8;
+  }
+
+  async function updateDifficultyFromAttempt(timeToLaunchSeconds) {
+    attemptNumber++;
+    const score = timeToScore(timeToLaunchSeconds);
+
+    await logEventToBackend({
+      child_id: CHILD_ID,
+      level_id: LEVEL_ID,
+      attempt_number: attemptNumber,
+      score,
+      is_valid_attempt: true,
+      threshold_at_time: state.difficultyConfig.scoreThreshold,
+      quit_flag: false,
+    });
+
+    let decision = await fetchAgentDecision();
+    if (!decision) {
+      decision = DIFFICULTY_AGENT.decide(timeToLaunchSeconds); // offline fallback
+    }
+
+    state.difficultyConfig = DIFFICULTY_AGENT.apply(state.difficultyConfig, decision);
+    document.getElementById('agent-feedback').textContent = decision.message;
+  }
+
+  // ============================================================
+  // State
+  // ============================================================
+  const state = {
+    audioCtx: null,
+    analyser: null,
+    timeDomainData: null,
+    noiseFloor: 0.01,
+    maxExpectedRms: 0.3,
+    altitude: 0,
+    smoothedScore: 0,
+    pitchBoost: 0,
+    frameCount: 0,
+    lastFrameTime: 0,
+    reduceMotion: localStorage.getItem('pq_reduce_motion') === 'true',
+    muted: localStorage.getItem('pq_muted') === 'true',
+    hasLaunched: false,
+    quietStreak: 0,
+    stars: [],
+    particles: [],
+    sparkles: [],
+    difficultyConfig: { ...BASE_ALTITUDE_CONFIG },
+    attemptStartTime: 0,
+  };
+
+  // ============================================================
+  // DOM refs
+  // ============================================================
+  const canvas = document.getElementById('sky-canvas');
+  const ctx = canvas.getContext('2d');
+  const screens = {
+    start: document.getElementById('screen-start'),
+    micError: document.getElementById('screen-mic-error'),
+    calibrate: document.getElementById('screen-calibrate'),
+  };
+  const hud = document.getElementById('hud');
+  const settingsPanel = document.getElementById('settings-panel');
+  const successOverlay = document.getElementById('success-overlay');
+  const encourageCaption = document.getElementById('encourage-caption');
+  const ariaLive = document.getElementById('aria-live');
+
+  document.getElementById('toggle-motion').checked = state.reduceMotion;
+  document.getElementById('toggle-mute').checked = state.muted;
+
+  function showScreen(name) {
+    Object.values(screens).forEach(s => s.classList.add('hidden'));
+    if (name && screens[name]) screens[name].classList.remove('hidden');
+  }
+
+  // ============================================================
+  // Canvas sizing
+  // ============================================================
+  let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+  function resizeCanvas() {
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = W * DPR;
+    canvas.height = H * DPR;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    initStars();
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  function initStars() {
+    const count = Math.floor((W * H) / 9000);
+    state.stars = Array.from({ length: count }, () => ({
+      x: Math.random() * W,
+      y: Math.random() * H * 0.8,
+      r: Math.random() * 1.6 + 0.6,
+      phase: Math.random() * Math.PI * 2,
+      speed: Math.random() * 0.6 + 0.3,
+    }));
+  }
+
+  // ============================================================
+  // Simple synthesized sound effects (no external audio assets)
+  // ============================================================
+  function playTone(freq, duration, type = 'sine', gainPeak = 0.06) {
+    if (state.muted || !state.audioCtx) return;
+    const ctxA = state.audioCtx;
+    const osc = ctxA.createOscillator();
+    const gain = ctxA.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, ctxA.currentTime);
+    gain.gain.linearRampToValueAtTime(gainPeak, ctxA.currentTime + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctxA.currentTime + duration);
+    osc.connect(gain).connect(ctxA.destination);
+    osc.start();
+    osc.stop(ctxA.currentTime + duration + 0.05);
+  }
+
+  function playSuccessChime() {
+    if (state.muted) return;
+    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+      setTimeout(() => playTone(f, 0.5, 'triangle', 0.05), i * 110);
+    });
+  }
+
+  // ============================================================
+  // Mic + calibration
+  // ============================================================
+  async function requestMicAndCalibrate() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: {
+        echoCancellation: true, noiseSuppression: false, autoGainControl: false
+      }});
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      state.audioCtx = new AudioContextClass();
+      const source = state.audioCtx.createMediaStreamSource(stream);
+      state.analyser = state.audioCtx.createAnalyser();
+      state.analyser.fftSize = 2048;
+      state.timeDomainData = new Float32Array(state.analyser.fftSize);
+      source.connect(state.analyser); // intentionally NOT connected to destination (no echo)
+      runCalibration();
+    } catch (err) {
+      document.getElementById('mic-error-detail').textContent =
+        err.name === 'NotAllowedError'
+          ? 'Please allow microphone access so your rocket can hear your voice.'
+          : 'Something went wrong reaching the microphone. Please try again.';
+      showScreen('micError');
+    }
+  }
+
+  function readCurrentRMS() {
+    state.analyser.getFloatTimeDomainData(state.timeDomainData);
+    return computeRMS(state.timeDomainData);
+  }
+
+  function runCalibration() {
+    showScreen('calibrate');
+    const ring = document.getElementById('calib-ring');
+    const CIRC = 2 * Math.PI * 60;
+    ring.setAttribute('stroke-dasharray', CIRC);
+
+    const QUIET_MS = 1200; // lowered from 2000 — faster into gameplay
+    const LOUD_MS = 1800; // lowered from 2500
+    let quietSamples = [];
+    let loudSamples = [];
+
+    function setRing(progress) {
+      ring.setAttribute('stroke-dashoffset', CIRC * (1 - progress));
+    }
+
+    document.getElementById('calib-title').textContent = "Let's find quiet...";
+    document.getElementById('calib-subtitle').textContent = 'Stay nice and quiet for a moment';
+    document.getElementById('calib-emoji').textContent = '🤫';
+
+    const quietStart = performance.now();
+    function quietStep(now) {
+      const elapsed = now - quietStart;
+      quietSamples.push(readCurrentRMS());
+      setRing(Math.min(1, elapsed / QUIET_MS));
+      if (elapsed < QUIET_MS) {
+        requestAnimationFrame(quietStep);
+      } else {
+        const sorted = [...quietSamples].sort((a, b) => a - b);
+        const p90 = sorted[Math.floor(sorted.length * 0.9)] || 0.01;
+        state.noiseFloor = Math.max(0.006, p90 * 1.4);
+        startLoudPhase();
+      }
+    }
+
+    function startLoudPhase() {
+      document.getElementById('calib-title').textContent = 'Now say "AAAA"!';
+      document.getElementById('calib-subtitle').textContent = 'As loud as you can, for a few seconds';
+      document.getElementById('calib-emoji').textContent = '📣';
+      setRing(0);
+      const loudStart = performance.now();
+      function loudStep(now) {
+        const elapsed = now - loudStart;
+        loudSamples.push(readCurrentRMS());
+        setRing(Math.min(1, elapsed / LOUD_MS));
+        if (elapsed < LOUD_MS) {
+          requestAnimationFrame(loudStep);
+        } else {
+          // Was p90 (near-peak burst) — but gameplay needs SUSTAINED loud
+          // "aaaa" for seconds, which decays below peak almost immediately.
+          // Same fix as submarine_dive.html: calibrate against sustained
+          // loudness (p55), not a peak you can't hold.
+          const sorted = [...loudSamples].sort((a, b) => a - b);
+          const loudSustained = sorted[Math.floor(sorted.length * 0.55)] || 0.2;
+          state.maxExpectedRms = Math.max(state.noiseFloor + 0.05, loudSustained);
+          finishCalibration();
+        }
+      }
+      requestAnimationFrame(loudStep);
+    }
+
+    requestAnimationFrame(quietStep);
+  }
+
+  function finishCalibration() {
+    showScreen(null);
+    hud.classList.remove('hidden');
+    state.altitude = 0;
+    state.hasLaunched = false;
+    state.lastFrameTime = performance.now();
+    state.attemptStartTime = performance.now();
+    ariaLive.textContent = 'Ready! Say aaa to launch your rocket.';
+    requestAnimationFrame(gameLoop);
+  }
+
+  // ============================================================
+  // Game loop
+  // ============================================================
+  function gameLoop(now) {
+    const dt = Math.min(0.1, (now - state.lastFrameTime) / 1000);
+    state.lastFrameTime = now;
+    state.frameCount++;
+
+    const rms = readCurrentRMS();
+    const rawScore = computeLoudnessScore(rms, state.noiseFloor, state.maxExpectedRms);
+    state.smoothedScore = state.smoothedScore * 0.7 + rawScore * 0.3;
+
+    // Pitch is only checked periodically (autocorrelation is heavier than RMS) and
+    // only matters while there's an actual loud attempt happening — no point
+    // pitch-tracking silence. This purely adds speed/visual flourish; it never
+    // gates whether the rocket climbs at all — loudness alone still does that.
+    if (rawScore > 0.15 && state.frameCount % PITCH_CHECK_EVERY_N_FRAMES === 0) {
+      const pitch = detectPitch(state.timeDomainData, state.audioCtx.sampleRate);
+      state.pitchBoost = pitchToBoost(pitch);
+    } else if (rawScore <= 0.15) {
+      state.pitchBoost = 0;
+    }
+
+    // Same yo-yo fix as submarine_dive.html — drive altitude off the
+    // SMOOTHED score, not the raw per-frame one, so a single quiet frame
+    // (breath, brief pause) doesn't instantly flip the rocket to falling.
+    state.altitude = updateAltitude(state.altitude, state.smoothedScore, dt, state.difficultyConfig, state.pitchBoost);
+
+    if (state.pitchBoost > 0.3 && Math.random() < state.pitchBoost * 0.6) {
+      spawnBoostSparkle();
+    }
+
+    if (rawScore < 0.15) {
+      state.quietStreak += dt;
+    } else {
+      state.quietStreak = 0;
+    }
+    encourageCaption.classList.toggle('visible', state.quietStreak > 3 && state.altitude < 0.15);
+    if (state.quietStreak > 3) {
+      encourageCaption.textContent = 'Take a big breath and try a loud "aaaa"!';
+    }
+
+    render();
+
+    if (state.altitude >= 0.999 && !state.hasLaunched) {
+      state.hasLaunched = true;
+      onLaunchSuccess();
+    }
+
+    if (!state.hasLaunched) requestAnimationFrame(gameLoop);
+  }
+
+  function onLaunchSuccess() {
+    playSuccessChime();
+    ariaLive.textContent = 'You did it! Your rocket reached the stars.';
+    spawnCelebrationParticles();
+
+    const timeToLaunchSeconds = (performance.now() - state.attemptStartTime) / 1000;
+    updateDifficultyFromAttempt(timeToLaunchSeconds); // async — doesn't block the celebration below
+
+    let celebrateFrames = 0;
+    function celebrateLoop(now) {
+      render();
+      celebrateFrames++;
+      if (celebrateFrames < 90) requestAnimationFrame(celebrateLoop);
+    }
+    requestAnimationFrame(celebrateLoop);
+    setTimeout(() => successOverlay.classList.remove('hidden'), 500);
+  }
+
+  function spawnCelebrationParticles() {
+    const count = state.reduceMotion ? 18 : 60;
+    for (let i = 0; i < count; i++) {
+      state.particles.push({
+        x: W / 2, y: H * 0.18,
+        vx: (Math.random() - 0.5) * 6,
+        vy: (Math.random() - 0.5) * 6 - 1,
+        life: 1,
+        color: [ '#FFD166', '#FF6B6B', '#6BCB77', '#FFE066' ][i % 4],
+        r: Math.random() * 3 + 2,
+      });
+    }
+  }
+
+  // Pitch-boost sparkles — a visually distinct (cool/icy color, star-shaped) trail
+  // from the warm amber flame, so kids can tell "loud" (flame) apart from
+  // "loud AND high-pitched, extra boost" (sparkles) at a glance.
+  function spawnBoostSparkle() {
+    if (state.reduceMotion) return;
+    const padY = H - 90;
+    const topY = H * 0.16;
+    const rocketY = padY - (padY - topY) * state.altitude;
+    const rocketX = W / 2;
+    const side = Math.random() < 0.5 ? -1 : 1;
+    state.sparkles.push({
+      x: rocketX + side * (18 + Math.random() * 8),
+      y: rocketY + (Math.random() - 0.5) * 20,
+      vx: side * (0.5 + Math.random() * 0.8),
+      vy: -0.4 - Math.random() * 0.6,
+      life: 1,
+      r: Math.random() * 2.5 + 1.5,
+    });
+  }
+
+  // ============================================================
+  // Rendering
+  // ============================================================
+  function render() {
+    // sky gradient
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, '#100C2E');
+    grad.addColorStop(1, getComputedCssVar('--sky-mid'));
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    drawStars();
+    drawParticles();
+    drawSparkles();
+    drawRocket();
+  }
+
+  let cssVarCache = {};
+  function getComputedCssVar(name) {
+    if (!cssVarCache[name]) {
+      cssVarCache[name] = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    }
+    return cssVarCache[name];
+  }
+
+  let starTime = 0;
+  function drawStars() {
+    if (!state.reduceMotion) starTime += 0.016;
+    ctx.save();
+    for (const s of state.stars) {
+      const twinkle = state.reduceMotion ? 0.8 : 0.6 + 0.4 * Math.sin(starTime * s.speed + s.phase);
+      ctx.globalAlpha = twinkle;
+      ctx.fillStyle = '#FFF8EC';
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawParticles() {
+    ctx.save();
+    state.particles = state.particles.filter(p => p.life > 0);
+    for (const p of state.particles) {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.08;
+      p.life -= 0.014;
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawStarShape(cx, cy, r) {
+    ctx.beginPath();
+    for (let i = 0; i < 4; i++) {
+      const angle = (Math.PI / 2) * i;
+      const outerX = cx + Math.cos(angle) * r;
+      const outerY = cy + Math.sin(angle) * r;
+      const midAngle = angle + Math.PI / 4;
+      const innerX = cx + Math.cos(midAngle) * r * 0.35;
+      const innerY = cy + Math.sin(midAngle) * r * 0.35;
+      if (i === 0) ctx.moveTo(outerX, outerY); else ctx.lineTo(outerX, outerY);
+      ctx.lineTo(innerX, innerY);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawSparkles() {
+    ctx.save();
+    state.sparkles = state.sparkles.filter(s => s.life > 0);
+    for (const s of state.sparkles) {
+      s.x += s.vx;
+      s.y += s.vy;
+      s.life -= 0.02;
+      ctx.globalAlpha = Math.max(0, s.life);
+      ctx.fillStyle = '#B8F2FF';
+      drawStarShape(s.x, s.y, s.r);
+    }
+    ctx.restore();
+  }
+
+  let blinkTime = 0;
+  function drawRocket() {
+    const padY = H - 90;
+    const topY = H * 0.16;
+    const rocketY = padY - (padY - topY) * state.altitude;
+    const rocketX = W / 2;
+
+    // launch pad
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    ctx.fillRect(rocketX - 60, H - 40, 120, 10);
+
+    // ground shadow — fixed near the pad, fades as the rocket climbs away from it
+    const shadowOpacity = 0.25 * (1 - state.altitude);
+    if (shadowOpacity > 0.01) {
+      ctx.save();
+      ctx.globalAlpha = shadowOpacity;
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.ellipse(rocketX, H - 34, 34, 7, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // main flame trail — driven live by smoothed loudness score (the signature element)
+    const flameHeight = 14 + state.smoothedScore * 74;
+    const flameFlicker = state.reduceMotion ? 0 : Math.sin(performance.now() * 0.03) * 4 * state.smoothedScore;
+    if (state.smoothedScore > 0.03) {
+      const flameGrad = ctx.createLinearGradient(0, rocketY + 40, 0, rocketY + 40 + flameHeight);
+      flameGrad.addColorStop(0, '#FFE066');
+      flameGrad.addColorStop(0.5, '#FFA94D');
+      flameGrad.addColorStop(1, 'rgba(255,107,107,0)');
+      ctx.fillStyle = flameGrad;
+      ctx.beginPath();
+      ctx.moveTo(rocketX - 11, rocketY + 40);
+      ctx.quadraticCurveTo(rocketX + flameFlicker, rocketY + 40 + flameHeight, rocketX, rocketY + 40 + flameHeight + 6);
+      ctx.quadraticCurveTo(rocketX - flameFlicker, rocketY + 40 + flameHeight, rocketX + 11, rocketY + 40);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    ctx.save();
+    ctx.translate(rocketX, rocketY);
+    if (!state.reduceMotion) blinkTime += 0.016;
+
+    // --- side boosters (drawn first, so the main body overlaps them) ---
+    [-1, 1].forEach(side => {
+      const bx = side * 21;
+      ctx.save();
+      ctx.translate(bx, 0);
+
+      // small booster flame, echoes the main flame but smaller
+      if (state.smoothedScore > 0.05) {
+        const bFlameH = 8 + state.smoothedScore * 30;
+        const bGrad = ctx.createLinearGradient(0, 26, 0, 26 + bFlameH);
+        bGrad.addColorStop(0, '#FFE066');
+        bGrad.addColorStop(1, 'rgba(255,169,77,0)');
+        ctx.fillStyle = bGrad;
+        ctx.beginPath();
+        ctx.moveTo(-5, 26);
+        ctx.quadraticCurveTo(0, 26 + bFlameH, 0, 26 + bFlameH + 3);
+        ctx.quadraticCurveTo(0, 26 + bFlameH, 5, 26);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      const boosterGrad = ctx.createLinearGradient(-7, 0, 7, 0);
+      boosterGrad.addColorStop(0, '#C99A2E');
+      boosterGrad.addColorStop(0.4, '#FFD166');
+      boosterGrad.addColorStop(1, '#E0A93D');
+      ctx.fillStyle = boosterGrad;
+      ctx.beginPath();
+      ctx.moveTo(0, -10);
+      ctx.quadraticCurveTo(7, -6, 7, 4);
+      ctx.lineTo(7, 22);
+      ctx.quadraticCurveTo(7, 26, 0, 26);
+      ctx.quadraticCurveTo(-7, 26, -7, 22);
+      ctx.lineTo(-7, 4);
+      ctx.quadraticCurveTo(-7, -6, 0, -10);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-7, 10); ctx.lineTo(7, 10);
+      ctx.stroke();
+
+      ctx.restore();
+    });
+
+    // --- main body: nose cone + cylinder, one continuous silhouette ---
+    const bodyGrad = ctx.createLinearGradient(-15, 0, 15, 0);
+    bodyGrad.addColorStop(0, '#E64C4C');
+    bodyGrad.addColorStop(0.35, '#FF8585');
+    bodyGrad.addColorStop(0.55, '#FF6B6B');
+    bodyGrad.addColorStop(1, '#D43F3F');
+
+    ctx.beginPath();
+    ctx.moveTo(0, -50);
+    ctx.quadraticCurveTo(15, -20, 15, -14);
+    ctx.lineTo(15, 16);
+    ctx.quadraticCurveTo(15, 20, 11, 20);
+    ctx.lineTo(-11, 20);
+    ctx.quadraticCurveTo(-15, 20, -15, 16);
+    ctx.lineTo(-15, -14);
+    ctx.quadraticCurveTo(-15, -20, 0, -50);
+    ctx.closePath();
+    ctx.fillStyle = bodyGrad;
+    ctx.fill();
+
+    // panel lines
+    ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-15, 2); ctx.lineTo(15, 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-14, 10); ctx.lineTo(14, 10);
+    ctx.stroke();
+
+    // nose-tip accent (two-tone paint detail)
+    ctx.fillStyle = '#FFD166';
+    ctx.beginPath();
+    ctx.moveTo(0, -50);
+    ctx.quadraticCurveTo(9, -32, 9, -26);
+    ctx.lineTo(-9, -26);
+    ctx.quadraticCurveTo(-9, -32, 0, -50);
+    ctx.closePath();
+    ctx.fill();
+
+    // antenna
+    ctx.strokeStyle = '#FFD166';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, -50);
+    ctx.lineTo(0, -60);
+    ctx.stroke();
+    const blink = 0.5 + 0.5 * Math.sin(blinkTime * 2.2);
+    ctx.globalAlpha = 0.5 + 0.5 * blink;
+    ctx.fillStyle = '#FFE066';
+    ctx.beginPath();
+    ctx.arc(0, -61, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // window: bezel + glass + reflection highlight
+    ctx.fillStyle = '#2A2158';
+    ctx.beginPath();
+    ctx.arc(0, -8, 10.5, 0, Math.PI * 2);
+    ctx.fill();
+    const glassGrad = ctx.createRadialGradient(-2, -10, 1, 0, -8, 8);
+    glassGrad.addColorStop(0, '#EAF9FF');
+    glassGrad.addColorStop(1, '#6C5CE7');
+    ctx.fillStyle = glassGrad;
+    ctx.beginPath();
+    ctx.arc(0, -8, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.beginPath();
+    ctx.ellipse(-2.5, -10.5, 2.6, 1.6, -0.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // fins: darker base shape + lighter inset stripe, two-tone shading
+    [-1, 1].forEach(side => {
+      ctx.save();
+      ctx.scale(side, 1);
+      ctx.fillStyle = '#B83A3A';
+      ctx.beginPath();
+      ctx.moveTo(11, 8);
+      ctx.lineTo(30, 30);
+      ctx.lineTo(16, 26);
+      ctx.lineTo(11, 20);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = '#E64C4C';
+      ctx.beginPath();
+      ctx.moveTo(13, 12);
+      ctx.lineTo(24, 26);
+      ctx.lineTo(15, 23);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    });
+
+    ctx.restore();
+  }
+
+  // ============================================================
+  // UI wiring
+  // ============================================================
+  document.getElementById('btn-start').addEventListener('click', requestMicAndCalibrate);
+  document.getElementById('btn-retry-mic').addEventListener('click', requestMicAndCalibrate);
+
+  document.getElementById('btn-settings').addEventListener('click', () => {
+    settingsPanel.classList.toggle('hidden');
+  });
+
+  document.getElementById('toggle-motion').addEventListener('change', (e) => {
+    state.reduceMotion = e.target.checked;
+    localStorage.setItem('pq_reduce_motion', state.reduceMotion);
+  });
+
+  document.getElementById('toggle-mute').addEventListener('change', (e) => {
+    state.muted = e.target.checked;
+    localStorage.setItem('pq_muted', state.muted);
+  });
+
+  document.getElementById('btn-recalibrate').addEventListener('click', () => {
+    settingsPanel.classList.add('hidden');
+    hud.classList.add('hidden');
+    runCalibration();
+  });
+
+  document.getElementById('btn-play-again').addEventListener('click', () => {
+    successOverlay.classList.add('hidden');
+    state.altitude = 0;
+    state.hasLaunched = false;
+    state.particles = [];
+    state.lastFrameTime = performance.now();
+    state.attemptStartTime = performance.now();
+    requestAnimationFrame(gameLoop);
+  });
+
+  resizeCanvas();
+  render();
+})();
+</script>
+</body>
+</html>
