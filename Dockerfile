@@ -26,8 +26,10 @@ COPY --from=frontend-build /frontend/dist ./static
 # resets on redeploy/restart), fixed secret (no real patient data
 # will live here). Not for production use.
 ENV DATABASE_URL=sqlite+aiosqlite:///./data.db
-ENV SECRET_KEY=demo-only-hf-space-not-for-production
+ENV SECRET_KEY=demo-only-render-space-not-for-production
+# Smaller whisper model to stay comfortably under Render's free 512MB RAM
 ENV DEBUG=false
+ENV CHIME_WHISPER_MODEL=tiny
 ENV PORT=7860
 
 EXPOSE 7860
