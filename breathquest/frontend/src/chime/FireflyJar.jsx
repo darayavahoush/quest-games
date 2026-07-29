@@ -3,10 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Settings } from 'lucide-react'
 import { logEvent, getAgentDecision } from './lib/api'
 
-// NOTE: this file is still named DrumIsland.jsx / routed as "drum-island"
-// to match App.jsx and the "ma" levelId, but the actual game design here
-// is "Firefly Jar" (catch fireflies by saying "ma", fill the jar) —
-// the theme was redesigned upstream. Consider renaming file+route later.
 
 const MIN_PEAK_RMS_DEFAULT = 0.05
 const MAX_EXPECTED_PEAK_RMS_DEFAULT = 0.4
@@ -58,7 +54,7 @@ const DIFFICULTY_AGENT = {
   },
 }
 
-export default function DrumIsland() {
+export default function FireflyJar() {
   const navigate = useNavigate()
   const canvasRef = useRef(null)
   const rafRef = useRef(null)
@@ -624,7 +620,6 @@ export default function DrumIsland() {
       <div className="fjar-visually-hidden" aria-live="polite">{ariaMsg}</div>
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Quicksand:wght@500;600;700&display=swap');
         .fjar-root {
           --night-top: #1B2A4A; --night-deep: #101A30; --firefly-glow: #FFE9A0;
           --gold: #FFD166; --cloud-white: #FFF8EC;

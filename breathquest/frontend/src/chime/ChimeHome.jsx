@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Rocket, Waves, Music2, Wind, Droplets, Mic } from 'lucide-react'
+import { Rocket, Waves, Sparkles, Wind, Droplets, Mic } from 'lucide-react'
 import ChimeGameCard from './ChimeGameCard.jsx'
 import { getPassedLevels, getUnlockedLevels } from './lib/levelProgress'
 import './chime-home.css'
@@ -11,9 +11,9 @@ const GAMES = [
   { levelId: 'oo', to: '/play/chime/submarine-dive', title: 'Submarine Dive',
     blurb: 'A long, low "oooo" sends your submarine deeper.',
     accent: '#2FB8A6', icon: Waves },
-  { levelId: 'ma', to: '/play/chime/drum-island', title: 'Drum Island',
-    blurb: 'Keep a steady "ma-ma-ma" beat on the drums.',
-    accent: '#F4B942', icon: Music2 },
+  { levelId: 'ma', to: '/play/chime/firefly-jar', title: 'Firefly Jar',
+    blurb: 'Say "ma-ma-ma" to catch fireflies and fill your jar.',
+    accent: '#F4B942', icon: Sparkles },
   { levelId: 'fa', to: '/play/chime/wind-chime-garden', title: 'Wind Chime Garden',
     blurb: 'A long, breathy "ffff" stirs the chimes in the breeze.',
     accent: '#1D9E75', icon: Wind },

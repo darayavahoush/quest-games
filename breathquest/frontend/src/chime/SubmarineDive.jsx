@@ -837,7 +837,6 @@ export default function SubmarineDive() {
       <div className="sdv-visually-hidden" aria-live="polite">{ariaMsg}</div>
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Quicksand:wght@500;600;700&display=swap');
         .sdv-root {
           --sea-abyss: #061A2E; --sub-teal: #4ECDC4; --sub-teal-dark: #2FA89F;
           --gold: #FFD166; --cloud-white: #FFF8EC;

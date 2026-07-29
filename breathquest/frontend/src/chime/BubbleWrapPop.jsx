@@ -564,7 +564,6 @@ export default function BubbleWrapPop() {
       <div className="bwp-visually-hidden" aria-live="polite">{ariaMsg}</div>
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Quicksand:wght@500;600;700&display=swap');
         .bwp-root {
           --cozy-deep: #C97B8B; --gold: #FFD166; --mint: #6BCB77; --cloud-white: #FFF8EC;
           --panel-bg: rgba(201, 123, 139, 0.6); --panel-border: rgba(255, 248, 236, 0.2);

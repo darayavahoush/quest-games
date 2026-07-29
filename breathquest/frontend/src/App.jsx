@@ -18,7 +18,7 @@ import ChimeHome          from './chime/ChimeHome'
 import VillageBuilder     from './chime/VillageBuilder'
 import RocketLaunch       from './chime/RocketLaunch'
 import SubmarineDive      from './chime/SubmarineDive'
-import DrumIsland         from './chime/DrumIsland'
+import FireflyJar         from './chime/FireflyJar'
 import WindChimeGarden    from './chime/WindChimeGarden'
 import BubbleWrapPop      from './chime/BubbleWrapPop'
 import RequireLevelUnlocked from './chime/lib/RequireLevelUnlocked'
@@ -126,8 +126,8 @@ function AppRoutes() {
       <Route path="/play/chime/submarine-dive" element={
         <ProtectedKid><RequireLevelUnlocked levelId="oo"><SubmarineDive /></RequireLevelUnlocked></ProtectedKid>
       } />
-      <Route path="/play/chime/drum-island" element={
-        <ProtectedKid><RequireLevelUnlocked levelId="ma"><DrumIsland /></RequireLevelUnlocked></ProtectedKid>
+      <Route path="/play/chime/firefly-jar" element={
+        <ProtectedKid><RequireLevelUnlocked levelId="ma"><FireflyJar /></RequireLevelUnlocked></ProtectedKid>
       } />
       <Route path="/play/chime/wind-chime-garden" element={
         <ProtectedKid><RequireLevelUnlocked levelId="fa"><WindChimeGarden /></RequireLevelUnlocked></ProtectedKid>
