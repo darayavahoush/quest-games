@@ -6,7 +6,7 @@ import { ArrowUpRight, Lock } from 'lucide-react'
  *
  * Deliberately NOT the vaakmirror GameCard: that one is a flat, minimal,
  * dark-SaaS card built for a different product's tone. Chime's actual
- * games (Rocket Launch, Submarine Dive, Firefly Jar, Wind Chime Garden,
+ * games (Rocket Launch, Submarine Dive, Firefly Jar, Bubble Garden,
  * Bubble Wrap Pop) all use a glowing-particle, Baloo 2, per-phoneme-color
  * language. This card carries that same language onto the picker so the
  * homepage doesn't feel like a different, deader app than the games it

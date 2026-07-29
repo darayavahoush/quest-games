@@ -627,6 +627,7 @@ export default function FireflyJar() {
             <p className="fjar-subtitle">You caught every firefly!</p>
             <p style={{ fontSize: '0.95rem', opacity: 0.85, margin: '-14px 0 20px' }}>{agentFeedback}</p>
             <button className="fjar-btn" onClick={handlePlayAgain}>Play Again!</button>
+            <button onClick={() => navigate('/play/chime/wind-chime-garden')} className="mt-3 ml-3 fjar-btn">Next Level →</button>
           </div>
         </div>
       )}
