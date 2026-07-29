@@ -8,7 +8,7 @@ import { Mic, Square, ArrowLeft } from 'lucide-react'
 export default function PhonemeGameShell({
   gameName, accentClass, bgAccentClass, passLabel, tryAgainLabel,
   status, result, error, difficultyMsg, startRecording, stopRecording, reset,
-  passed, visual, promptText,
+  passed, visual, promptText, nextLevelPath,
 }) {
   const navigate = useNavigate()
 
