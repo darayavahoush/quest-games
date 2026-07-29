@@ -1,5 +1,5 @@
-from pydantic_settings import BaseSettings
 from functools import lru_cache
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -17,7 +17,13 @@ class Settings(BaseSettings):
     # App
     APP_NAME: str = "BreathQuest"
     DEBUG: bool = False
-    ALLOWED_ORIGINS: list[str] = [f"http://localhost:{p}" for p in range(5173, 5180)] + ["http://localhost:3000"]
+    ALLOWED_ORIGINS: list[str] = (
+    [f"http://localhost:{p}" for p in range(5173, 5180)]
+    + [
+        "http://localhost:3000",
+        "https://quest-games.onrender.com",
+    ]
+)
 
     class Config:
         env_file = ".env"
