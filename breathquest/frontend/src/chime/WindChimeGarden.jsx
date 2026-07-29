@@ -682,6 +682,9 @@ export default function WindChimeGarden() {
             <button onClick={handlePlayAgain} className="font-bold text-xl rounded-full px-10 py-4 text-[#2A2158] bg-[#FFD166] shadow-[0_6px_0_#C99A2E]">
               Play Again!
             </button>
+            <button onClick={() => navigate('/play/chime/bubble-wrap-pop')} className="mt-3 ml-3 font-bold text-xl rounded-full px-10 py-4 bg-white text-[#2A2158]">
+              Next Level →
+            </button>
           </div>
         </div>
       )}

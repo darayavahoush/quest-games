@@ -756,6 +756,9 @@ export default function RocketLaunch() {
             <button onClick={handlePlayAgain} className="font-bold text-xl rounded-full px-10 py-4 text-[#1B1440] bg-[#FFD166] shadow-[0_6px_0_#C99A2E]">
               Launch Again!
             </button>
+            <button onClick={() => navigate('/play/chime/submarine-dive')} className="mt-3 ml-3 font-bold text-xl rounded-full px-10 py-4 bg-white text-[#1B1440]">
+              Next Level →
+            </button>
           </div>
         </div>
       )}

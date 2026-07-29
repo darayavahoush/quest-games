@@ -571,6 +571,12 @@ export default function BubbleWrapPop() {
             <p className="bwp-subtitle">You popped every bubble!</p>
             <p style={{ fontSize: '0.95rem', opacity: 0.85, margin: '-14px 0 20px' }}>{agentFeedback}</p>
             <button className="bwp-btn" onClick={handlePlayAgain}>New Sheet!</button>
+            <button
+              className="bwp-btn"
+              onClick={() => navigate('/play/chime/village-builder')}
+            >
+              Next Level →
+            </button>
           </div>
         </div>
       )}
