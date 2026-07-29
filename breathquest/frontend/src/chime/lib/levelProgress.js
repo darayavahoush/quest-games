@@ -10,7 +10,6 @@ const PASS_THRESHOLD = 0.6
 // { aa: true, oo: false, ... } — has this kid ever passed each level.
 export async function getPassedLevels() {
   const events = await getEvents()
-  console.log(events)
   const passed = {}
   for (const levelId of LEVEL_ORDER) {
     passed[levelId] = events.some(
