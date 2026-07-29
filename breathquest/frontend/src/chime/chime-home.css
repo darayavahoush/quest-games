@@ -1,0 +1,40 @@
+/* Chime homepage — shares the games' own visual language (glow, Baloo 2,
+   per-phoneme color) instead of vaakmirror's flat SaaS-card look.
+   If Baloo 2 is already loaded elsewhere in the app (e.g. via a <link>
+   in index.html), this @import is a harmless no-op duplicate — feel free
+   to delete it and keep just the one global load. */
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&display=swap');
+
+.chime-display {
+  font-family: 'Baloo 2', 'Poppins', ui-rounded, system-ui, sans-serif;
+}
+
+.chime-card--live {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.01));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.chime-card--live:hover {
+  border-color: var(--accent);
+  box-shadow: 0 20px 48px -16px var(--accent);
+}
+
+.chime-card--locked {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.045);
+}
+
+/* breathing ring on the icon badge — echoes the voicing/audio-level pulse
+   the games themselves use, so the picker feels like it's "listening" too */
+@keyframes chime-pulse {
+  0%   { box-shadow: 0 0 0 0 var(--accent, #fff); opacity: 0.55; }
+  70%  { box-shadow: 0 0 0 10px transparent; opacity: 0; }
+  100% { box-shadow: 0 0 0 10px transparent; opacity: 0; }
+}
+.animate-chime-pulse {
+  animation: chime-pulse 2.6s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-chime-pulse { animation: none; }
+  .chime-card--live:hover { transform: none; }
+}

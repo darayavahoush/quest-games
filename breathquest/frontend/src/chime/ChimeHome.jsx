@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Rocket, Waves, Music2, Wind, Droplets, Mic } from 'lucide-react'
-import GameCard from '../vaakmirror/components/GameCard.jsx'
+import ChimeGameCard from './ChimeGameCard.jsx'
 import { getPassedLevels, getUnlockedLevels } from './lib/levelProgress'
+import './chime-home.css'
 
 const GAMES = [
   { levelId: 'aa', to: '/play/chime/rocket-launch', title: 'Rocket Launch',
@@ -36,13 +37,36 @@ export default function ChimeHome() {
   }, [])
 
   return (
-    <section className="min-h-screen bg-ink">
-      <div className="max-w-6xl mx-auto px-6 py-20">
+    <section className="relative min-h-screen bg-ink overflow-hidden">
+      {/* ambient color life behind the grid — quiet, blurred, just enough
+          to say "these games are colorful" before you even reach a card */}
+      <div className="pointer-events-none absolute inset-0 opacity-[0.14]">
+        {GAMES.map((g, i) => (
+          <div
+            key={g.levelId}
+            className="absolute w-72 h-72 rounded-full blur-[100px]"
+            style={{
+              backgroundColor: g.accent,
+              left: `${(i * 37) % 100}%`,
+              top: `${(i * 53) % 90}%`,
+            }}
+          />
+        ))}
+      </div>
+
+      <div className="relative max-w-6xl mx-auto px-6 py-20">
         <p className="font-vm-mono text-xs uppercase tracking-widest text-mint mb-3">
           Sound Practice
         </p>
-        <h1 className="font-vm-display text-4xl md:text-5xl font-bold text-paper mb-4">
-          Practice a sound, unlock the next game.
+        <h1 className="chime-display text-4xl md:text-5xl font-extrabold mb-4">
+          <span
+            className="bg-clip-text text-transparent"
+            style={{ backgroundImage: 'linear-gradient(90deg, #FF9B54, #2FB8A6, #7850DC, #F472B6)' }}
+          >
+            Practice a sound,
+          </span>
+          <br />
+          <span className="text-paper">unlock the next game.</span>
         </h1>
         <p className="text-paper/60 max-w-lg mb-12">
           Each game practices a different sound. One passing attempt
@@ -51,7 +75,7 @@ export default function ChimeHome() {
 
         <div className="grid md:grid-cols-3 gap-5">
           {GAMES.map((g, i) => (
-            <GameCard
+            <ChimeGameCard
               key={g.levelId}
               to={g.to}
               eyebrow={`Game ${i + 1}`}
