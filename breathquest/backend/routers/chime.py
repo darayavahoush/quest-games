@@ -8,24 +8,58 @@ uses patient.id internally instead, matching sessions.py's pattern.
 import asyncio
 import os
 import tempfile
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, Optional
 
 import numpy as np
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from database import get_db
 from models.models import Patient
 from core.deps import get_current_patient
 from retraining import data_store
+from retraining.scheduler import GLOBAL_RETRAIN_THRESHOLD, maybe_retrain_shared_policy
 from word_level.asr_match import score_word_attempt
+from audio_features import EXTRACTORS
 
 router = APIRouter(prefix="/chime", tags=["chime"])
 
 # Module-level so tests can override it without needing a real DB file.
 DB_PATH = data_store.DEFAULT_DB_PATH
+
+# ============================================================
+# Auto-retrain: fires in the background once enough new events
+# have piled up since the last checkpoint. Guarded so two events
+# landing close together don't both kick off a retrain.
+# ============================================================
+_retrain_lock = threading.Lock()
+_retrain_in_progress = False
+
+
+def _run_retrain_if_due():
+    global _retrain_in_progress
+    checkpoint = data_store.get_checkpoint("global", db_path=DB_PATH)
+    total = data_store.count_events(db_path=DB_PATH)
+    since = total - (checkpoint["event_count_at_checkpoint"] if checkpoint else 0)
+    if since < GLOBAL_RETRAIN_THRESHOLD:
+        return
+
+    with _retrain_lock:
+        if _retrain_in_progress:
+            return
+        _retrain_in_progress = True
+
+    try:
+        result = maybe_retrain_shared_policy(db_path=DB_PATH)
+        if result.get("retrained"):
+            print(f"[chime] auto-retrain complete — {result.get('n_events_used')} events used")
+    except Exception as exc:
+        print(f"[chime] auto-retrain failed: {exc}")
+    finally:
+        _retrain_in_progress = False
 
 
 # ============================================================
@@ -79,6 +113,12 @@ class TranscribeOut(BaseModel):
     confidence: float
 
 
+class PhonemeScoreOut(BaseModel):
+    score: float
+    is_valid_attempt: bool
+    raw_features: dict
+
+
 class AgentDecisionOut(BaseModel):
     policy: str
     action: Literal["raise", "lower", "hold"]
@@ -90,7 +130,7 @@ class AgentDecisionOut(BaseModel):
 # Session events
 # ============================================================
 @router.post("/events", response_model=EventOut)
-def log_event(event: EventIn, patient: Patient = Depends(get_current_patient)):
+def log_event(event: EventIn, background_tasks: BackgroundTasks, patient: Patient = Depends(get_current_patient)):
     data_store.add_event(
         child_id=patient.id,
         level_id=event.level_id,
@@ -105,6 +145,7 @@ def log_event(event: EventIn, patient: Patient = Depends(get_current_patient)):
     )
 
     _maybe_update_tabular_q_from_new_event(patient.id, event.level_id, event.quit_flag)
+    background_tasks.add_task(_run_retrain_if_due)
 
     events = data_store.get_events(child_id=patient.id, db_path=DB_PATH)
     latest = events[-1]
@@ -227,6 +268,51 @@ async def transcribe_audio(
         return TranscribeOut(transcript=transcript, confidence=confidence)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Transcription failed: {exc}") from exc
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
+
+
+# ============================================================
+# Phoneme mini-games (Rocket Launch, Submarine Dive, Drum Island,
+# Wind Chime Garden, Bubble Wrap Pop) — audio_features.EXTRACTORS
+# keyed by level_id, same upload-then-process shape as transcription.
+# ============================================================
+def _decode_audio_file(tmp_path: str, target_sr: int = 16000):
+    import librosa
+    audio_array, _sr = librosa.load(tmp_path, sr=target_sr, mono=True)
+    return audio_array
+
+
+@router.post("/phoneme/score/{level_id}", response_model=PhonemeScoreOut)
+async def score_phoneme(
+    level_id: str,
+    audio: UploadFile = File(...),
+    patient: Patient = Depends(get_current_patient),
+):
+    if level_id not in EXTRACTORS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown phoneme level: {level_id}. Expected one of {list(EXTRACTORS.keys())}",
+        )
+
+    audio_bytes = await audio.read()
+    if not audio_bytes:
+        return PhonemeScoreOut(score=0.0, is_valid_attempt=False, raw_features={})
+
+    with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as tmp:
+        tmp.write(audio_bytes)
+        tmp_path = tmp.name
+
+    try:
+        audio_array = await asyncio.to_thread(_decode_audio_file, tmp_path)
+        result = EXTRACTORS[level_id](audio_array, 16000)
+        return PhonemeScoreOut(
+            score=result.score,
+            is_valid_attempt=result.is_valid_attempt,
+            raw_features=result.raw_features,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Phoneme scoring failed: {exc}") from exc
     finally:
         Path(tmp_path).unlink(missing_ok=True)
 

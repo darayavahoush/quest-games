@@ -31,6 +31,14 @@ export function transcribeAudio(audioBlob) {
   }).then(r => r.data)
 }
 
+export function scorePhoneme(levelId, audioBlob) {
+  const form = new FormData()
+  form.append('audio', audioBlob, 'recording.webm')
+  return api.post(`${CHIME}/phoneme/score/${levelId}`, form, {
+    headers: { 'Content-Type': undefined },
+  }).then(r => r.data)
+}
+
 export function logEvent(event) {
   return api.post(`${CHIME}/events`, event).then(r => r.data)
 }
