@@ -844,6 +844,12 @@ export default function SubmarineDive() {
             <p className="sdv-subtitle">Your submarine found the ocean floor!</p>
             <p style={{ fontSize: '0.95rem', opacity: 0.85, margin: '-14px 0 20px' }}>{agentFeedback}</p>
             <button className="sdv-btn" onClick={handlePlayAgain}>Dive Again!</button>
+            <button
+              className="sdv-btn"
+              onClick={() => navigate('/play/chime/firefly-jar')}
+            >
+              Next Level →
+            </button>
           </div>
         </div>
       )}
