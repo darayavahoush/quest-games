@@ -307,8 +307,22 @@ export default function BubbleWrapPop() {
     setAgentFeedback(decision.message)
   }
 
+  // Marks the level as passed independent of any single pop's score — the
+  // in-game pop threshold (BASE_POP_THRESHOLD) is intentionally forgiving,
+  // so no individual logged pop may ever clear PASS_THRESHOLD even when the
+  // kid genuinely clears the sheet. levelProgress.js treats this as a pass.
+  async function logLevelComplete() {
+    const s = stateRef.current
+    try {
+      await logEvent({ level_id: LEVEL_ID, attempt_number: s.attemptNumber, score: 1, is_valid_attempt: true, action: 'level_complete' })
+    } catch (err) {
+      console.warn('Backend event logging unavailable:', err)
+    }
+  }
+
   function onSheetSuccess() {
     const s = stateRef.current
+    logLevelComplete()
     playSuccessChime()
     setAriaMsg('You popped every bubble on the sheet!')
     spawnCelebrationParticles()

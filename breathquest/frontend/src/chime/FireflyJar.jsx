@@ -284,8 +284,22 @@ export default function FireflyJar() {
     })
   }
 
+  // Marks the level as passed independent of any single burst's score — the
+  // in-game catch threshold is intentionally forgiving (CATCH_THRESHOLD_DEFAULT),
+  // so no individual logged burst may ever clear PASS_THRESHOLD even when the
+  // kid genuinely fills the jar. levelProgress.js treats this as a pass.
+  async function logLevelComplete() {
+    const s = stateRef.current
+    try {
+      await logEvent({ level_id: LEVEL_ID, attempt_number: s.attemptNumber, score: 1, is_valid_attempt: true, action: 'level_complete' })
+    } catch (err) {
+      console.warn('Backend event logging unavailable:', err)
+    }
+  }
+
   function onJarFull() {
     const s = stateRef.current
+    logLevelComplete()
     playSuccessChime()
     setAriaMsg('The jar is full of fireflies!')
     spawnCelebrationParticles()

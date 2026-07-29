@@ -1,0 +1,158 @@
+diff --git a/breathquest/frontend/src/chime/BubbleWrapPop.jsx b/breathquest/frontend/src/chime/BubbleWrapPop.jsx
+index 9bea956..d3fc0e6 100644
+--- a/breathquest/frontend/src/chime/BubbleWrapPop.jsx
++++ b/breathquest/frontend/src/chime/BubbleWrapPop.jsx
+@@ -307,8 +307,22 @@ export default function BubbleWrapPop() {
+     setAgentFeedback(decision.message)
+   }
+ 
++  // Marks the level as passed independent of any single pop's score — the
++  // in-game pop threshold (BASE_POP_THRESHOLD) is intentionally forgiving,
++  // so no individual logged pop may ever clear PASS_THRESHOLD even when the
++  // kid genuinely clears the sheet. levelProgress.js treats this as a pass.
++  async function logLevelComplete() {
++    const s = stateRef.current
++    try {
++      await logEvent({ level_id: LEVEL_ID, attempt_number: s.attemptNumber, score: 1, is_valid_attempt: true, action: 'level_complete' })
++    } catch (err) {
++      console.warn('Backend event logging unavailable:', err)
++    }
++  }
++
+   function onSheetSuccess() {
+     const s = stateRef.current
++    logLevelComplete()
+     playSuccessChime()
+     setAriaMsg('You popped every bubble on the sheet!')
+     spawnCelebrationParticles()
+diff --git a/breathquest/frontend/src/chime/FireflyJar.jsx b/breathquest/frontend/src/chime/FireflyJar.jsx
+index 0e7916d..ecca653 100644
+--- a/breathquest/frontend/src/chime/FireflyJar.jsx
++++ b/breathquest/frontend/src/chime/FireflyJar.jsx
+@@ -284,8 +284,22 @@ export default function FireflyJar() {
+     })
+   }
+ 
++  // Marks the level as passed independent of any single burst's score — the
++  // in-game catch threshold is intentionally forgiving (CATCH_THRESHOLD_DEFAULT),
++  // so no individual logged burst may ever clear PASS_THRESHOLD even when the
++  // kid genuinely fills the jar. levelProgress.js treats this as a pass.
++  async function logLevelComplete() {
++    const s = stateRef.current
++    try {
++      await logEvent({ level_id: LEVEL_ID, attempt_number: s.attemptNumber, score: 1, is_valid_attempt: true, action: 'level_complete' })
++    } catch (err) {
++      console.warn('Backend event logging unavailable:', err)
++    }
++  }
++
+   function onJarFull() {
+     const s = stateRef.current
++    logLevelComplete()
+     playSuccessChime()
+     setAriaMsg('The jar is full of fireflies!')
+     spawnCelebrationParticles()
+diff --git a/breathquest/frontend/src/chime/RocketLaunch.jsx b/breathquest/frontend/src/chime/RocketLaunch.jsx
+index 8c3fd52..871f660 100644
+--- a/breathquest/frontend/src/chime/RocketLaunch.jsx
++++ b/breathquest/frontend/src/chime/RocketLaunch.jsx
+@@ -328,8 +328,22 @@ export default function RocketLaunch() {
+     setAgentFeedback(decision.message)
+   }
+ 
++  // Marks the level as passed independent of any single burst's score — altitude
++  // fills up continuously from any nonzero-quality burst with no hard gate, so no
++  // individual logged burst may ever clear PASS_THRESHOLD even when the rocket
++  // genuinely launches. levelProgress.js treats this as a pass.
++  async function logLevelComplete() {
++    const s = stateRef.current
++    try {
++      await logEvent({ level_id: LEVEL_ID, attempt_number: s.attemptNumber, score: 1, is_valid_attempt: true, action: 'level_complete' })
++    } catch (err) {
++      console.warn('Backend event logging unavailable:', err)
++    }
++  }
++
+   function onLaunchSuccess() {
+     const s = stateRef.current
++    logLevelComplete()
+     if (s.inVoicing) {
+       logVoicingAttempt(s.voicingScores)
+       s.inVoicing = false
+diff --git a/breathquest/frontend/src/chime/SubmarineDive.jsx b/breathquest/frontend/src/chime/SubmarineDive.jsx
+index a7ee2f0..e05326e 100644
+--- a/breathquest/frontend/src/chime/SubmarineDive.jsx
++++ b/breathquest/frontend/src/chime/SubmarineDive.jsx
+@@ -400,8 +400,22 @@ export default function SubmarineDive() {
+     setAgentFeedback(decision.message)
+   }
+ 
++  // Marks the level as passed independent of any single attempt's score — depth
++  // fills up continuously from any nonzero-quality attempt with no hard gate, so
++  // no individual logged attempt may ever clear PASS_THRESHOLD even when the sub
++  // genuinely reaches the ocean floor. levelProgress.js treats this as a pass.
++  async function logLevelComplete() {
++    const s = stateRef.current
++    try {
++      await logEvent({ level_id: LEVEL_ID, attempt_number: s.attemptNumber, score: 1, is_valid_attempt: true, action: 'level_complete' })
++    } catch (err) {
++      console.warn('Backend event logging unavailable:', err)
++    }
++  }
++
+   function onDiveSuccess() {
+     const s = stateRef.current
++    logLevelComplete()
+     if (s.inVoicing) {
+       logVoicingAttempt(s.voicingScores)
+       s.inVoicing = false
+diff --git a/breathquest/frontend/src/chime/WindChimeGarden.jsx b/breathquest/frontend/src/chime/WindChimeGarden.jsx
+index 457185b..ede2189 100644
+--- a/breathquest/frontend/src/chime/WindChimeGarden.jsx
++++ b/breathquest/frontend/src/chime/WindChimeGarden.jsx
+@@ -355,8 +355,22 @@ export default function WindChimeGarden() {
+     if (!s.hasFinished) rafRef.current = requestAnimationFrame(gameLoop)
+   }
+ 
++  // Marks the level as passed independent of any single attempt's score — bubbles
++  // fill up continuously from any nonzero-quality attempt with no hard gate, so
++  // no individual logged attempt may ever clear PASS_THRESHOLD even when the
++  // garden genuinely fills. levelProgress.js treats this as a pass.
++  async function logLevelComplete() {
++    const s = stateRef.current
++    try {
++      await logEvent({ level_id: LEVEL_ID, attempt_number: s.attemptNumber, score: 1, is_valid_attempt: true, action: 'level_complete' })
++    } catch (err) {
++      console.warn('Backend event logging unavailable:', err)
++    }
++  }
++
+   function onGardenSuccess() {
+     const s = stateRef.current
++    logLevelComplete()
+     if (s.inVoicing) {
+       logVoicingAttempt(s.voicingScores)
+       s.inVoicing = false
+diff --git a/breathquest/frontend/src/chime/lib/levelProgress.js b/breathquest/frontend/src/chime/lib/levelProgress.js
+index 4038f49..37c40be 100644
+--- a/breathquest/frontend/src/chime/lib/levelProgress.js
++++ b/breathquest/frontend/src/chime/lib/levelProgress.js
+@@ -13,7 +13,17 @@ export async function getPassedLevels() {
+   const passed = {}
+   for (const levelId of LEVEL_ORDER) {
+     passed[levelId] = events.some(
+-      e => e.level_id === levelId && e.is_valid_attempt && e.score >= PASS_THRESHOLD
++      e =>
++        e.level_id === levelId &&
++        e.is_valid_attempt &&
++        // Either a real per-burst/per-attempt score cleared PASS_THRESHOLD, or the
++        // mini-game itself fired its "level complete" success screen. The five
++        // phoneme games use deliberately forgiving in-game catch/pop/launch
++        // thresholds (well under PASS_THRESHOLD) so a kid can finish the game
++        // without any single logged event ever reaching 0.6 — the explicit
++        // level_complete marker is what actually unlocks the next level in
++        // that case.
++        (e.score >= PASS_THRESHOLD || e.action === 'level_complete')
+     )
+   }
+   return passed

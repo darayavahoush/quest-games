@@ -13,7 +13,17 @@ export async function getPassedLevels() {
   const passed = {}
   for (const levelId of LEVEL_ORDER) {
     passed[levelId] = events.some(
-      e => e.level_id === levelId && e.is_valid_attempt && e.score >= PASS_THRESHOLD
+      e =>
+        e.level_id === levelId &&
+        e.is_valid_attempt &&
+        // Either a real per-burst/per-attempt score cleared PASS_THRESHOLD, or the
+        // mini-game itself fired its "level complete" success screen. The five
+        // phoneme games use deliberately forgiving in-game catch/pop/launch
+        // thresholds (well under PASS_THRESHOLD) so a kid can finish the game
+        // without any single logged event ever reaching 0.6 — the explicit
+        // level_complete marker is what actually unlocks the next level in
+        // that case.
+        (e.score >= PASS_THRESHOLD || e.action === 'level_complete')
     )
   }
   return passed
