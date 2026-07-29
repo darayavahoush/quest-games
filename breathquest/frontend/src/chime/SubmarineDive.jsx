@@ -373,10 +373,10 @@ export default function SubmarineDive() {
     const s = stateRef.current
     const isValidAttempt = scores.length >= MIN_VOICING_FRAMES
     if (!isValidAttempt) return
-    const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length
+    const attemptScore = Math.max(...scores) // peak of the stretch, not the average — matches burst-game scoring
     s.attemptNumber++
     try {
-      await logEvent({ level_id: LEVEL_ID, attempt_number: s.attemptNumber, score: avgScore, is_valid_attempt: true })
+      await logEvent({ level_id: LEVEL_ID, attempt_number: s.attemptNumber, score: attemptScore, is_valid_attempt: isValidAttempt })
     } catch (err) {
       console.warn('Backend event logging unavailable:', err)
     }
