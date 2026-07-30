@@ -22,6 +22,7 @@ import FireflyJar         from './chime/FireflyJar'
 import WindChimeGarden    from './chime/WindChimeGarden'
 import BubbleWrapPop      from './chime/BubbleWrapPop'
 import RequireLevelUnlocked from './chime/lib/RequireLevelUnlocked'
+import VoiceHurdleRace    from './voiceHurdleRace/VoiceHurdleRace'
 
 // Lets Quest Hub hand off a logged-in session by linking here with
 // ?token=&kind=&id=&name=&data= — adopts it into BreathQuest's OWN
@@ -137,6 +138,9 @@ function AppRoutes() {
       } />
       <Route path="/play/chime/village-builder" element={
         <ProtectedKid><RequireLevelUnlocked levelId="village-builder"><VillageBuilder /></RequireLevelUnlocked></ProtectedKid>
+      } />
+      <Route path="/play/voice-hurdle-race" element={
+        <ProtectedKid><VoiceHurdleRace /></ProtectedKid>
       } />
 
       <Route path="*" element={<Navigate to="/" replace />} />

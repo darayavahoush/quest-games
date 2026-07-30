@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { dashboardAPI } from '../../api/client'
+import { dashboardAPI, chimeAPI, vaakmirrorAPI } from '../../api/client'
+import { voiceHurdleRaceApi } from '../../api/voiceHurdleRaceApi'
 import { Card, Badge, Avatar, StarRating, Button, Spinner, PageLoader } from '../../components/ui'
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer,
          BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts'
@@ -15,10 +16,18 @@ export default function PatientDetail() {
   const navigate = useNavigate()
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab]         = useState('progress')   // progress | sessions | notes
+  const [tab, setTab]         = useState('progress')   // progress | sessions | voicehurdlerace | chime | vaakmirror | notes
   const [noteText, setNoteText] = useState('')
   const [notes, setNotes]       = useState([])
   const [savingNote, setSavingNote] = useState(false)
+  const [vhrSessions, setVhrSessions] = useState([])
+  const [vhrLoading, setVhrLoading]   = useState(true)
+  const [chimeEvents, setChimeEvents] = useState([])
+  const [chimeLoading, setChimeLoading] = useState(true)
+  const [chimeError, setChimeError] = useState(false)
+  const [vmDashboard, setVmDashboard] = useState(null)
+  const [vmLoading, setVmLoading] = useState(true)
+  const [vmError, setVmError] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -28,6 +37,21 @@ export default function PatientDetail() {
       setData(prog.data)
       setNotes(notesRes.data)
     }).finally(() => setLoading(false))
+
+    voiceHurdleRaceApi.getVoiceHurdleRaceSessions(id)
+      .then(setVhrSessions)
+      .catch(err => console.error('Failed to load Voice Hurdle Race sessions:', err))
+      .finally(() => setVhrLoading(false))
+
+    chimeAPI.getPatientEvents(id)
+      .then(({ data }) => setChimeEvents(data))
+      .catch(err => { console.error('Failed to load Chime events:', err); setChimeError(true) })
+      .finally(() => setChimeLoading(false))
+
+    vaakmirrorAPI.getPatientDashboard(id)
+      .then(({ data }) => setVmDashboard(data))
+      .catch(err => { console.error('Failed to load VaakMirror dashboard:', err); setVmError(true) })
+      .finally(() => setVmLoading(false))
   }, [id])
 
   const saveNote = async () => {
@@ -96,7 +120,7 @@ export default function PatientDetail() {
 
         {/* Tabs */}
         <div className="flex gap-1 bg-white/5 p-1 rounded-xl mb-6 w-fit">
-          {[['progress', '📊 Progress'], ['sessions', '🎮 Sessions'], ['notes', '📝 Notes']].map(([t, label]) => (
+          {[['progress', '📊 Progress'], ['sessions', '🎮 Sessions'], ['voicehurdlerace', '🐶 Voice Hurdle'], ['chime', '🔔 Chime'], ['vaakmirror', '🪞 VaakMirror'], ['notes', '📝 Notes']].map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all
                 ${tab === t ? 'bg-brand-green text-brand-dark' : 'text-white/50 hover:text-white'}`}>
@@ -182,6 +206,160 @@ export default function PatientDetail() {
                   </Badge>
                 </Card>
               ))}
+          </div>
+        )}
+
+        {/* Voice Hurdle Race tab — separate table/endpoint from BreathQuest,
+            so this is intentionally self-contained rather than mixed into
+            the stats above. */}
+        {tab === 'voicehurdlerace' && (
+          <div className="flex flex-col gap-4">
+            {vhrLoading ? (
+              <Card className="text-center py-12"><Spinner /></Card>
+            ) : vhrSessions.length === 0 ? (
+              <Card className="text-center py-12 text-white/40">No Voice Hurdle Race sessions yet</Card>
+            ) : (
+              <>
+                <div className="grid grid-cols-3 gap-4">
+                  <Card className="text-center">
+                    <p className="text-2xl font-bold font-display text-brand-green">{vhrSessions.length}</p>
+                    <p className="text-white/30 text-xs">races</p>
+                  </Card>
+                  <Card className="text-center">
+                    <p className="text-2xl font-bold font-display text-yellow-400">
+                      {Math.max(...vhrSessions.map(s => s.stars))}
+                    </p>
+                    <p className="text-white/30 text-xs">best stars</p>
+                  </Card>
+                  <Card className="text-center">
+                    <p className="text-2xl font-bold font-display text-brand-teal">
+                      {Math.round(vhrSessions.reduce((sum, s) => sum + s.pitch_accuracy, 0) / vhrSessions.length)}%
+                    </p>
+                    <p className="text-white/30 text-xs">avg pitch accuracy</p>
+                  </Card>
+                </div>
+                {vhrSessions.map(s => (
+                  <Card key={s.id} className="flex items-center gap-4">
+                    <span className="text-2xl">🐶</span>
+                    <div className="flex-1">
+                      <p className="font-semibold text-white">{s.level_name}</p>
+                      <p className="text-white/30 text-xs">
+                        {new Date(s.created_at).toLocaleString()} · score {s.score}
+                      </p>
+                    </div>
+                    <StarRating stars={s.stars} size="sm" />
+                  </Card>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Chime tab — SQLite-backed, bridged read-only via chimeAPI.
+            No stars/score concept here, just raw phoneme attempt scores
+            (0.0-1.0), so this is deliberately a plain event log rather
+            than forcing it into the star-rating visuals used elsewhere. */}
+        {tab === 'chime' && (
+          <div className="flex flex-col gap-4">
+            {chimeLoading ? (
+              <Card className="text-center py-12"><Spinner /></Card>
+            ) : chimeError ? (
+              <Card className="text-center py-12 text-white/40">
+                Couldn't load Chime data — the Chime service may be unavailable right now.
+              </Card>
+            ) : chimeEvents.length === 0 ? (
+              <Card className="text-center py-12 text-white/40">No Chime sessions yet</Card>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <Card className="text-center">
+                    <p className="text-2xl font-bold font-display text-brand-green">{chimeEvents.length}</p>
+                    <p className="text-white/30 text-xs">attempts logged</p>
+                  </Card>
+                  <Card className="text-center">
+                    <p className="text-2xl font-bold font-display text-brand-teal">
+                      {Math.round((chimeEvents.reduce((sum, e) => sum + e.score, 0) / chimeEvents.length) * 100)}%
+                    </p>
+                    <p className="text-white/30 text-xs">avg phoneme score</p>
+                  </Card>
+                </div>
+                {chimeEvents.slice().reverse().slice(0, 20).map(e => (
+                  <Card key={e.id} className="flex items-center gap-4">
+                    <span className="text-2xl">🔔</span>
+                    <div className="flex-1">
+                      <p className="font-semibold text-white capitalize">{e.level_id.replace('_', ' ')}</p>
+                      <p className="text-white/30 text-xs">
+                        {new Date(e.timestamp).toLocaleString()} · attempt #{e.attempt_number}
+                      </p>
+                    </div>
+                    <Badge color={e.is_valid_attempt ? 'green' : 'gray'}>
+                      {Math.round(e.score * 100)}%
+                    </Badge>
+                  </Card>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* VaakMirror tab — uses its own already-built therapist dashboard
+            endpoint directly rather than re-deriving stats client-side. */}
+        {tab === 'vaakmirror' && (
+          <div className="flex flex-col gap-4">
+            {vmLoading ? (
+              <Card className="text-center py-12"><Spinner /></Card>
+            ) : vmError ? (
+              <Card className="text-center py-12 text-white/40">
+                Couldn't load VaakMirror data — the VaakMirror service may be unavailable right now.
+              </Card>
+            ) : !vmDashboard || vmDashboard.sessions_count === 0 ? (
+              <Card className="text-center py-12 text-white/40">No VaakMirror sessions yet</Card>
+            ) : (
+              <>
+                <Card className="text-center">
+                  <p className="text-2xl font-bold font-display text-brand-green">{vmDashboard.sessions_count}</p>
+                  <p className="text-white/30 text-xs">sessions</p>
+                </Card>
+
+                {vmDashboard.flagged_gaps.length > 0 && (
+                  <Card>
+                    <h3 className="font-semibold text-white mb-3">Flagged Gaps</h3>
+                    <div className="flex flex-col gap-2">
+                      {vmDashboard.flagged_gaps.map(g => (
+                        <div key={g.id} className="flex items-start gap-3">
+                          <Badge color={g.severity === 'high' ? 'coral' : g.severity === 'medium' ? 'amber' : 'gray'}>
+                            {g.severity}
+                          </Badge>
+                          <div className="flex-1">
+                            <p className="text-white text-sm font-medium">{g.title}</p>
+                            <p className="text-white/40 text-xs">{g.detail}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                )}
+
+                {[['Manner', vmDashboard.manner_accuracy], ['Place', vmDashboard.place_accuracy], ['Voicing', vmDashboard.voicing_accuracy]].map(([label, rows]) => (
+                  rows.length > 0 && (
+                    <Card key={label}>
+                      <h3 className="font-semibold text-white mb-3">{label} Accuracy</h3>
+                      <div className="flex flex-col gap-2">
+                        {rows.map(r => (
+                          <div key={r.category} className="flex items-center gap-3">
+                            <span className="text-sm text-white/70 w-24 capitalize">{r.category}</span>
+                            <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                              <div className="h-full bg-brand-teal rounded-full" style={{ width: `${r.accuracy}%` }} />
+                            </div>
+                            <span className="text-white/40 text-xs w-16 text-right">{r.accuracy}% ({r.attempts})</span>
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
+                  )
+                ))}
+              </>
+            )}
           </div>
         )}
 

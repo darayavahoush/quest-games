@@ -61,4 +61,22 @@ export const dashboardAPI = {
   deleteNote:  (noteId)          => api.delete(`/dashboard/notes/${noteId}`),
 }
 
+// ------------------------------------------------------------------ //
+//  Chime (therapist-facing) — chime.py itself is otherwise entirely
+//  kid-token-gated; get_patient_events is the one therapist endpoint.
+// ------------------------------------------------------------------ //
+
+export const chimeAPI = {
+  getPatientEvents: (patientId, levelId) =>
+    api.get(`/chime/patients/${patientId}/events`, { params: levelId ? { level_id: levelId } : {} }),
+}
+
+// ------------------------------------------------------------------ //
+//  VaakMirror (therapist-facing)                                      //
+// ------------------------------------------------------------------ //
+
+export const vaakmirrorAPI = {
+  getPatientDashboard: (patientId) => api.get(`/vaakmirror/patients/${patientId}/dashboard`),
+}
+
 export default api

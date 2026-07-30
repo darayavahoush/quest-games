@@ -9,6 +9,9 @@ from sqlalchemy import select, func, and_
 
 from database import get_db
 from models.models import Therapist, Patient, GameSession, TherapistNote
+from models.voicehurdlerace_models import VoiceHurdleRaceSession
+from vaakmirror.models import GameSession as VaakMirrorSession
+from retraining import data_store as chime_data_store
 from schemas.schemas import (
     PatientProgress, LevelProgress, DashboardSummary,
     PatientDetailOut, PatientOut, SessionOut,
@@ -17,6 +20,8 @@ from schemas.schemas import (
 from core.deps import get_current_therapist
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+
+CHIME_DB_PATH = chime_data_store.DEFAULT_DB_PATH
 
 LEVEL_NAMES = {
     "pinwheel":    "Pinwheel Spin",
@@ -46,12 +51,18 @@ async def get_dashboard_summary(
 
     active_count = sum(1 for p in patients if p.is_active)
 
-    # Sessions this week
+    # Sessions this week — BreathQuest + VoiceHurdleRace share a real 0-3
+    # star scale, so their stars can be honestly averaged together.
+    # VaakMirror (pass/fail attempts) and Chime (0.0-1.0 phoneme score) use
+    # different scales entirely; folding them into "avg stars" would imply
+    # a comparison that doesn't actually hold, so they count toward
+    # sessions_this_week but are left out of avg_stars_this_week.
     week_ago = datetime.now(timezone.utc) - timedelta(days=7)
-    week_sessions = await db.execute(
+
+    bq_week = await db.execute(
         select(
             func.count(GameSession.id).label("count"),
-            func.avg(GameSession.stars_earned).label("avg_stars"),
+            func.sum(GameSession.stars_earned).label("stars_sum"),
         ).where(
             and_(
                 GameSession.patient_id.in_(patient_ids),
@@ -60,7 +71,40 @@ async def get_dashboard_summary(
             )
         )
     )
-    week_row = week_sessions.one()
+    bq_row = bq_week.one()
+
+    vhr_week = await db.execute(
+        select(
+            func.count(VoiceHurdleRaceSession.id).label("count"),
+            func.sum(VoiceHurdleRaceSession.stars).label("stars_sum"),
+        ).where(
+            and_(
+                VoiceHurdleRaceSession.patient_id.in_(patient_ids),
+                VoiceHurdleRaceSession.created_at >= week_ago,
+            )
+        )
+    )
+    vhr_row = vhr_week.one()
+
+    vm_week = await db.execute(
+        select(func.count(VaakMirrorSession.id)).where(
+            and_(
+                VaakMirrorSession.patient_id.in_(patient_ids),
+                VaakMirrorSession.started_at >= week_ago,
+            )
+        )
+    )
+    vm_week_count = vm_week.scalar() or 0
+
+    chime_week_count = chime_data_store.count_events_since(
+        patient_ids, week_ago.isoformat(), db_path=CHIME_DB_PATH
+    )
+
+    sessions_this_week = (bq_row.count or 0) + (vhr_row.count or 0) + vm_week_count + chime_week_count
+
+    star_session_count = (bq_row.count or 0) + (vhr_row.count or 0)
+    star_sum = float(bq_row.stars_sum or 0) + float(vhr_row.stars_sum or 0)
+    avg_stars_this_week = round(star_sum / star_session_count, 2) if star_session_count else None
 
     # Build patient detail list
     patient_details = []
@@ -73,19 +117,42 @@ async def get_dashboard_summary(
             ).where(GameSession.patient_id == p.id)
         )
         row = stats.one()
+
+        vhr_stats = await db.execute(
+            select(
+                func.count(VoiceHurdleRaceSession.id).label("total"),
+                func.sum(VoiceHurdleRaceSession.stars).label("stars"),
+                func.max(VoiceHurdleRaceSession.created_at).label("last"),
+            ).where(VoiceHurdleRaceSession.patient_id == p.id)
+        )
+        vhr_row_p = vhr_stats.one()
+
+        vm_count_result = await db.execute(
+            select(func.count(VaakMirrorSession.id), func.max(VaakMirrorSession.started_at))
+            .where(VaakMirrorSession.patient_id == p.id)
+        )
+        vm_total, vm_last = vm_count_result.one()
+
+        chime_total = chime_data_store.count_events(child_id=p.id, db_path=CHIME_DB_PATH)
+
+        combined_total = (row.total or 0) + (vhr_row_p.total or 0) + (vm_total or 0) + chime_total
+        combined_stars = int(row.stars or 0) + int(vhr_row_p.stars or 0)
+        last_candidates = [d for d in (row.last, vhr_row_p.last, vm_last) if d is not None]
+        combined_last = max(last_candidates) if last_candidates else None
+
         patient_details.append(PatientDetailOut(
             **PatientOut.model_validate(p).model_dump(),
             diagnosis_notes=p.diagnosis_notes,
-            total_sessions=row.total or 0,
-            total_stars=int(row.stars or 0),
-            last_session_at=row.last,
+            total_sessions=combined_total,
+            total_stars=combined_stars,
+            last_session_at=combined_last,
         ))
 
     return DashboardSummary(
         total_patients=len(patients),
         active_patients=active_count,
-        sessions_this_week=week_row.count or 0,
-        avg_stars_this_week=round(float(week_row.avg_stars), 2) if week_row.avg_stars else None,
+        sessions_this_week=sessions_this_week,
+        avg_stars_this_week=avg_stars_this_week,
         most_improved_patient=None,   # TODO: implement trend analysis
         patients=patient_details,
     )

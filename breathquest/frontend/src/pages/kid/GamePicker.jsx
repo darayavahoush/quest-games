@@ -37,6 +37,17 @@ const APPS = [
     glow: 'rgba(240,96,74,0.35)',
     motif: 'pulse',
   },
+  {
+    id: 'voice-hurdle-race',
+    name: 'Voice Hurdle Race',
+    emoji: '🐶',
+    desc: 'Use your voice to jump hurdles',
+    path: '/play/voice-hurdle-race',
+    accent: '#60A5FA',
+    accentSoft: 'rgba(96,165,250,0.14)',
+    glow: 'rgba(96,165,250,0.35)',
+    motif: 'ripple',
+  },
 ]
 
 function CardMotif({ motif, accent }) {

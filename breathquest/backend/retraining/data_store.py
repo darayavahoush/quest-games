@@ -93,6 +93,26 @@ def count_events(child_id: str = None, db_path: Path = DEFAULT_DB_PATH) -> int:
         return conn.execute(query, params).fetchone()["c"]
 
 
+def count_events_since(child_ids: list[str], since_iso: str, db_path: Path = DEFAULT_DB_PATH) -> int:
+    """Count events for any of the given child_ids at/after since_iso.
+
+    Used by the therapist dashboard to fold Chime activity into the
+    cross-game "sessions this week" count. child_ids should be Patient.id
+    values — Chime's child_id column stores those directly (see
+    routers/chime.py, which authenticates via get_current_patient and
+    writes patient.id as child_id), so this is a safe join by value across
+    the SQLite/Postgres boundary, not a guess.
+    """
+    if not child_ids:
+        return 0
+    if not Path(db_path).exists():
+        return 0
+    placeholders = ",".join("?" for _ in child_ids)
+    query = f"SELECT COUNT(*) as c FROM session_events WHERE timestamp >= ? AND child_id IN ({placeholders})"
+    with get_connection(db_path) as conn:
+        return conn.execute(query, [since_iso, *child_ids]).fetchone()["c"]
+
+
 def get_checkpoint(scope: str, db_path: Path = DEFAULT_DB_PATH):
     with get_connection(db_path) as conn:
         row = conn.execute("SELECT * FROM retrain_checkpoints WHERE scope = ?", (scope,)).fetchone()
