@@ -66,8 +66,8 @@ export default function FireflyJar() {
   const [calibProgress, setCalibProgress] = useState(0)
   const [hudVisible, setHudVisible] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [reduceMotion, setReduceMotion] = useState(() => localStorage.getItem('drum_reduce_motion') === 'true')
-  const [muted, setMuted] = useState(() => localStorage.getItem('drum_muted') === 'true')
+  const [reduceMotion, setReduceMotion] = useState(() => localStorage.getItem('firefly_reduce_motion') === 'true')
+  const [muted, setMuted] = useState(() => localStorage.getItem('firefly_muted') === 'true')
   const [encourageVisible, setEncourageVisible] = useState(false)
   const [successVisible, setSuccessVisible] = useState(false)
   const [agentFeedback, setAgentFeedback] = useState('')
@@ -89,8 +89,8 @@ export default function FireflyJar() {
 
   const reduceMotionRef = useRef(reduceMotion)
   const mutedRef = useRef(muted)
-  useEffect(() => { reduceMotionRef.current = reduceMotion; localStorage.setItem('drum_reduce_motion', reduceMotion) }, [reduceMotion])
-  useEffect(() => { mutedRef.current = muted; localStorage.setItem('drum_muted', muted) }, [muted])
+  useEffect(() => { reduceMotionRef.current = reduceMotion; localStorage.setItem('firefly_reduce_motion', reduceMotion) }, [reduceMotion])
+  useEffect(() => { mutedRef.current = muted; localStorage.setItem('firefly_muted', muted) }, [muted])
 
   useEffect(() => {
     return () => {
@@ -347,6 +347,7 @@ export default function FireflyJar() {
       if (isValidAttempt && score >= s.catchThreshold && s.firefliesCaught < NUM_FIREFLIES) {
         s.firefliesCaught++
         s.caughtPulse = 1
+        s.quietStreak = 0
         spawnJarFirefly()
         playCatch()
       }
@@ -358,7 +359,7 @@ export default function FireflyJar() {
 
     s.caughtPulse = Math.max(0, s.caughtPulse - dt * 2)
 
-    if (s.firefliesCaught === 0) s.quietStreak += dt; else s.quietStreak = 0
+    s.quietStreak += dt
     setEncourageVisible(s.quietStreak > 4)
 
     render()
