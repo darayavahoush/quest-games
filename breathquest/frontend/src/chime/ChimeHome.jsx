@@ -1,26 +1,26 @@
 import { useState, useEffect } from 'react'
 import { Rocket, Waves, Sparkles, Wind, Droplets, Mic } from 'lucide-react'
 import ChimeGameCard from './ChimeGameCard.jsx'
-import { getPassedLevels, getUnlockedLevels } from './lib/levelProgress'
+import { getPassedLevels, getUnlockedLevels, LEVEL_ROUTES } from './lib/levelProgress'
 import './chime-home.css'
 
 const GAMES = [
-  { levelId: 'aa', to: '/play/chime/rocket-launch', title: 'Rocket Launch',
+  { levelId: 'aa', to: LEVEL_ROUTES.aa, title: 'Rocket Launch',
     blurb: 'Say a big loud "aaa" to launch your rocket as high as you can.',
     accent: '#FF9B54', icon: Rocket },
-  { levelId: 'oo', to: '/play/chime/submarine-dive', title: 'Submarine Dive',
+  { levelId: 'oo', to: LEVEL_ROUTES.oo, title: 'Submarine Dive',
     blurb: 'A long, low "oooo" sends your submarine deeper.',
     accent: '#2FB8A6', icon: Waves },
-  { levelId: 'ma', to: '/play/chime/firefly-jar', title: 'Firefly Jar',
+  { levelId: 'ma', to: LEVEL_ROUTES.ma, title: 'Firefly Jar',
     blurb: 'Say "ma-ma-ma" to catch fireflies and fill your jar.',
     accent: '#F4B942', icon: Sparkles },
-  { levelId: 'fa', to: '/play/chime/wind-chime-garden', title: 'Wind Chime Garden',
+  { levelId: 'fa', to: LEVEL_ROUTES.fa, title: 'Wind Chime Garden',
     blurb: 'A long, breathy "ffff" stirs the chimes in the breeze.',
     accent: '#1D9E75', icon: Wind },
-  { levelId: 'ha', to: '/play/chime/bubble-wrap-pop', title: 'Bubble Wrap Pop',
+  { levelId: 'ha', to: LEVEL_ROUTES.ha, title: 'Bubble Wrap Pop',
     blurb: 'A sharp "ha!" pops the bubbles one by one.',
     accent: '#7850DC', icon: Droplets },
-  { levelId: 'village-builder', to: '/play/chime/village-builder', title: 'Village Builder',
+  { levelId: 'village-builder', to: LEVEL_ROUTES['village-builder'], title: 'Village Builder',
     blurb: 'Say the word shown on screen. The closer your pronunciation, the bigger the building you earn.',
     accent: '#F472B6', icon: Mic },
 ]

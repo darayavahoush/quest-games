@@ -8,7 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 
 from database import get_db
-from models.models import Therapist, Patient, GameSession, TherapistNote
+from models.models import (
+    Therapist, Patient, GameSession, TherapistNote,
+    Assignment, AssignmentStatus, Goal, Message, SenderRole, HomePracticeLog,
+)
 from models.voicehurdlerace_models import VoiceHurdleRaceSession
 from vaakmirror.models import GameSession as VaakMirrorSession
 from retraining import data_store as chime_data_store
@@ -16,8 +19,17 @@ from schemas.schemas import (
     PatientProgress, LevelProgress, DashboardSummary,
     PatientDetailOut, PatientOut, SessionOut,
     NoteCreate, NoteUpdate, NoteOut,
+    AssignmentCreate, AssignmentUpdate, AssignmentOut,
+    GoalCreate, GoalUpdate, GoalOut,
+    MessageCreate, MessageOut,
+    HomePracticeLogCreate, HomePracticeLogOut,
+    PatientAlert, WeeklySummaryOut,
 )
 from core.deps import get_current_therapist
+from services.weekly_summary import generate_weekly_summary
+from services.report_pdf import build_patient_report_pdf
+from fastapi.responses import FileResponse
+import tempfile, os
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -328,3 +340,454 @@ async def delete_note(
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
     await db.delete(note)
+
+
+# ------------------------------------------------------------------ #
+#  Shared helper                                                       #
+# ------------------------------------------------------------------ #
+
+async def _get_owned_patient(patient_id: str, therapist: Therapist, db: AsyncSession) -> Patient:
+    """Same ownership check used throughout this router — 404 (not 403) on
+    a patient that exists but isn't this therapist's, so we don't leak
+    which patient_ids are real."""
+    result = await db.execute(
+        select(Patient).where(Patient.id == patient_id,
+                              Patient.therapist_id == therapist.id)
+    )
+    patient = result.scalar_one_or_none()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    return patient
+
+
+# ------------------------------------------------------------------ #
+#  Assignments ("homework")                                            #
+# ------------------------------------------------------------------ #
+
+@router.post("/patients/{patient_id}/assignments", response_model=AssignmentOut, status_code=201)
+async def create_assignment(
+    patient_id: str,
+    data: AssignmentCreate,
+    therapist: Therapist = Depends(get_current_therapist),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_owned_patient(patient_id, therapist, db)
+    assignment = Assignment(
+        patient_id=patient_id,
+        assigned_by=therapist.id,
+        game=data.game,
+        level_id=data.level_id,
+        title=data.title,
+        instructions=data.instructions,
+        due_at=data.due_at,
+    )
+    db.add(assignment)
+    await db.flush()
+    return assignment
+
+
+@router.get("/patients/{patient_id}/assignments", response_model=list[AssignmentOut])
+async def list_assignments(
+    patient_id: str,
+    therapist: Therapist = Depends(get_current_therapist),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_owned_patient(patient_id, therapist, db)
+    # Flip any assignment past its due date to "overdue" before returning —
+    # cheap enough to do on every read rather than needing a scheduled job.
+    now = datetime.now(timezone.utc)
+    await db.execute(
+        Assignment.__table__.update()
+        .where(
+            Assignment.patient_id == patient_id,
+            Assignment.status.in_([AssignmentStatus.assigned, AssignmentStatus.in_progress]),
+            Assignment.due_at.is_not(None),
+            Assignment.due_at < now,
+        )
+        .values(status=AssignmentStatus.overdue)
+    )
+    result = await db.execute(
+        select(Assignment)
+        .where(Assignment.patient_id == patient_id)
+        .order_by(Assignment.created_at.desc())
+    )
+    return result.scalars().all()
+
+
+@router.patch("/assignments/{assignment_id}", response_model=AssignmentOut)
+async def update_assignment(
+    assignment_id: str,
+    data: AssignmentUpdate,
+    therapist: Therapist = Depends(get_current_therapist),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Assignment).join(Patient).where(
+            Assignment.id == assignment_id,
+            Patient.therapist_id == therapist.id,
+        )
+    )
+    assignment = result.scalar_one_or_none()
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+
+    updates = data.model_dump(exclude_none=True)
+    if updates.get("status") == AssignmentStatus.completed and assignment.completed_at is None:
+        assignment.completed_at = datetime.now(timezone.utc)
+    for field, value in updates.items():
+        setattr(assignment, field, value)
+    return assignment
+
+
+@router.delete("/assignments/{assignment_id}", status_code=204)
+async def delete_assignment(
+    assignment_id: str,
+    therapist: Therapist = Depends(get_current_therapist),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Assignment).join(Patient).where(
+            Assignment.id == assignment_id,
+            Patient.therapist_id == therapist.id,
+        )
+    )
+    assignment = result.scalar_one_or_none()
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    await db.delete(assignment)
+
+
+# ------------------------------------------------------------------ #
+#  Goals                                                               #
+# ------------------------------------------------------------------ #
+
+# Metrics we know how to compute a "current value" for from GameSession
+# aggregates. Anything else (e.g. a Chime phoneme accuracy target) is still
+# stored and tracked for target_date/achieved, just without an auto-computed
+# current_value until that game's own aggregate source is wired in here too.
+_GOAL_METRIC_FIELDS = {
+    "breath_consistency": GameSession.breath_consistency,
+    "avg_breath_strength": GameSession.avg_breath_strength,
+}
+
+
+async def _compute_goal_current_value(goal: Goal, db: AsyncSession) -> float | None:
+    field = _GOAL_METRIC_FIELDS.get(goal.target_metric)
+    if field is None:
+        return None
+    result = await db.execute(
+        select(func.avg(field))
+        .where(GameSession.patient_id == goal.patient_id, field.is_not(None))
+        .order_by(GameSession.started_at.desc())
+        .limit(5)
+    )
+    avg = result.scalar()
+    return round(avg, 3) if avg is not None else None
+
+
+@router.post("/patients/{patient_id}/goals", response_model=GoalOut, status_code=201)
+async def create_goal(
+    patient_id: str,
+    data: GoalCreate,
+    therapist: Therapist = Depends(get_current_therapist),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_owned_patient(patient_id, therapist, db)
+    goal = Goal(
+        patient_id=patient_id,
+        created_by=therapist.id,
+        target_metric=data.target_metric,
+        target_value=data.target_value,
+        baseline_value=data.baseline_value,
+        target_date=data.target_date,
+    )
+    db.add(goal)
+    await db.flush()
+    out = GoalOut.model_validate(goal)
+    out.current_value = await _compute_goal_current_value(goal, db)
+    return out
+
+
+@router.get("/patients/{patient_id}/goals", response_model=list[GoalOut])
+async def list_goals(
+    patient_id: str,
+    therapist: Therapist = Depends(get_current_therapist),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_owned_patient(patient_id, therapist, db)
+    result = await db.execute(
+        select(Goal).where(Goal.patient_id == patient_id).order_by(Goal.created_at.desc())
+    )
+    goals = result.scalars().all()
+    out = []
+    for g in goals:
+        current = await _compute_goal_current_value(g, db)
+        # Auto-mark achieved the first time current_value clears the target,
+        # rather than requiring the therapist to flip it by hand.
+        if not g.achieved and current is not None and current >= g.target_value:
+            g.achieved = True
+            g.achieved_at = datetime.now(timezone.utc)
+        item = GoalOut.model_validate(g)
+        item.current_value = current
+        out.append(item)
+    return out
+
+
+@router.patch("/goals/{goal_id}", response_model=GoalOut)
+async def update_goal(
+    goal_id: str,
+    data: GoalUpdate,
+    therapist: Therapist = Depends(get_current_therapist),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Goal).join(Patient).where(Goal.id == goal_id, Patient.therapist_id == therapist.id)
+    )
+    goal = result.scalar_one_or_none()
+    if not goal:
+        raise HTTPException(status_code=404, detail="Goal not found")
+
+    updates = data.model_dump(exclude_none=True)
+    if updates.get("achieved") and goal.achieved_at is None:
+        goal.achieved_at = datetime.now(timezone.utc)
+    for field, value in updates.items():
+        setattr(goal, field, value)
+
+    out = GoalOut.model_validate(goal)
+    out.current_value = await _compute_goal_current_value(goal, db)
+    return out
+
+
+@router.delete("/goals/{goal_id}", status_code=204)
+async def delete_goal(
+    goal_id: str,
+    therapist: Therapist = Depends(get_current_therapist),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Goal).join(Patient).where(Goal.id == goal_id, Patient.therapist_id == therapist.id)
+    )
+    goal = result.scalar_one_or_none()
+    if not goal:
+        raise HTTPException(status_code=404, detail="Goal not found")
+    await db.delete(goal)
+
+
+# ------------------------------------------------------------------ #
+#  Messages (therapist <-> parent communication log)                   #
+# ------------------------------------------------------------------ #
+
+@router.post("/patients/{patient_id}/messages", response_model=MessageOut, status_code=201)
+async def create_message(
+    patient_id: str,
+    data: MessageCreate,
+    therapist: Therapist = Depends(get_current_therapist),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_owned_patient(patient_id, therapist, db)
+    if data.sender_role not in (SenderRole.therapist, SenderRole.parent):
+        raise HTTPException(status_code=422, detail="sender_role must be 'therapist' or 'parent'")
+    message = Message(
+        patient_id=patient_id,
+        sender_role=data.sender_role,
+        sender_id=therapist.id if data.sender_role == SenderRole.therapist else None,
+        body=data.body,
+    )
+    db.add(message)
+    await db.flush()
+    return message
+
+
+@router.get("/patients/{patient_id}/messages", response_model=list[MessageOut])
+async def list_messages(
+    patient_id: str,
+    therapist: Therapist = Depends(get_current_therapist),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_owned_patient(patient_id, therapist, db)
+    result = await db.execute(
+        select(Message).where(Message.patient_id == patient_id).order_by(Message.created_at.asc())
+    )
+    return result.scalars().all()
+
+
+@router.post("/messages/{message_id}/read", response_model=MessageOut)
+async def mark_message_read(
+    message_id: str,
+    therapist: Therapist = Depends(get_current_therapist),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Message).join(Patient).where(Message.id == message_id, Patient.therapist_id == therapist.id)
+    )
+    message = result.scalar_one_or_none()
+    if not message:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if message.read_at is None:
+        message.read_at = datetime.now(timezone.utc)
+    return message
+
+
+# ------------------------------------------------------------------ #
+#  Home practice log (manual, parent-reported)                         #
+# ------------------------------------------------------------------ #
+
+@router.post("/patients/{patient_id}/home-practice", response_model=HomePracticeLogOut, status_code=201)
+async def create_home_practice_log(
+    patient_id: str,
+    data: HomePracticeLogCreate,
+    therapist: Therapist = Depends(get_current_therapist),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_owned_patient(patient_id, therapist, db)
+    log = HomePracticeLog(
+        patient_id=patient_id,
+        practiced_on=data.practiced_on,
+        duration_minutes=data.duration_minutes,
+        notes=data.notes,
+    )
+    db.add(log)
+    await db.flush()
+    return log
+
+
+@router.get("/patients/{patient_id}/home-practice", response_model=list[HomePracticeLogOut])
+async def list_home_practice_logs(
+    patient_id: str,
+    therapist: Therapist = Depends(get_current_therapist),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_owned_patient(patient_id, therapist, db)
+    result = await db.execute(
+        select(HomePracticeLog)
+        .where(HomePracticeLog.patient_id == patient_id)
+        .order_by(HomePracticeLog.practiced_on.desc())
+    )
+    return result.scalars().all()
+
+
+# ------------------------------------------------------------------ #
+#  Multi-child alert view                                              #
+# ------------------------------------------------------------------ #
+
+@router.get("/alerts", response_model=list[PatientAlert])
+async def list_patient_alerts(
+    inactive_days: int = 3,
+    therapist: Therapist = Depends(get_current_therapist),
+    db: AsyncSession = Depends(get_db),
+):
+    """Read-side aggregation, no new storage: flags patients who haven't
+    played in `inactive_days`+ (across BreathQuest/VoiceHurdleRace/VaakMirror/
+    Chime) or who have an overdue assignment."""
+    patients_result = await db.execute(
+        select(Patient).where(Patient.therapist_id == therapist.id, Patient.is_active == True)
+    )
+    patients = patients_result.scalars().all()
+    now = datetime.now(timezone.utc)
+
+    alerts = []
+    for p in patients:
+        bq_last = (await db.execute(
+            select(func.max(GameSession.started_at)).where(GameSession.patient_id == p.id)
+        )).scalar()
+        vhr_last = (await db.execute(
+            select(func.max(VoiceHurdleRaceSession.created_at)).where(VoiceHurdleRaceSession.patient_id == p.id)
+        )).scalar()
+        vm_last = (await db.execute(
+            select(func.max(VaakMirrorSession.started_at)).where(VaakMirrorSession.patient_id == p.id)
+        )).scalar()
+        chime_last = chime_data_store.last_event_time(child_id=p.id, db_path=CHIME_DB_PATH)
+
+        last_candidates = [d for d in (bq_last, vhr_last, vm_last, chime_last) if d is not None]
+        last_played = max(last_candidates) if last_candidates else None
+        days_since = (now - last_played).days if last_played else None
+
+        overdue_count = (await db.execute(
+            select(func.count(Assignment.id)).where(
+                Assignment.patient_id == p.id,
+                Assignment.status == AssignmentStatus.overdue,
+            )
+        )).scalar() or 0
+
+        if days_since is None or days_since >= inactive_days:
+            flag = "inactive"
+        elif overdue_count > 0:
+            flag = "overdue_assignment"
+        else:
+            flag = "ok"
+
+        alerts.append(PatientAlert(
+            patient_id=p.id,
+            first_name=p.first_name,
+            days_since_last_session=days_since,
+            overdue_assignments=overdue_count,
+            flag=flag,
+        ))
+
+    return alerts
+
+
+# ------------------------------------------------------------------ #
+#  Weekly summary (rule-based, no LLM/API calls)                       #
+# ------------------------------------------------------------------ #
+
+@router.get("/patients/{patient_id}/weekly-summary", response_model=WeeklySummaryOut)
+async def get_weekly_summary(
+    patient_id: str,
+    week_offset: int = 0,   # 0 = current week (Mon-based), 1 = last week, etc.
+    therapist: Therapist = Depends(get_current_therapist),
+    db: AsyncSession = Depends(get_db),
+):
+    """Entirely rule-based — no external API call, deterministic per
+    patient/week. See services/weekly_summary.py for the generator."""
+    patient = await _get_owned_patient(patient_id, therapist, db)
+
+    now = datetime.now(timezone.utc)
+    this_monday = (now - timedelta(days=now.weekday())).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    week_start = this_monday - timedelta(weeks=week_offset)
+
+    result = await generate_weekly_summary(db, patient, week_start, chime_data_store.DEFAULT_DB_PATH)
+    return WeeklySummaryOut(**result)
+
+
+# ------------------------------------------------------------------ #
+#  ICF-style PDF report export                                         #
+# ------------------------------------------------------------------ #
+
+@router.get("/patients/{patient_id}/report")
+async def get_patient_report(
+    patient_id: str,
+    therapist: Therapist = Depends(get_current_therapist),
+    db: AsyncSession = Depends(get_db),
+):
+    """Generates an ICF-style PDF pulling from the same aggregates the
+    dashboard already computes — progress, weekly summary, goals, assignments."""
+    patient = await _get_owned_patient(patient_id, therapist, db)
+
+    progress = await get_patient_progress(patient_id, therapist, db)
+
+    now = datetime.now(timezone.utc)
+    this_monday = (now - timedelta(days=now.weekday())).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    weekly_data = await generate_weekly_summary(db, patient, this_monday, chime_data_store.DEFAULT_DB_PATH)
+    weekly_summary = WeeklySummaryOut(**weekly_data)
+
+    goals = await list_goals(patient_id, therapist, db)
+    assignments = await list_assignments(patient_id, therapist, db)
+
+    fd, tmp_path = tempfile.mkstemp(suffix=".pdf")
+    os.close(fd)
+    build_patient_report_pdf(
+        patient=patient, progress=progress, weekly_summary=weekly_summary,
+        goals=goals, assignments=assignments, therapist=therapist,
+        output_path=tmp_path,
+    )
+
+    safe_name = patient.first_name.replace(" ", "_")
+    return FileResponse(
+        tmp_path, media_type="application/pdf",
+        filename=f"{safe_name}_progress_report.pdf",
+    )

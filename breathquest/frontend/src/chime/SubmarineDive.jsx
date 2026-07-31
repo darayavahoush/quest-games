@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Settings } from 'lucide-react'
 import { logEvent, getAgentDecision } from './lib/api'
+import { getNextLevelRoute } from './lib/levelProgress'
 
 const TARGET_F1_DEFAULT = 300.0
 const TARGET_F2_DEFAULT = 870.0
@@ -843,7 +844,10 @@ export default function SubmarineDive() {
             <h1 className="sdv-title">You reached the deep!</h1>
             <p className="sdv-subtitle">Your submarine found the ocean floor!</p>
             <p style={{ fontSize: '0.95rem', opacity: 0.85, margin: '-14px 0 20px' }}>{agentFeedback}</p>
-            <button className="sdv-btn" onClick={handlePlayAgain}>Dive Again!</button>
+            {getNextLevelRoute(LEVEL_ID) && (
+              <button className="sdv-btn" onClick={() => navigate(getNextLevelRoute(LEVEL_ID))}>Next Level →</button>
+            )}
+            <button className="sdv-btn sdv-btn-secondary" onClick={handlePlayAgain}>Dive Again!</button>
           </div>
         </div>
       )}

@@ -16,7 +16,7 @@ export default function PatientDetail() {
   const navigate = useNavigate()
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab]         = useState('progress')   // progress | sessions | voicehurdlerace | chime | vaakmirror | notes
+  const [tab, setTab]         = useState('progress')   // progress | sessions | voicehurdlerace | chime | vaakmirror | care | notes
   const [noteText, setNoteText] = useState('')
   const [notes, setNotes]       = useState([])
   const [savingNote, setSavingNote] = useState(false)
@@ -28,6 +28,26 @@ export default function PatientDetail() {
   const [vmDashboard, setVmDashboard] = useState(null)
   const [vmLoading, setVmLoading] = useState(true)
   const [vmError, setVmError] = useState(false)
+
+  // Care tab — Assignments / Goals / Messages / Home Practice / Weekly Summary
+  const [assignments, setAssignments] = useState([])
+  const [goals, setGoals]             = useState([])
+  const [messages, setMessages]       = useState([])
+  const [homePractice, setHomePractice] = useState([])
+  const [careLoading, setCareLoading] = useState(true)
+  const [careError, setCareError]     = useState(false)
+  const [weekOffset, setWeekOffset]   = useState(0)
+  const [weeklySummary, setWeeklySummary] = useState(null)
+  const [summaryLoading, setSummaryLoading] = useState(true)
+
+  const [newAssignment, setNewAssignment] = useState({ game: 'chime', level_id: '', title: '', instructions: '', due_at: '' })
+  const [savingAssignment, setSavingAssignment] = useState(false)
+  const [newGoal, setNewGoal] = useState({ target_metric: 'breath_consistency', target_value: '', target_date: '' })
+  const [savingGoal, setSavingGoal] = useState(false)
+  const [newMessage, setNewMessage] = useState('')
+  const [sendingMessage, setSendingMessage] = useState(false)
+  const [newPractice, setNewPractice] = useState({ practiced_on: new Date().toISOString().slice(0, 10), duration_minutes: '', notes: '' })
+  const [savingPractice, setSavingPractice] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -52,7 +72,112 @@ export default function PatientDetail() {
       .then(({ data }) => setVmDashboard(data))
       .catch(err => { console.error('Failed to load VaakMirror dashboard:', err); setVmError(true) })
       .finally(() => setVmLoading(false))
+
+    loadCareData()
   }, [id])
+
+  useEffect(() => {
+    setSummaryLoading(true)
+    dashboardAPI.weeklySummary(id, weekOffset)
+      .then(({ data }) => setWeeklySummary(data))
+      .catch(err => console.error('Failed to load weekly summary:', err))
+      .finally(() => setSummaryLoading(false))
+  }, [id, weekOffset])
+
+  const loadCareData = () => {
+    setCareLoading(true)
+    Promise.all([
+      dashboardAPI.listAssignments(id),
+      dashboardAPI.listGoals(id),
+      dashboardAPI.listMessages(id),
+      dashboardAPI.listHomePractice(id),
+    ]).then(([a, g, m, h]) => {
+      setAssignments(a.data)
+      setGoals(g.data)
+      setMessages(m.data)
+      setHomePractice(h.data)
+    }).catch(err => { console.error('Failed to load Care tab data:', err); setCareError(true) })
+      .finally(() => setCareLoading(false))
+  }
+
+  const saveAssignment = async () => {
+    if (!newAssignment.title.trim()) return
+    setSavingAssignment(true)
+    try {
+      const payload = {
+        ...newAssignment,
+        level_id: newAssignment.level_id || null,
+        instructions: newAssignment.instructions || null,
+        due_at: newAssignment.due_at ? new Date(newAssignment.due_at).toISOString() : null,
+      }
+      const { data: created } = await dashboardAPI.createAssignment(id, payload)
+      setAssignments(a => [created, ...a])
+      setNewAssignment({ game: 'chime', level_id: '', title: '', instructions: '', due_at: '' })
+    } finally {
+      setSavingAssignment(false)
+    }
+  }
+
+  const toggleAssignmentDone = async (a) => {
+    const status = a.status === 'completed' ? 'assigned' : 'completed'
+    const { data: updated } = await dashboardAPI.updateAssignment(a.id, { status })
+    setAssignments(list => list.map(x => x.id === a.id ? updated : x))
+  }
+
+  const removeAssignment = async (assignmentId) => {
+    await dashboardAPI.deleteAssignment(assignmentId)
+    setAssignments(list => list.filter(a => a.id !== assignmentId))
+  }
+
+  const saveGoal = async () => {
+    if (!newGoal.target_metric.trim() || !newGoal.target_value) return
+    setSavingGoal(true)
+    try {
+      const payload = {
+        target_metric: newGoal.target_metric,
+        target_value: parseFloat(newGoal.target_value),
+        target_date: newGoal.target_date ? new Date(newGoal.target_date).toISOString() : null,
+      }
+      const { data: created } = await dashboardAPI.createGoal(id, payload)
+      setGoals(g => [created, ...g])
+      setNewGoal({ target_metric: 'breath_consistency', target_value: '', target_date: '' })
+    } finally {
+      setSavingGoal(false)
+    }
+  }
+
+  const removeGoal = async (goalId) => {
+    await dashboardAPI.deleteGoal(goalId)
+    setGoals(list => list.filter(g => g.id !== goalId))
+  }
+
+  const sendMessage = async () => {
+    if (!newMessage.trim()) return
+    setSendingMessage(true)
+    try {
+      const { data: sent } = await dashboardAPI.createMessage(id, { body: newMessage, sender_role: 'therapist' })
+      setMessages(m => [...m, sent])
+      setNewMessage('')
+    } finally {
+      setSendingMessage(false)
+    }
+  }
+
+  const savePracticeLog = async () => {
+    setSavingPractice(true)
+    try {
+      const payload = {
+        practiced_on: new Date(newPractice.practiced_on).toISOString(),
+        duration_minutes: newPractice.duration_minutes ? parseInt(newPractice.duration_minutes, 10) : null,
+        notes: newPractice.notes || null,
+      }
+      const { data: created } = await dashboardAPI.createHomePractice(id, payload)
+      setHomePractice(h => [created, ...h])
+      setNewPractice({ practiced_on: new Date().toISOString().slice(0, 10), duration_minutes: '', notes: '' })
+    } finally {
+      setSavingPractice(false)
+    }
+  }
 
   const saveNote = async () => {
     if (!noteText.trim()) return
@@ -120,7 +245,7 @@ export default function PatientDetail() {
 
         {/* Tabs */}
         <div className="flex gap-1 bg-white/5 p-1 rounded-xl mb-6 w-fit">
-          {[['progress', '📊 Progress'], ['sessions', '🎮 Sessions'], ['voicehurdlerace', '🐶 Voice Hurdle'], ['chime', '🔔 Chime'], ['vaakmirror', '🪞 VaakMirror'], ['notes', '📝 Notes']].map(([t, label]) => (
+          {[['progress', '📊 Progress'], ['sessions', '🎮 Sessions'], ['voicehurdlerace', '🐶 Voice Hurdle'], ['chime', '🔔 Chime'], ['vaakmirror', '🪞 VaakMirror'], ['care', '🩺 Care'], ['notes', '📝 Notes']].map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all
                 ${tab === t ? 'bg-brand-green text-brand-dark' : 'text-white/50 hover:text-white'}`}>
@@ -359,6 +484,199 @@ export default function PatientDetail() {
                   )
                 ))}
               </>
+            )}
+          </div>
+        )}
+
+        {/* Care tab — Assignments, Goals, Messages, Home Practice, and the
+            rule-based Weekly Summary. Kept as one tab rather than four
+            since a therapist reviewing a patient wants all of this
+            together in one "how's care going" pass. */}
+        {tab === 'care' && (
+          <div className="flex flex-col gap-6">
+            {/* Weekly summary */}
+            <Card>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-white">Weekly Summary</h3>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setWeekOffset(w => w + 1)}
+                          className="text-white/40 hover:text-white text-xs px-2 py-1 rounded transition-colors">
+                    ← Prior week
+                  </button>
+                  <span className="text-white/30 text-xs">{weekOffset === 0 ? 'This week' : `${weekOffset} week${weekOffset === 1 ? '' : 's'} ago`}</span>
+                  <button onClick={() => setWeekOffset(w => Math.max(0, w - 1))} disabled={weekOffset === 0}
+                          className="text-white/40 hover:text-white text-xs px-2 py-1 rounded transition-colors disabled:opacity-20">
+                    Next week →
+                  </button>
+                </div>
+              </div>
+              {summaryLoading ? (
+                <div className="py-8 text-center"><Spinner /></div>
+              ) : !weeklySummary ? (
+                <p className="text-white/40 text-sm">Couldn't load the weekly summary.</p>
+              ) : (
+                <>
+                  <p className="text-white/80 text-sm leading-relaxed mb-3">{weeklySummary.narrative}</p>
+                  {weeklySummary.highlights.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {weeklySummary.highlights.map((h, i) => (
+                        <span key={i} className="badge bg-white/5 text-white/70 text-xs px-2 py-1 rounded-full">{h}</span>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </Card>
+
+            {careLoading ? (
+              <Card className="text-center py-12"><Spinner /></Card>
+            ) : careError ? (
+              <Card className="text-center py-12 text-white/40">Couldn't load Care data right now.</Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Goals */}
+                <Card>
+                  <h3 className="font-semibold text-white mb-3">Goals</h3>
+                  <div className="flex flex-col gap-2 mb-4">
+                    {goals.length === 0 && <p className="text-white/30 text-sm">No goals set yet</p>}
+                    {goals.map(g => (
+                      <div key={g.id} className="flex items-center gap-3 border-b border-white/5 pb-2 last:border-0">
+                        <div className="flex-1">
+                          <p className="text-white text-sm capitalize">{g.target_metric.replace(/_/g, ' ')}</p>
+                          <p className="text-white/30 text-xs">
+                            target {g.target_value}{g.current_value != null ? ` · current ${g.current_value}` : ''}
+                          </p>
+                        </div>
+                        <Badge color={g.achieved ? 'green' : 'gray'}>{g.achieved ? 'Achieved' : 'In progress'}</Badge>
+                        <button onClick={() => removeGoal(g.id)} className="text-white/20 hover:text-brand-coral text-xs">✕</button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <input className="input text-sm" placeholder="Target metric (e.g. breath_consistency)"
+                           value={newGoal.target_metric}
+                           onChange={e => setNewGoal(n => ({ ...n, target_metric: e.target.value }))} />
+                    <div className="flex gap-2">
+                      <input className="input text-sm" type="number" step="0.01" placeholder="Target value"
+                             value={newGoal.target_value}
+                             onChange={e => setNewGoal(n => ({ ...n, target_value: e.target.value }))} />
+                      <input className="input text-sm" type="date"
+                             value={newGoal.target_date}
+                             onChange={e => setNewGoal(n => ({ ...n, target_date: e.target.value }))} />
+                    </div>
+                    <Button onClick={saveGoal} disabled={savingGoal || !newGoal.target_metric.trim() || !newGoal.target_value} size="sm">
+                      {savingGoal ? 'Saving…' : 'Add Goal'}
+                    </Button>
+                  </div>
+                </Card>
+
+                {/* Assignments */}
+                <Card>
+                  <h3 className="font-semibold text-white mb-3">Assignments</h3>
+                  <div className="flex flex-col gap-2 mb-4">
+                    {assignments.length === 0 && <p className="text-white/30 text-sm">No assignments yet</p>}
+                    {assignments.map(a => (
+                      <div key={a.id} className="flex items-center gap-3 border-b border-white/5 pb-2 last:border-0">
+                        <div className="flex-1">
+                          <p className="text-white text-sm">{a.title}</p>
+                          <p className="text-white/30 text-xs capitalize">
+                            {a.game}{a.level_id ? ` · ${a.level_id}` : ''}
+                            {a.due_at ? ` · due ${new Date(a.due_at).toLocaleDateString()}` : ''}
+                          </p>
+                        </div>
+                        <Badge color={a.status === 'completed' ? 'green' : a.status === 'overdue' ? 'coral' : 'gray'}>
+                          {a.status}
+                        </Badge>
+                        <button onClick={() => toggleAssignmentDone(a)} className="text-white/40 hover:text-brand-green text-xs">
+                          {a.status === 'completed' ? 'Undo' : 'Done'}
+                        </button>
+                        <button onClick={() => removeAssignment(a.id)} className="text-white/20 hover:text-brand-coral text-xs">✕</button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <input className="input text-sm" placeholder="Title"
+                           value={newAssignment.title}
+                           onChange={e => setNewAssignment(n => ({ ...n, title: e.target.value }))} />
+                    <div className="flex gap-2">
+                      <select className="input text-sm" value={newAssignment.game}
+                              onChange={e => setNewAssignment(n => ({ ...n, game: e.target.value }))}>
+                        <option value="chime">Chime</option>
+                        <option value="breathquest">BreathQuest</option>
+                        <option value="vaakmirror">VaakMirror</option>
+                        <option value="voicehurdlerace">Voice Hurdle Race</option>
+                      </select>
+                      <input className="input text-sm" placeholder="Level id (optional)"
+                             value={newAssignment.level_id}
+                             onChange={e => setNewAssignment(n => ({ ...n, level_id: e.target.value }))} />
+                    </div>
+                    <input className="input text-sm" type="date"
+                           value={newAssignment.due_at}
+                           onChange={e => setNewAssignment(n => ({ ...n, due_at: e.target.value }))} />
+                    <Button onClick={saveAssignment} disabled={savingAssignment || !newAssignment.title.trim()} size="sm">
+                      {savingAssignment ? 'Saving…' : 'Add Assignment'}
+                    </Button>
+                  </div>
+                </Card>
+
+                {/* Messages */}
+                <Card>
+                  <h3 className="font-semibold text-white mb-3">Messages</h3>
+                  <div className="flex flex-col gap-2 mb-3 max-h-64 overflow-y-auto">
+                    {messages.length === 0 && <p className="text-white/30 text-sm">No messages yet</p>}
+                    {messages.map(m => (
+                      <div key={m.id} className={`text-sm rounded-lg px-3 py-2 max-w-[85%] ${
+                        m.sender_role === 'therapist' ? 'bg-brand-green/20 text-white self-end ml-auto' : 'bg-white/10 text-white'
+                      }`}>
+                        <p>{m.body}</p>
+                        <p className="text-white/30 text-[10px] mt-1">
+                          {m.sender_role} · {new Date(m.created_at).toLocaleString()}{m.read_at ? ' · read' : ''}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <input className="input text-sm flex-1" placeholder="Message to parent…"
+                           value={newMessage}
+                           onChange={e => setNewMessage(e.target.value)}
+                           onKeyDown={e => e.key === 'Enter' && sendMessage()} />
+                    <Button onClick={sendMessage} disabled={sendingMessage || !newMessage.trim()} size="sm">Send</Button>
+                  </div>
+                </Card>
+
+                {/* Home Practice */}
+                <Card>
+                  <h3 className="font-semibold text-white mb-3">Home Practice Log</h3>
+                  <div className="flex flex-col gap-2 mb-4 max-h-64 overflow-y-auto">
+                    {homePractice.length === 0 && <p className="text-white/30 text-sm">No home practice logged yet</p>}
+                    {homePractice.map(h => (
+                      <div key={h.id} className="border-b border-white/5 pb-2 last:border-0">
+                        <p className="text-white text-sm">
+                          {new Date(h.practiced_on).toLocaleDateString()}
+                          {h.duration_minutes ? ` · ${h.duration_minutes} min` : ''}
+                        </p>
+                        {h.notes && <p className="text-white/40 text-xs">{h.notes}</p>}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex gap-2">
+                      <input className="input text-sm" type="date"
+                             value={newPractice.practiced_on}
+                             onChange={e => setNewPractice(n => ({ ...n, practiced_on: e.target.value }))} />
+                      <input className="input text-sm" type="number" placeholder="Minutes"
+                             value={newPractice.duration_minutes}
+                             onChange={e => setNewPractice(n => ({ ...n, duration_minutes: e.target.value }))} />
+                    </div>
+                    <input className="input text-sm" placeholder="Notes (optional)"
+                           value={newPractice.notes}
+                           onChange={e => setNewPractice(n => ({ ...n, notes: e.target.value }))} />
+                    <Button onClick={savePracticeLog} disabled={savingPractice} size="sm">
+                      {savingPractice ? 'Saving…' : 'Log Practice'}
+                    </Button>
+                  </div>
+                </Card>
+              </div>
             )}
           </div>
         )}

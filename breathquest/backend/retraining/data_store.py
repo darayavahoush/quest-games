@@ -113,6 +113,27 @@ def count_events_since(child_ids: list[str], since_iso: str, db_path: Path = DEF
         return conn.execute(query, [since_iso, *child_ids]).fetchone()["c"]
 
 
+def last_event_time(child_id: str, db_path: Path = DEFAULT_DB_PATH):
+    """Most recent event timestamp (as a timezone-aware datetime) for this
+    child, or None if they've never played Chime. Used by the multi-child
+    inactivity alert view so a kid who only plays Chime isn't wrongly
+    flagged as inactive just because BreathQuest/VaakMirror have no rows
+    for them."""
+    if not Path(db_path).exists():
+        return None
+    with get_connection(db_path) as conn:
+        row = conn.execute(
+            "SELECT MAX(timestamp) as t FROM session_events WHERE child_id = ?",
+            [child_id],
+        ).fetchone()
+    if not row or not row["t"]:
+        return None
+    from datetime import datetime, timezone
+    ts = row["t"]
+    dt = datetime.fromisoformat(ts)
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
 def get_checkpoint(scope: str, db_path: Path = DEFAULT_DB_PATH):
     with get_connection(db_path) as conn:
         row = conn.execute("SELECT * FROM retrain_checkpoints WHERE scope = ?", (scope,)).fetchone()

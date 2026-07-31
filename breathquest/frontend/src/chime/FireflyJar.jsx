@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Settings } from 'lucide-react'
 import { logEvent, getAgentDecision } from './lib/api'
+import { getNextLevelRoute } from './lib/levelProgress'
 
 
 const MIN_PEAK_RMS_DEFAULT = 0.05
@@ -626,6 +627,9 @@ export default function FireflyJar() {
             <h1 className="fjar-title">Jar is full of light!</h1>
             <p className="fjar-subtitle">You caught every firefly!</p>
             <p style={{ fontSize: '0.95rem', opacity: 0.85, margin: '-14px 0 20px' }}>{agentFeedback}</p>
+            {getNextLevelRoute(LEVEL_ID) && (
+              <button className="fjar-btn" onClick={() => navigate(getNextLevelRoute(LEVEL_ID))}>Next Level →</button>
+            )}
             <button className="fjar-btn" onClick={handlePlayAgain}>Play Again!</button>
           </div>
         </div>
