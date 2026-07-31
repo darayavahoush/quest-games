@@ -116,3 +116,16 @@ class ExerciseAssignmentOut(BaseModel):
 
 class AssignmentStatusUpdate(BaseModel):
     status: AssignmentStatus
+
+
+class GameSettingsOut(BaseModel):
+    game: str
+    round_size: int | None
+    updated_at: datetime | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class GameSettingsUpdate(BaseModel):
+    round_size: int = Field(ge=1, le=50)

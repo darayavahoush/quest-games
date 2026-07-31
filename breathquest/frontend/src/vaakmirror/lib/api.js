@@ -31,6 +31,10 @@ export function updateAssignmentStatus(assignmentId, status) {
   return api.patch(`${VM}/exercise-assignments/${assignmentId}`, { status }).then(r => r.data)
 }
 
+export function getGameSettings(patientId, game) {
+  return api.get(`${VM}/patients/${patientId}/game-settings/${game}`).then(r => r.data)
+}
+
 export function createGameSession(game) {
   // No patient id in the request — the backend derives it from the kid's
   // own token (attached automatically by client.js), so a kid can only

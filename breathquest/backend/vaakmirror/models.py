@@ -96,6 +96,21 @@ class ExerciseTemplate(Base):
     assignments = relationship("vaakmirror.models.ExerciseAssignment", back_populates="exercise")
 
 
+class GameSettings(Base):
+    """Per-patient, per-game clinical parameters a therapist can tune —
+    starting with round_size (how many sounds/attempts appear per session).
+    A separate row per (patient_id, game) rather than one JSON blob per
+    patient, so each game's settings can evolve independently."""
+    __tablename__ = "game_settings"
+
+    id = Column(Integer, primary_key=True)
+    patient_id = Column(String, nullable=False, index=True)  # logical ref to patients.id, same pattern as elsewhere in this file
+    game = Column(Enum(GameName), nullable=False)
+    round_size = Column(Integer, nullable=True)  # null = use the game's built-in default
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    updated_by = Column(String, nullable=True)  # therapist_id who last changed it
+
+
 class ExerciseAssignment(Base):
     __tablename__ = "exercise_assignments"
 
