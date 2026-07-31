@@ -41,6 +41,8 @@ export default function LipSyncHero() {
   const noteStartRef = useRef(null)
   const resolvedRef = useRef(false)
   const smoothedRef = useRef(null)
+  const restMetricsRef = useRef(null)  // first frame of the round — the child's resting mouth
+  const hasMovedRef = useRef(false)    // becomes true once the child's mouth actually moves from rest
   const tierStabilizerRef = useRef(createTierStabilizer(4))
   const sessionIdRef = useRef(null)
   const calibSamplesRef = useRef([])
@@ -76,6 +78,8 @@ export default function LipSyncHero() {
     setOutcome(null)
     setProgress(0)
     smoothedRef.current = null
+    restMetricsRef.current = null
+    hasMovedRef.current = false
     tierStabilizerRef.current.reset()
     speakSound(sound.label)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -192,9 +196,26 @@ export default function LipSyncHero() {
           setProgress(p)
 
           if (metrics) {
+            if (!restMetricsRef.current) {
+              // First frame of the round establishes the resting baseline —
+              // don't score against it, just capture it.
+              restMetricsRef.current = metrics
+            } else if (!hasMovedRef.current) {
+              const movement =
+                Math.abs(metrics.openness - restMetricsRef.current.openness) +
+                Math.abs(metrics.spread - restMetricsRef.current.spread)
+              // Tune here if kids with subtle articulation are being missed,
+              // or if idle jitter is triggering false movement.
+              if (movement > 0.045) hasMovedRef.current = true
+            }
+
             smoothedRef.current = emaUpdateObject(smoothedRef.current, metrics, ['openness', 'spread'], 0.3)
             const { score, tier: rawTier } = scoreAgainstTarget(smoothedRef.current, target, baselineSpread)
-            const t = tierStabilizerRef.current.update(rawTier)
+            // Require actual movement from rest before a match can register —
+            // a resting mouth that geometrically overlaps a closed-lip target
+            // (m/p/b) shouldn't score as a correct attempt on its own.
+            const gatedTier = hasMovedRef.current ? rawTier : 'red'
+            const t = tierStabilizerRef.current.update(gatedTier)
             frameTier = t
             setTier(t)
 
