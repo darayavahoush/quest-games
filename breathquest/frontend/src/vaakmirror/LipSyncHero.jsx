@@ -43,6 +43,7 @@ export default function LipSyncHero() {
   const smoothedRef = useRef(null)
   const restMetricsRef = useRef(null)  // first frame of the round — the child's resting mouth
   const hasMovedRef = useRef(false)    // becomes true once the child's mouth actually moves from rest
+  const movementStreakRef = useRef(0)  // consecutive frames past the movement gate — avoids a single jittery frame flipping hasMovedRef
   const tierStabilizerRef = useRef(createTierStabilizer(4))
   const sessionIdRef = useRef(null)
   const calibSamplesRef = useRef([])
@@ -80,6 +81,7 @@ export default function LipSyncHero() {
     smoothedRef.current = null
     restMetricsRef.current = null
     hasMovedRef.current = false
+    movementStreakRef.current = 0
     tierStabilizerRef.current.reset()
     speakSound(sound.label)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -210,7 +212,13 @@ export default function LipSyncHero() {
               // geometrically, so they need a higher bar than other shapes
               // to avoid scoring "did nothing" as a match.
               const movementGate = target?.spread === null && target?.openness?.[1] <= 0.16 ? 0.09 : 0.045
-              if (movement > movementGate) hasMovedRef.current = true
+              const REQUIRED_MOVEMENT_FRAMES = 3
+              if (movement > movementGate) {
+                movementStreakRef.current += 1
+                if (movementStreakRef.current >= REQUIRED_MOVEMENT_FRAMES) hasMovedRef.current = true
+              } else {
+                movementStreakRef.current = 0
+              }
             }
 
             smoothedRef.current = emaUpdateObject(smoothedRef.current, metrics, ['openness', 'spread'], 0.3)
