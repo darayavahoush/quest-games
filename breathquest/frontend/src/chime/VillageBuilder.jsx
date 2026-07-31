@@ -39,6 +39,8 @@ const WORD_DIFFICULTY_AGENT = {
 
 // Offline fallback matching backend/word_level/asr_match.py's logic —
 // only used if the backend is unreachable, so the game still works.
+const MIN_CONFIDENCE_FOR_VALID = 0.4 // below this, ASR itself wasn't sure enough to trust
+
 function levenshtein(a, b) {
   const dp = Array.from({ length: a.length + 1 }, (_, i) => [i, ...new Array(b.length).fill(0)])
   for (let j = 0; j <= b.length; j++) dp[0][j] = j
@@ -49,13 +51,25 @@ function levenshtein(a, b) {
   }
   return dp[a.length][b.length]
 }
-function localWordMatch(transcript, targetWord, confidence) {
-  if (!transcript || !transcript.trim()) return { transcript: '', confidence: 0, match_score: 0, is_valid_attempt: false }
-  const a = transcript.trim().toLowerCase(), b = targetWord.trim().toLowerCase()
+function tokenSimilarity(a, b) {
   const dist = levenshtein(a, b)
   const maxLen = Math.max(a.length, b.length)
-  const similarity = maxLen > 0 ? 1 - dist / maxLen : 1
-  return { transcript, confidence, match_score: Math.max(0, similarity), is_valid_attempt: true }
+  return maxLen > 0 ? 1 - dist / maxLen : 1
+}
+function localWordMatch(transcript, targetWord, confidence) {
+  if (!transcript || !transcript.trim()) return { transcript: '', confidence: 0, match_score: 0, is_valid_attempt: false }
+  const target = targetWord.trim().toLowerCase()
+  const tokens = transcript.trim().toLowerCase().split(/\s+/)
+  // Compare the target against each word individually and take the best
+  // match, so "the dog" scores the same as "dog" for target "dog" — a
+  // fuller, grammatically normal sentence shouldn't be penalized just for
+  // being longer than a bare target word.
+  const match_score = Math.max(...tokens.map((tok) => tokenSimilarity(tok, target)))
+  // A low-confidence transcription — hallucinated from silence/noise, not
+  // just mis-heard — shouldn't count as a genuine valid attempt even if it
+  // happens to string-match the target.
+  const is_valid_attempt = confidence >= MIN_CONFIDENCE_FOR_VALID
+  return { transcript, confidence, match_score, is_valid_attempt }
 }
 
 function hexToRgb(hex) {
