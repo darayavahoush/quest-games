@@ -205,8 +205,12 @@ export default function LipSyncHero() {
                 Math.abs(metrics.openness - restMetricsRef.current.openness) +
                 Math.abs(metrics.spread - restMetricsRef.current.spread)
               // Tune here if kids with subtle articulation are being missed,
-              // or if idle jitter is triggering false movement.
-              if (movement > 0.045) hasMovedRef.current = true
+              // or if idle jitter is triggering false movement. Closed-lip
+              // targets (p/b/m) sit right on top of a resting mouth
+              // geometrically, so they need a higher bar than other shapes
+              // to avoid scoring "did nothing" as a match.
+              const movementGate = target?.spread === null && target?.openness?.[1] <= 0.16 ? 0.09 : 0.045
+              if (movement > movementGate) hasMovedRef.current = true
             }
 
             smoothedRef.current = emaUpdateObject(smoothedRef.current, metrics, ['openness', 'spread'], 0.3)
