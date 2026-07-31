@@ -86,6 +86,7 @@ export function computeTongueMetrics(video, landmarks, scratchCanvas, w, h) {
   }
 
   let count = 0
+  let xSum = 0
   let ySum = 0
   let brightnessSum = 0
   const total = SAMPLE_W * SAMPLE_H
@@ -99,16 +100,25 @@ export function computeTongueMetrics(video, landmarks, scratchCanvas, w, h) {
       brightnessSum += (r + g + b) / 3
       if (isTongueColor(r, g, b)) {
         count++
+        xSum += pxi
         ySum += py
       }
     }
   }
 
   const visibility = count / total
-  const elevation = count > total * MIN_TONGUE_PIXELS_RATIO ? 1 - ySum / count / SAMPLE_H : null
+  const enoughPixels = count > total * MIN_TONGUE_PIXELS_RATIO
+  const elevation = enoughPixels ? 1 - ySum / count / SAMPLE_H : null
+  // Lateral: horizontal centroid of tongue-colored pixels, 0 = toward
+  // LEFT_MOUTH_CORNER (landmark 61), 1 = toward RIGHT_MOUTH_CORNER (landmark
+  // 291) — same left/right convention mouthMetrics.js already uses, reused
+  // rather than inventing a new one. This is raw camera-space left/right;
+  // whether it matches the child's own left/right on the mirrored display
+  // needs a real-camera check (see tongueMoves.js).
+  const lateral = enoughPixels ? xSum / count / SAMPLE_W : null
   const brightness = brightnessSum / total // 0-255, useful for a lighting warning
 
-  return { visibility, elevation, brightness }
+  return { visibility, elevation, lateral, brightness }
 }
 
 function inRangeDist(value, [lo, hi]) {
@@ -124,13 +134,24 @@ function inRangeDist(value, [lo, hi]) {
 // elevation is compared against that assumption to get a per-kid offset,
 // which then shifts both movement targets by the same amount.
 const ASSUMED_DEFAULT_BASELINE_ELEVATION = 0.45
+// A relaxed, centered tongue should sit near the horizontal middle of the
+// sample — unlike elevation, 0.5 is the natural "no offset" assumption.
+const ASSUMED_DEFAULT_BASELINE_LATERAL = 0.5
 
 export function computeElevationOffset(baselineElevation) {
   if (baselineElevation == null) return 0
   return baselineElevation - ASSUMED_DEFAULT_BASELINE_ELEVATION
 }
 
-export function scoreTongueMove(metrics, target, elevationOffset = 0) {
+export function computeLateralOffset(baselineLateral) {
+  if (baselineLateral == null) return 0
+  return baselineLateral - ASSUMED_DEFAULT_BASELINE_LATERAL
+}
+
+// target.lateral is optional — omitting it (as tongue-up/tongue-back do)
+// means lateral position isn't scored at all, so those existing moves are
+// completely unaffected by this parameter.
+export function scoreTongueMove(metrics, target, elevationOffset = 0, lateralOffset = 0) {
   if (!metrics) return { score: 0, tier: 'red' }
 
   const visDist = inRangeDist(metrics.visibility, target.visibility)
@@ -144,7 +165,16 @@ export function scoreTongueMove(metrics, target, elevationOffset = 0) {
   const elevDist =
     metrics.elevation == null ? (needsElevation ? 0.3 : 0) : inRangeDist(metrics.elevation, adjustedElevation)
 
-  const distance = visDist + elevDist
+  let lateralDist = 0
+  if (target.lateral) {
+    const adjustedLateral = [
+      Math.max(0, Math.min(1, target.lateral[0] + lateralOffset)),
+      Math.max(0, Math.min(1, target.lateral[1] + lateralOffset)),
+    ]
+    lateralDist = metrics.lateral == null ? 0.3 : inRangeDist(metrics.lateral, adjustedLateral)
+  }
+
+  const distance = visDist + elevDist + lateralDist
   const score = Math.max(0, 1 - distance * 1.5)
 
   let tier = 'red'

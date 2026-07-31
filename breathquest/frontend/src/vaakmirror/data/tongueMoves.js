@@ -1,10 +1,19 @@
-// Two movements to start with, chosen because they're the most reliably
-// distinguishable with a coarse color heuristic — "tongue visible and high"
-// vs. "tongue mostly retracted/not visible" are a much safer bet than also
-// trying to separate a third in-between position (e.g. "just behind the
-// teeth") that would look nearly identical to "roof" in a low-res color
-// sample. More movements can be added once real tongue-position tracking
-// is available instead of this pixel heuristic.
+// Four movements. Originally only two (up/back) — a third "in-between"
+// vertical position (e.g. behind the teeth) was avoided because it'd look
+// nearly identical to "up" using only the elevation metric. Lateral
+// left/right moves sidestep that problem: they're discriminated on a
+// genuinely independent axis (horizontal tongue-color centroid, see
+// computeTongueMetrics in lib/tongueTracking.js), not a finer slice of the
+// same vertical measurement.
+//
+// IMPORTANT — verify before trusting clinically: 'left'/'right' below are
+// defined in raw camera-space (landmark 61 = left corner, landmark 291 =
+// right corner, same convention as mouthMetrics.js), and the on-screen
+// arrow points at that same landmark, so the visual cue and the scoring
+// target can't drift apart from each other. But whether that lines up with
+// the child's own left/right on the mirrored (scaleX(-1)) display has not
+// been confirmed with a real camera — check this with an actual child
+// before relying on it for real feedback.
 export const TONGUE_MOVES = [
   {
     id: 'tongue-up',
@@ -12,12 +21,6 @@ export const TONGUE_MOVES = [
     instruction: 'Lift your tongue tip to touch the ridge behind your top teeth.',
     arrow: 'up',
     target: { visibility: [0.06, 1], elevation: [0.52, 1] },
-    // Not a phoneme itself, but this is the motor action alveolar sounds
-    // (t, d, s, z, n, l) actually depend on — tagging it lets this feed the
-    // same "by place" dashboard chart as Mirror Mirror/Lip Sync Hero data,
-    // instead of Tongue Tamer practice being invisible to the dashboard.
-    // Manner/voicing are left untagged since no single one applies to a
-    // movement the way it does to an actual sound.
     place: 'Alveolar',
   },
   {
@@ -25,13 +28,27 @@ export const TONGUE_MOVES = [
     label: 'Tongue tip back',
     instruction: 'Pull your tongue tip back and let it rest low, away from your teeth.',
     arrow: 'back',
-    // Earlier version required near-zero visibility for "back", but a
-    // retracted tongue often stays just as visible to a webcam sitting
-    // below eye level — it just sits lower rather than disappearing. Low
-    // elevation (opposite of the "up" target) is a more reliable signal
-    // than visibility here.
     target: { visibility: [0.04, 1], elevation: [0, 0.42] },
-    // Retraction is the motor action velar sounds (k, g) depend on.
     place: 'Velar',
+  },
+  {
+    id: 'tongue-left',
+    label: 'Tongue tip to the left',
+    instruction: 'Push your tongue tip toward your left cheek.',
+    arrow: 'left',
+    // Elevation left unconstrained ([0, 1]) — laterality is the only thing
+    // this move is actually scored on.
+    target: { visibility: [0.04, 1], elevation: [0, 1], lateral: [0, 0.38] },
+    // Lateral tongue mobility, not tied to one phoneme the way up/back are —
+    // supports /l/ production and general oral-motor control.
+    place: 'Alveolar',
+  },
+  {
+    id: 'tongue-right',
+    label: 'Tongue tip to the right',
+    instruction: 'Push your tongue tip toward your right cheek.',
+    arrow: 'right',
+    target: { visibility: [0.04, 1], elevation: [0, 1], lateral: [0.62, 1] },
+    place: 'Alveolar',
   },
 ]

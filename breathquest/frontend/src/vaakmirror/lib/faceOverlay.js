@@ -227,7 +227,7 @@ export function drawTongueArrow(ctx, landmarks, w, h, direction, color) {
     ctx.moveTo(cx - size * 0.35, cy - size * 0.1)
     ctx.lineTo(cx, cy - size * 0.5)
     ctx.lineTo(cx + size * 0.35, cy - size * 0.1)
-  } else {
+  } else if (direction === 'back') {
     const cy = upper.y - size * 0.3
     const x0 = cx - size * 0.5
     const x1 = cx + size * 0.5
@@ -236,6 +236,19 @@ export function drawTongueArrow(ctx, landmarks, w, h, direction, color) {
     ctx.moveTo(x1 - size * 0.35, cy - size * 0.3)
     ctx.lineTo(x1, cy)
     ctx.lineTo(x1 - size * 0.35, cy + size * 0.3)
+  } else if (direction === 'left' || direction === 'right') {
+    // Points toward the same landmark (61 = left corner, 291 = right
+    // corner) the scoring target is defined against, and drawn at a
+    // different height than 'back' so the two don't visually overlap.
+    const cy = upper.y + size * 0.15
+    const dirSign = direction === 'left' ? -1 : 1
+    const x0 = cx
+    const x1 = cx + dirSign * size * 0.55
+    ctx.moveTo(x0, cy)
+    ctx.lineTo(x1, cy)
+    ctx.moveTo(x1 - dirSign * size * 0.3, cy - size * 0.28)
+    ctx.lineTo(x1, cy)
+    ctx.lineTo(x1 - dirSign * size * 0.3, cy + size * 0.28)
   }
 
   ctx.stroke()
