@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from difflib import SequenceMatcher
 
 MIN_CONFIDENCE_FOR_VALID = 0.4  # below this, ASR itself wasn't sure enough to trust
-LENGTH_MISMATCH_PENALTY_SCALE = 0.5  # how strongly length gaps pull score down
 
 
 @dataclass
@@ -22,6 +21,21 @@ class WordMatchResult:
     is_valid_attempt: bool
 
 
+def _best_token_similarity(transcript: str, target_word: str) -> float:
+    """Compares the target word against each word in the transcript
+    individually and takes the best match, rather than the whole transcript
+    at once. A child saying "the dog" for target word "dog" should score
+    the same as saying "dog" alone — comparing the full string (even with a
+    length-mismatch penalty layered on) still punishes completely normal,
+    grammatically fuller speech just for being longer than a bare target
+    word."""
+    target = target_word.strip().lower()
+    tokens = transcript.strip().lower().split()
+    if not tokens:
+        return 0.0
+    return max(SequenceMatcher(None, tok, target).ratio() for tok in tokens)
+
+
 def score_word_attempt(transcript: str, target_word: str, asr_confidence: float) -> WordMatchResult:
     """
     Call this with faster-whisper's output:
@@ -29,24 +43,14 @@ def score_word_attempt(transcript: str, target_word: str, asr_confidence: float)
         transcript = segments[0].text
         asr_confidence = ... (derived from segment.avg_logprob in routers/chime.py)
     """
-    clean_transcript = transcript.strip().lower()
-    clean_target = target_word.strip().lower()
-
-    if not clean_transcript:
+    if not transcript.strip():
         return WordMatchResult(transcript="", confidence=0.0, match_score=0.0, is_valid_attempt=False)
 
-    similarity = SequenceMatcher(None, clean_transcript, clean_target).ratio()
+    match_score = _best_token_similarity(transcript, target_word)
 
-    # Penalize length mismatches beyond what SequenceMatcher's ratio() already
-    # captures — short, dissimilar words (e.g. "cat" vs "bat") otherwise still
-    # score deceptively high just from shared letters.
-    len_diff = abs(len(clean_transcript) - len(clean_target))
-    max_len = max(len(clean_transcript), len(clean_target), 1)
-    length_penalty = 1.0 - min(1.0, (len_diff / max_len) * LENGTH_MISMATCH_PENALTY_SCALE)
-    match_score = similarity * length_penalty
-
-    # A low-confidence transcription that happens to string-match the target
-    # shouldn't count as a genuine valid attempt.
+    # A low-confidence transcription — Whisper hallucinating a plausible
+    # word from silence/noise, not just mis-hearing — shouldn't count as a
+    # genuine valid attempt even if it happens to string-match the target.
     is_valid_attempt = asr_confidence >= MIN_CONFIDENCE_FOR_VALID
 
     return WordMatchResult(
