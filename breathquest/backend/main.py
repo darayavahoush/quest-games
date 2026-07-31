@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from core.config import get_settings
 from database import create_tables
 from routers import auth, patients, sessions, dashboard, chime, voicehurdlerace
-from vaakmirror.routers import sessions as vm_sessions, dashboard as vm_dashboard, exercises as vm_exercises
+from vaakmirror.routers import sessions as vm_sessions, dashboard as vm_dashboard, exercises as vm_exercises, game_settings as vm_game_settings
 
 settings = get_settings()
 
@@ -57,6 +57,7 @@ VM_PREFIX = "/api/v1/vaakmirror"
 app.include_router(vm_sessions.router,   prefix=VM_PREFIX)
 app.include_router(vm_dashboard.router,  prefix=VM_PREFIX)
 app.include_router(vm_exercises.router,  prefix=VM_PREFIX)
+app.include_router(vm_game_settings.router, prefix=VM_PREFIX)
 
 
 @app.get("/health")

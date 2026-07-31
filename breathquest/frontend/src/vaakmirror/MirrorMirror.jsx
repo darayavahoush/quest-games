@@ -7,22 +7,27 @@ import { computeMouthMetrics, scoreAgainstTarget } from './lib/mouthMetrics.js'
 import { drawMouthOutline, drawFaceFilter } from './lib/faceOverlay.js'
 import { emaUpdateObject, createTierStabilizer } from './lib/signalSmoothing.js'
 import { playChime, playFanfare } from './lib/sound.js'
-import { createGameSession, logAttempt, endGameSession } from './lib/api.js'
+import { createGameSession, logAttempt, endGameSession, getGameSettings } from './lib/api.js'
+import { useAuth } from '../context/AuthContext'
 import CelebrationOverlay from './components/CelebrationOverlay.jsx'
 import CharacterFilterPicker, { FILTERS } from './components/CharacterFilterPicker.jsx'
 import ProgressRing from './components/ProgressRing.jsx'
 import MouthShapeGuide from './components/MouthShapeGuide.jsx'
 
-const ROUND_SIZE = 5
+const DEFAULT_ROUND_SIZE = 5
 const HOLD_MS = 2000
 const CALIB_MS = 1100
 const MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'
 const WASM_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
 
-function pickRound() {
+// Takes the round size as a parameter rather than closing over a module-level
+// constant, since a therapist can now set a per-patient round size (fetched
+// async after mount) — this needs to be re-callable with whatever size is
+// current at the time, not a fixed value baked in at module load.
+function pickRound(size) {
   const shuffled = [...SOUNDS].sort(() => Math.random() - 0.5)
-  return shuffled.slice(0, ROUND_SIZE)
+  return shuffled.slice(0, size)
 }
 
 const TIER_STYLES = {
@@ -32,6 +37,7 @@ const TIER_STYLES = {
 }
 
 export default function MirrorMirror() {
+  const { patient } = useAuth()
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
   const landmarkerRef = useRef(null)
@@ -42,7 +48,8 @@ export default function MirrorMirror() {
   const sessionIdRef = useRef(null)
 
   const [status, setStatus] = useState('loading') // loading | ready | denied | error
-  const [round, setRound] = useState(() => pickRound())
+  const [roundSize, setRoundSize] = useState(DEFAULT_ROUND_SIZE)
+  const [round, setRound] = useState(() => pickRound(DEFAULT_ROUND_SIZE))
   const [roundIndex, setRoundIndex] = useState(0)
   const [tier, setTier] = useState('red')
   const [holdProgress, setHoldProgress] = useState(0)
@@ -58,9 +65,27 @@ export default function MirrorMirror() {
   const current = round[roundIndex]
   const target = current ? SHAPE_TARGETS[current.shape] : null
 
+  // Fetch a therapist-set round size, if one exists, and rebuild the round
+  // to match. Runs once patient identity is available; falls back silently
+  // to DEFAULT_ROUND_SIZE (already in state) on any error or if unset.
+  useEffect(() => {
+    if (!patient?.patient_id) return
+    let cancelled = false
+    getGameSettings(patient.patient_id, 'mirror_mirror')
+      .then((settings) => {
+        if (cancelled || !settings.round_size) return
+        setRoundSize(settings.round_size)
+        setRound(pickRound(settings.round_size))
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [patient?.patient_id])
+
   const advance = useCallback(() => {
-    const isLast = roundIndex + 1 >= ROUND_SIZE
-    setStars((s) => Math.min(ROUND_SIZE, s + 1))
+    const isLast = roundIndex + 1 >= roundSize
+    setStars((s) => Math.min(roundSize, s + 1))
     holdStartRef.current = null
     setHoldProgress(0)
     smoothedRef.current = null
@@ -75,7 +100,7 @@ export default function MirrorMirror() {
       setCelebrate(true)
       setRoundIndex((i) => i + 1)
     }
-  }, [roundIndex])
+  }, [roundIndex, roundSize])
 
   // Clear the celebration overlay a moment after it appears
   useEffect(() => {
@@ -220,7 +245,7 @@ export default function MirrorMirror() {
   }, [status, target, advance, filter, baselineSpread])
 
   function restart() {
-    setRound(pickRound())
+    setRound(pickRound(roundSize))
     setRoundIndex(0)
     setStars(0)
     setComplete(false)
@@ -258,7 +283,7 @@ export default function MirrorMirror() {
             <p className="font-mono text-xs uppercase tracking-widest text-mint mb-1">Game 1</p>
             <h1 className="font-display text-3xl font-bold text-paper">Mirror Mirror</h1>
           </div>
-          <ProgressRing stars={stars} total={ROUND_SIZE} />
+          <ProgressRing stars={stars} total={roundSize} />
         </div>
 
         <div className="grid md:grid-cols-[1fr,1fr] gap-6 items-start">
@@ -371,7 +396,7 @@ export default function MirrorMirror() {
             ) : !complete && current ? (
               <>
                 <p className="font-mono text-xs uppercase tracking-widest text-paper/40 mb-3">
-                  Sound {roundIndex + 1} of {ROUND_SIZE}
+                  Sound {roundIndex + 1} of {roundSize}
                 </p>
                 <div className="flex items-center gap-5 mb-6">
                   <div className="w-20 h-20 shrink-0 rounded-2xl bg-ink border border-white/10 flex items-center justify-center p-3">
@@ -394,8 +419,8 @@ export default function MirrorMirror() {
             ) : (
               <div className="text-center py-6">
                 <p className="font-display text-2xl font-bold text-paper mb-2">Round complete! ✨</p>
-                <p className="text-paper/50 text-sm mb-6">You matched all {ROUND_SIZE} shapes.</p>
-                <ProgressRing stars={stars} total={ROUND_SIZE} />
+                <p className="text-paper/50 text-sm mb-6">You matched all {roundSize} shapes.</p>
+                <ProgressRing stars={stars} total={roundSize} />
                 <button
                   onClick={restart}
                   className="mt-8 px-6 py-3 rounded-full bg-coral text-paper font-semibold hover:bg-coral-dark transition-colors inline-flex items-center gap-2"
