@@ -80,7 +80,7 @@ export default function Landing() {
           🐉 BreathQuest
         </span>
         <span className="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-mint/15 text-mint-light border border-mint/25">
-          🪞 VaakMirror
+          🪞 Orpheus
         </span>
         <span className="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-coral/15 text-coral-light border border-coral/25">
           🔔 Chime

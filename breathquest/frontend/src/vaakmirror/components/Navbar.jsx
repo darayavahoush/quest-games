@@ -28,7 +28,7 @@ export default function Navbar() {
           <span className="w-8 h-8 rounded-blob bg-coral flex items-center justify-center shrink-0">
             <Sparkles size={16} className="text-paper" />
           </span>
-          <span className="font-display text-xl font-bold tracking-tight">VaakMirror</span>
+          <span className="font-display text-xl font-bold tracking-tight">Orpheus</span>
         </NavLink>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1">

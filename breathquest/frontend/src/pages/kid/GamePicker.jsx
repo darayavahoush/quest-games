@@ -17,7 +17,7 @@ const APPS = [
   },
   {
     id: 'vaakmirror',
-    name: 'VaakMirror',
+    name: 'Orpheus',
     emoji: '🪞',
     desc: 'Mouth & tongue mirror games — 3 games',
     path: '/play/vaakmirror',

@@ -245,7 +245,7 @@ export default function PatientDetail() {
 
         {/* Tabs */}
         <div className="flex gap-1 bg-white/5 p-1 rounded-xl mb-6 w-fit">
-          {[['progress', '📊 Progress'], ['sessions', '🎮 Sessions'], ['voicehurdlerace', '🐶 Voice Hurdle'], ['chime', '🔔 Chime'], ['vaakmirror', '🪞 VaakMirror'], ['care', '🩺 Care'], ['notes', '📝 Notes']].map(([t, label]) => (
+          {[['progress', '📊 Progress'], ['sessions', '🎮 Sessions'], ['voicehurdlerace', '🐶 Voice Hurdle'], ['chime', '🔔 Chime'], ['vaakmirror', '🪞 Orpheus'], ['care', '🩺 Care'], ['notes', '📝 Notes']].map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all
                 ${tab === t ? 'bg-brand-green text-brand-dark' : 'text-white/50 hover:text-white'}`}>
@@ -435,10 +435,10 @@ export default function PatientDetail() {
               <Card className="text-center py-12"><Spinner /></Card>
             ) : vmError ? (
               <Card className="text-center py-12 text-white/40">
-                Couldn't load VaakMirror data — the VaakMirror service may be unavailable right now.
+                Couldn't load Orpheus data — the Orpheus service may be unavailable right now.
               </Card>
             ) : !vmDashboard || vmDashboard.sessions_count === 0 ? (
-              <Card className="text-center py-12 text-white/40">No VaakMirror sessions yet</Card>
+              <Card className="text-center py-12 text-white/40">No Orpheus sessions yet</Card>
             ) : (
               <>
                 <Card className="text-center">
@@ -603,7 +603,7 @@ export default function PatientDetail() {
                               onChange={e => setNewAssignment(n => ({ ...n, game: e.target.value }))}>
                         <option value="chime">Chime</option>
                         <option value="breathquest">BreathQuest</option>
-                        <option value="vaakmirror">VaakMirror</option>
+                        <option value="vaakmirror">Orpheus</option>
                         <option value="voicehurdlerace">Voice Hurdle Race</option>
                       </select>
                       <input className="input text-sm" placeholder="Level id (optional)"
