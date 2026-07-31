@@ -116,13 +116,33 @@ function inRangeDist(value, [lo, hi]) {
   return Math.min(Math.abs(value - lo), Math.abs(value - hi))
 }
 
-export function scoreTongueMove(metrics, target) {
+// The pixel-color tongue heuristic drifts per kid with skin tone, lighting,
+// and camera angle (see the module comment above) — targets tuned against
+// one face won't necessarily fit another. ASSUMED_DEFAULT_BASELINE_ELEVATION
+// is roughly where a relaxed, resting tongue sits in these units for an
+// "average" calibration-less setup; a calibrated child's own resting
+// elevation is compared against that assumption to get a per-kid offset,
+// which then shifts both movement targets by the same amount.
+const ASSUMED_DEFAULT_BASELINE_ELEVATION = 0.45
+
+export function computeElevationOffset(baselineElevation) {
+  if (baselineElevation == null) return 0
+  return baselineElevation - ASSUMED_DEFAULT_BASELINE_ELEVATION
+}
+
+export function scoreTongueMove(metrics, target, elevationOffset = 0) {
   if (!metrics) return { score: 0, tier: 'red' }
 
   const visDist = inRangeDist(metrics.visibility, target.visibility)
   const needsElevation = target.elevation[0] > 0 || target.elevation[1] < 1
+  const adjustedElevation = needsElevation
+    ? [
+        Math.max(0, Math.min(1, target.elevation[0] + elevationOffset)),
+        Math.max(0, Math.min(1, target.elevation[1] + elevationOffset)),
+      ]
+    : target.elevation
   const elevDist =
-    metrics.elevation == null ? (needsElevation ? 0.3 : 0) : inRangeDist(metrics.elevation, target.elevation)
+    metrics.elevation == null ? (needsElevation ? 0.3 : 0) : inRangeDist(metrics.elevation, adjustedElevation)
 
   const distance = visDist + elevDist
   const score = Math.max(0, 1 - distance * 1.5)

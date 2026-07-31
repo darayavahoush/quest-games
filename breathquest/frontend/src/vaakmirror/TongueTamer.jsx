@@ -4,7 +4,7 @@ import { ArrowLeft, CameraOff, RefreshCw, ArrowUpCircle } from 'lucide-react'
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision'
 import { TONGUE_MOVES } from './data/tongueMoves.js'
 import { computeMouthMetrics } from './lib/mouthMetrics.js'
-import { computeTongueMetrics, scoreTongueMove } from './lib/tongueTracking.js'
+import { computeTongueMetrics, scoreTongueMove, computeElevationOffset } from './lib/tongueTracking.js'
 import { drawMouthOutline, drawFaceFilter, drawTongueArrow } from './lib/faceOverlay.js'
 import { emaUpdate, emaUpdateObject, createTierStabilizer } from './lib/signalSmoothing.js'
 import { playChime, playFanfare } from './lib/sound.js'
@@ -17,6 +17,8 @@ import CelebrationOverlay from './components/CelebrationOverlay.jsx'
 const ROUND_SIZE = 6
 const HOLD_MS = 1800
 const OPEN_THRESHOLD = 0.22
+const CALIB_MS = 1400
+const MIN_CALIB_SAMPLES = 6
 const MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'
 const WASM_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
@@ -52,8 +54,13 @@ export default function TongueTamer() {
   const smoothedTongueRef = useRef(null)
   const tierStabilizerRef = useRef(createTierStabilizer(4))
   const sessionIdRef = useRef(null)
+  const elevationOffsetRef = useRef(0)
+  const calibSamplesRef = useRef([])
+  const calibStartRef = useRef(null)
 
   const [status, setStatus] = useState('loading') // loading | ready | denied | error
+  const [calibrated, setCalibrated] = useState(false)
+  const [calibProgress, setCalibProgress] = useState(0)
   const [round, setRound] = useState(() => pickRound())
   const [roundIndex, setRoundIndex] = useState(0)
   const [tier, setTier] = useState('red')
@@ -161,7 +168,23 @@ export default function TongueTamer() {
 
         let frameTier = 'red'
 
-        if (openEnough && landmarks && current) {
+        if (openEnough && landmarks && !calibrated) {
+          const calibMetrics = computeTongueMetrics(
+            video, landmarks, analysisCanvasRef.current, canvas.width, canvas.height,
+          )
+          if (calibMetrics && calibMetrics.elevation != null) {
+            if (!calibStartRef.current) calibStartRef.current = performance.now()
+            calibSamplesRef.current.push(calibMetrics.elevation)
+            const elapsed = performance.now() - calibStartRef.current
+            setCalibProgress(Math.min(1, elapsed / CALIB_MS))
+            if (elapsed >= CALIB_MS && calibSamplesRef.current.length >= MIN_CALIB_SAMPLES) {
+              const sorted = [...calibSamplesRef.current].sort((a, b) => a - b)
+              const baseline = sorted[Math.floor(sorted.length / 2)]
+              elevationOffsetRef.current = computeElevationOffset(baseline)
+              setCalibrated(true)
+            }
+          }
+        } else if (openEnough && landmarks && current) {
           const tongueMetrics = computeTongueMetrics(
             video,
             landmarks,
@@ -177,7 +200,7 @@ export default function TongueTamer() {
               ['visibility', 'elevation'],
               0.3,
             )
-            const { score, tier: rawTier } = scoreTongueMove(smoothedTongueRef.current, current.target)
+            const { score, tier: rawTier } = scoreTongueMove(smoothedTongueRef.current, current.target, elevationOffsetRef.current)
             const t = tierStabilizerRef.current.update(rawTier)
             frameTier = t
             setTier(t)
@@ -228,6 +251,11 @@ export default function TongueTamer() {
   }, [status, current, advance, filter])
 
   function restart() {
+    setCalibrated(false)
+    setCalibProgress(0)
+    calibSamplesRef.current = []
+    calibStartRef.current = null
+    elevationOffsetRef.current = 0
     setRound(pickRound())
     setRoundIndex(0)
     setStars(0)
@@ -318,6 +346,12 @@ export default function TongueTamer() {
               {status === 'ready' && !mouthOpenEnough && (
                 <div className="absolute inset-x-0 bottom-0 bg-ink-deep/85 text-paper text-center text-sm py-2.5 px-4">
                   Open your mouth a little wider so the camera can see in
+                </div>
+              )}
+
+              {status === 'ready' && mouthOpenEnough && !calibrated && (
+                <div className="absolute inset-x-0 bottom-0 bg-ink-deep/85 text-paper text-center text-sm py-2.5 px-4">
+                  Relax your tongue for a second so we can match this to your own mouth… {Math.round(calibProgress * 100)}%
                 </div>
               )}
 
