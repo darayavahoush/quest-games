@@ -14,7 +14,7 @@ import CharacterFilterPicker, { FILTERS } from './components/CharacterFilterPick
 import ProgressRing from './components/ProgressRing.jsx'
 import MouthShapeGuide from './components/MouthShapeGuide.jsx'
 
-const DEFAULT_ROUND_SIZE = 5
+const DEFAULT_ROUND_SIZE = 8
 const HOLD_MS = 2000
 const CALIB_MS = 1100
 const MODEL_URL =
