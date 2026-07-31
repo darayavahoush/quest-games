@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Settings } from 'lucide-react'
 import { logEvent, getAgentDecision } from './lib/api'
+import { getNextLevelRoute } from './lib/levelProgress'
 
 const LEVEL_ID = 'aa'
 const AGENT_POLICY = 'tabular_q'
@@ -753,12 +754,19 @@ export default function RocketLaunch() {
             <h1 className="text-3xl font-extrabold mb-2">You did it!</h1>
             <p className="text-lg font-bold text-[#FFD166] mb-1">Your rocket reached the stars!</p>
             {agentFeedback && <p className="text-sm opacity-85 mb-5">{agentFeedback}</p>}
-            <button onClick={handlePlayAgain} className="font-bold text-xl rounded-full px-10 py-4 text-[#1B1440] bg-[#FFD166] shadow-[0_6px_0_#C99A2E]">
-              Launch Again!
-            </button>
-            <button onClick={() => navigate('/play/chime/submarine-dive')} className="mt-3 ml-3 font-bold text-xl rounded-full px-10 py-4 bg-white text-[#1B1440]">
-              Next Level →
-            </button>
+            <div className="flex flex-col gap-3 items-center">
+              {getNextLevelRoute(LEVEL_ID) && (
+                <button
+                  onClick={() => navigate(getNextLevelRoute(LEVEL_ID))}
+                  className="font-bold text-xl rounded-full px-10 py-4 text-[#1B1440] bg-[#FFD166] shadow-[0_6px_0_#C99A2E] hover:-translate-y-0.5 transition-transform"
+                >
+                  Next Level →
+                </button>
+              )}
+              <button onClick={handlePlayAgain} className="font-bold text-sm text-white/70 hover:text-white/90 underline underline-offset-4">
+                Launch Again!
+              </button>
+            </div>
           </div>
         </div>
       )}

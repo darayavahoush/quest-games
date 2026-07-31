@@ -734,8 +734,10 @@ export default function VillageBuilder() {
               <div className="bg-white/95 rounded-[28px_28px_40px_28px] p-9 max-w-md w-full text-center shadow-2xl" style={{ color: '#2E4A2E' }}>
                 <div className="text-6xl mb-3">🎉</div>
                 <h1 className="villb-title text-3xl mb-2">Village complete!</h1>
-                <p className="font-semibold mb-6" style={{ color: '#B5502E' }}>You built every house!</p>
-                <button onClick={playAgain} className="villb-btn">Build Again!</button>
+                <p className="font-semibold mb-2" style={{ color: '#B5502E' }}>You built every house!</p>
+                <p className="font-semibold mb-6" style={{ color: '#2E4A2E' }}>You've finished every Chime game! 🌟</p>
+                <button onClick={() => navigate('/play/chime')} className="villb-btn">Back to Chime</button>
+                <button onClick={playAgain} className="villb-btn" style={{ marginTop: '10px', opacity: 0.7 }}>Build Again!</button>
               </div>
             </div>
           )}

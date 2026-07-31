@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Settings } from 'lucide-react'
 import { logEvent, getAgentDecision } from './lib/api'
+import { getNextLevelRoute } from './lib/levelProgress'
 
 const LEVEL_ID = 'fa'
 const AGENT_POLICY = 'tabular_q'
@@ -679,6 +680,11 @@ export default function WindChimeGarden() {
             <h1 className="text-3xl font-extrabold mb-2">Sky full of bubbles!</h1>
             <p className="text-lg font-bold text-[#FFD166] mb-1">You filled the evening with glowing bubbles!</p>
             {agentFeedback && <p className="text-sm opacity-85 mb-5">{agentFeedback}</p>}
+            {getNextLevelRoute(LEVEL_ID) && (
+              <button onClick={() => navigate(getNextLevelRoute(LEVEL_ID))} className="font-bold text-xl rounded-full px-10 py-4 text-[#2A2158] bg-[#FFD166] shadow-[0_6px_0_#C99A2E] mb-3">
+                Next Level →
+              </button>
+            )}
             <button onClick={handlePlayAgain} className="font-bold text-xl rounded-full px-10 py-4 text-[#2A2158] bg-[#FFD166] shadow-[0_6px_0_#C99A2E]">
               Play Again!
             </button>

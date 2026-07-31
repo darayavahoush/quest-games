@@ -270,3 +270,138 @@ class DashboardSummary(BaseModel):
     avg_stars_this_week: float | None
     most_improved_patient: str | None
     patients: list[PatientDetailOut]
+
+
+# ------------------------------------------------------------------ #
+#  Assignments ("homework")                                            #
+# ------------------------------------------------------------------ #
+
+class AssignmentCreate(BaseModel):
+    game: str
+    level_id: str | None = None
+    title: str
+    instructions: str | None = None
+    due_at: datetime | None = None
+
+
+class AssignmentUpdate(BaseModel):
+    status: str | None = None
+    title: str | None = None
+    instructions: str | None = None
+    due_at: datetime | None = None
+
+
+class AssignmentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    patient_id: str
+    assigned_by: str
+    game: str
+    level_id: str | None
+    title: str
+    instructions: str | None
+    status: str
+    created_at: datetime
+    due_at: datetime | None
+    completed_at: datetime | None
+
+
+# ------------------------------------------------------------------ #
+#  Goals                                                               #
+# ------------------------------------------------------------------ #
+
+class GoalCreate(BaseModel):
+    target_metric: str
+    target_value: float
+    baseline_value: float | None = None
+    target_date: datetime | None = None
+
+
+class GoalUpdate(BaseModel):
+    target_value: float | None = None
+    target_date: datetime | None = None
+    achieved: bool | None = None
+
+
+class GoalOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    patient_id: str
+    created_by: str
+    target_metric: str
+    target_value: float
+    baseline_value: float | None
+    target_date: datetime | None
+    achieved: bool
+    achieved_at: datetime | None
+    created_at: datetime
+    current_value: float | None = None   # populated at read time from SessionEvent aggregates, not stored
+
+
+# ------------------------------------------------------------------ #
+#  Messages                                                            #
+# ------------------------------------------------------------------ #
+
+class MessageCreate(BaseModel):
+    body: str
+    sender_role: str = "therapist"  # therapist or parent
+
+
+class MessageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    patient_id: str
+    sender_role: str
+    sender_id: str | None
+    body: str
+    created_at: datetime
+    read_at: datetime | None
+
+
+# ------------------------------------------------------------------ #
+#  Home practice log                                                   #
+# ------------------------------------------------------------------ #
+
+class HomePracticeLogCreate(BaseModel):
+    practiced_on: datetime
+    duration_minutes: int | None = None
+    notes: str | None = None
+
+
+class HomePracticeLogOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    patient_id: str
+    logged_at: datetime
+    practiced_on: datetime
+    duration_minutes: int | None
+    notes: str | None
+
+
+# ------------------------------------------------------------------ #
+#  Multi-child alert view                                              #
+# ------------------------------------------------------------------ #
+
+class PatientAlert(BaseModel):
+    patient_id: str
+    first_name: str
+    days_since_last_session: int | None   # None = never played
+    overdue_assignments: int
+    flag: str   # "inactive" | "overdue_assignment" | "ok"
+
+
+# ------------------------------------------------------------------ #
+#  Weekly summary (rule-based, no LLM calls)                           #
+# ------------------------------------------------------------------ #
+
+class WeeklySummaryOut(BaseModel):
+    patient_id: str
+    week_start: datetime
+    week_end: datetime
+    narrative: str            # dense multi-sentence paragraph
+    highlights: list[str]     # short chip-style facts for the UI
+    stats: dict[str, Any]     # raw numbers backing the narrative, for charts

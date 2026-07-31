@@ -18,8 +18,10 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Up
 from pydantic import BaseModel
 
 from database import get_db
-from models.models import Patient
-from core.deps import get_current_patient
+from models.models import Patient, Therapist
+from core.deps import get_current_patient, get_current_therapist
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from retraining import data_store
 from retraining.scheduler import GLOBAL_RETRAIN_THRESHOLD, maybe_retrain_shared_policy
 from word_level.asr_match import score_word_attempt
@@ -155,6 +157,28 @@ def log_event(event: EventIn, background_tasks: BackgroundTasks, patient: Patien
 @router.get("/events", response_model=list[EventOut])
 def get_events(level_id: Optional[str] = None, patient: Patient = Depends(get_current_patient)):
     events = data_store.get_events(child_id=patient.id, db_path=DB_PATH)
+    if level_id:
+        events = [e for e in events if e["level_id"] == level_id]
+    return [EventOut(**e) for e in events]
+
+
+@router.get("/patients/{patient_id}/events", response_model=list[EventOut])
+async def get_patient_events(
+    patient_id: str,
+    level_id: Optional[str] = None,
+    therapist: Therapist = Depends(get_current_therapist),
+    db: AsyncSession = Depends(get_db),
+):
+    """Therapist-facing equivalent of get_events above — didn't exist
+    before this, chime.py only had kid-token-gated endpoints. Ownership
+    check matches the pattern in routers/voicehurdlerace.py."""
+    patient_result = await db.execute(
+        select(Patient).where(Patient.id == patient_id, Patient.therapist_id == therapist.id)
+    )
+    if not patient_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    events = data_store.get_events(child_id=patient_id, db_path=DB_PATH)
     if level_id:
         events = [e for e in events if e["level_id"] == level_id]
     return [EventOut(**e) for e in events]

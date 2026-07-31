@@ -68,6 +68,10 @@ class Patient(Base):
     therapist: Mapped["Therapist | None"]   = relationship(back_populates="patients")
     sessions:  Mapped[list["GameSession"]]  = relationship("models.models.GameSession", back_populates="patient", cascade="all, delete-orphan")
     notes:     Mapped[list["TherapistNote"]]= relationship("models.models.TherapistNote", back_populates="patient", cascade="all, delete-orphan")
+    assignments: Mapped[list["Assignment"]] = relationship("models.models.Assignment", back_populates="patient", cascade="all, delete-orphan")
+    goals:       Mapped[list["Goal"]]       = relationship("models.models.Goal", back_populates="patient", cascade="all, delete-orphan")
+    messages:    Mapped[list["Message"]]    = relationship("models.models.Message", back_populates="patient", cascade="all, delete-orphan")
+    home_practice_logs: Mapped[list["HomePracticeLog"]] = relationship("models.models.HomePracticeLog", back_populates="patient", cascade="all, delete-orphan")
 
 
 class GameSession(Base):
@@ -119,3 +123,82 @@ class TherapistNote(Base):
     tags:         Mapped[list|None]    = mapped_column(JSON)
 
     patient: Mapped["Patient"] = relationship(back_populates="notes")
+
+
+class AssignmentStatus(str, enum.Enum):
+    assigned   = "assigned"
+    in_progress = "in_progress"
+    completed  = "completed"
+    overdue    = "overdue"
+
+
+class Assignment(Base):
+    """Homework — a specific level/word-set a therapist assigns to a patient."""
+    __tablename__ = "assignments"
+
+    id:           Mapped[str]           = mapped_column(String, primary_key=True, default=new_uuid)
+    patient_id:   Mapped[str]           = mapped_column(ForeignKey("patients.id"), nullable=False, index=True)
+    assigned_by:  Mapped[str]           = mapped_column(ForeignKey("therapists.id"), nullable=False)
+    game:         Mapped[str]           = mapped_column(String(50), nullable=False)   # e.g. "chime", "breathquest", "vaakmirror"
+    level_id:     Mapped[str|None]      = mapped_column(String(50))                  # phoneme/level/word-set target, if applicable
+    title:        Mapped[str]           = mapped_column(String(255), nullable=False)
+    instructions: Mapped[str|None]      = mapped_column(Text)
+    status:       Mapped[str]           = mapped_column(SAEnum(AssignmentStatus), default=AssignmentStatus.assigned)
+    created_at:   Mapped[datetime]      = mapped_column(DateTime(timezone=True), default=utcnow)
+    due_at:       Mapped[datetime|None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime|None] = mapped_column(DateTime(timezone=True))
+
+    patient: Mapped["Patient"] = relationship(back_populates="assignments")
+
+
+class Goal(Base):
+    """A measurable target tracked against SessionEvent/GameSession aggregates."""
+    __tablename__ = "goals"
+
+    id:            Mapped[str]           = mapped_column(String, primary_key=True, default=new_uuid)
+    patient_id:    Mapped[str]           = mapped_column(ForeignKey("patients.id"), nullable=False, index=True)
+    created_by:    Mapped[str]           = mapped_column(ForeignKey("therapists.id"), nullable=False)
+    target_metric: Mapped[str]           = mapped_column(String(100), nullable=False)  # e.g. "/s/_accuracy", "breath_consistency"
+    target_value:  Mapped[float]         = mapped_column(Float, nullable=False)
+    baseline_value: Mapped[float|None]   = mapped_column(Float)
+    target_date:   Mapped[datetime|None] = mapped_column(DateTime(timezone=True))
+    achieved:      Mapped[bool]          = mapped_column(Boolean, default=False)
+    achieved_at:   Mapped[datetime|None] = mapped_column(DateTime(timezone=True))
+    created_at:    Mapped[datetime]      = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    patient: Mapped["Patient"] = relationship(back_populates="goals")
+
+
+class SenderRole(str, enum.Enum):
+    therapist = "therapist"
+    parent    = "parent"
+
+
+class Message(Base):
+    """In-app therapist <-> parent communication log, per patient."""
+    __tablename__ = "messages"
+
+    id:          Mapped[str]           = mapped_column(String, primary_key=True, default=new_uuid)
+    patient_id:  Mapped[str]           = mapped_column(ForeignKey("patients.id"), nullable=False, index=True)
+    sender_role: Mapped[str]           = mapped_column(SAEnum(SenderRole), nullable=False)
+    sender_id:   Mapped[str|None]      = mapped_column(String)  # therapist_id when sender_role == therapist; nullable for parent (no parent accounts yet)
+    body:        Mapped[str]           = mapped_column(Text, nullable=False)
+    created_at:  Mapped[datetime]      = mapped_column(DateTime(timezone=True), default=utcnow)
+    read_at:     Mapped[datetime|None] = mapped_column(DateTime(timezone=True))
+
+    patient: Mapped["Patient"] = relationship(back_populates="messages")
+
+
+class HomePracticeLog(Base):
+    """Manual, parent-reported home practice — distinct from in-app GameSession
+    telemetry, since home practice often happens without the device/mic set up."""
+    __tablename__ = "home_practice_logs"
+
+    id:            Mapped[str]           = mapped_column(String, primary_key=True, default=new_uuid)
+    patient_id:    Mapped[str]           = mapped_column(ForeignKey("patients.id"), nullable=False, index=True)
+    logged_at:     Mapped[datetime]      = mapped_column(DateTime(timezone=True), default=utcnow)
+    practiced_on:  Mapped[datetime]      = mapped_column(DateTime(timezone=True), nullable=False)
+    duration_minutes: Mapped[int|None]   = mapped_column(Integer)
+    notes:         Mapped[str|None]      = mapped_column(Text)
+
+    patient: Mapped["Patient"] = relationship(back_populates="home_practice_logs")

@@ -5,7 +5,29 @@ import { getEvents } from './api'
 
 export const LEVEL_ORDER = ['aa', 'oo', 'ma', 'fa', 'ha', 'village-builder']
 
+// Single source of truth for levelId -> route, so ChimeHome's cards and each
+// game's own "Next Level" button can never point at different paths.
+export const LEVEL_ROUTES = {
+  aa: '/play/chime/rocket-launch',
+  oo: '/play/chime/submarine-dive',
+  ma: '/play/chime/firefly-jar',
+  fa: '/play/chime/wind-chime-garden',
+  ha: '/play/chime/bubble-wrap-pop',
+  'village-builder': '/play/chime/village-builder',
+}
+
 const PASS_THRESHOLD = 0.6
+
+// Returns the next level's route once `currentLevelId` has been passed, or
+// null if this was the last level (caller should send the kid back to
+// ChimeHome / show a "you finished them all!" state instead of a button).
+// Does NOT re-check unlock state — a level that was just completed is by
+// definition unlocking whatever comes after it.
+export function getNextLevelRoute(currentLevelId) {
+  const i = LEVEL_ORDER.indexOf(currentLevelId)
+  if (i === -1 || i === LEVEL_ORDER.length - 1) return null
+  return LEVEL_ROUTES[LEVEL_ORDER[i + 1]]
+}
 
 // { aa: true, oo: false, ... } — has this kid ever passed each level.
 export async function getPassedLevels() {

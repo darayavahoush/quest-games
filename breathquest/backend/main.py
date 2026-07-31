@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from core.config import get_settings
 from database import create_tables
-from routers import auth, patients, sessions, dashboard, chime
+from routers import auth, patients, sessions, dashboard, chime, voicehurdlerace
 from vaakmirror.routers import sessions as vm_sessions, dashboard as vm_dashboard, exercises as vm_exercises
 
 settings = get_settings()
@@ -48,6 +48,7 @@ app.include_router(patients.router,  prefix="/api/v1")
 app.include_router(sessions.router,  prefix="/api/v1")
 app.include_router(dashboard.router, prefix="/api/v1")
 app.include_router(chime.router,     prefix="/api/v1")
+app.include_router(voicehurdlerace.router, prefix="/api/v1")
 
 # VaakMirror routers — namespaced so nothing collides with BreathQuest's
 # own /sessions, /dashboard routes above (both had prefix-less "/sessions"

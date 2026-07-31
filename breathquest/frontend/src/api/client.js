@@ -59,6 +59,52 @@ export const dashboardAPI = {
   listNotes:   (patientId)       => api.get(`/dashboard/patients/${patientId}/notes`),
   updateNote:  (noteId, data)    => api.patch(`/dashboard/notes/${noteId}`, data),
   deleteNote:  (noteId)          => api.delete(`/dashboard/notes/${noteId}`),
+
+  // Assignments ("homework")
+  createAssignment: (patientId, data) => api.post(`/dashboard/patients/${patientId}/assignments`, data),
+  listAssignments:  (patientId)       => api.get(`/dashboard/patients/${patientId}/assignments`),
+  updateAssignment: (assignmentId, data) => api.patch(`/dashboard/assignments/${assignmentId}`, data),
+  deleteAssignment: (assignmentId)       => api.delete(`/dashboard/assignments/${assignmentId}`),
+
+  // Goals
+  createGoal: (patientId, data) => api.post(`/dashboard/patients/${patientId}/goals`, data),
+  listGoals:  (patientId)       => api.get(`/dashboard/patients/${patientId}/goals`),
+  updateGoal: (goalId, data)    => api.patch(`/dashboard/goals/${goalId}`, data),
+  deleteGoal: (goalId)          => api.delete(`/dashboard/goals/${goalId}`),
+
+  // Messages (therapist <-> parent log)
+  createMessage:    (patientId, data) => api.post(`/dashboard/patients/${patientId}/messages`, data),
+  listMessages:     (patientId)       => api.get(`/dashboard/patients/${patientId}/messages`),
+  markMessageRead:  (messageId)       => api.post(`/dashboard/messages/${messageId}/read`),
+
+  // Home practice log (manual, parent-reported)
+  createHomePractice: (patientId, data) => api.post(`/dashboard/patients/${patientId}/home-practice`, data),
+  listHomePractice:   (patientId)       => api.get(`/dashboard/patients/${patientId}/home-practice`),
+
+  // Multi-child alert view
+  listAlerts: (inactiveDays) => api.get('/dashboard/alerts', { params: inactiveDays ? { inactive_days: inactiveDays } : {} }),
+
+  // Weekly summary (rule-based, no LLM calls)
+  weeklySummary: (patientId, weekOffset) =>
+    api.get(`/dashboard/patients/${patientId}/weekly-summary`, { params: weekOffset ? { week_offset: weekOffset } : {} }),
+}
+
+// ------------------------------------------------------------------ //
+//  Chime (therapist-facing) — chime.py itself is otherwise entirely
+//  kid-token-gated; get_patient_events is the one therapist endpoint.
+// ------------------------------------------------------------------ //
+
+export const chimeAPI = {
+  getPatientEvents: (patientId, levelId) =>
+    api.get(`/chime/patients/${patientId}/events`, { params: levelId ? { level_id: levelId } : {} }),
+}
+
+// ------------------------------------------------------------------ //
+//  VaakMirror (therapist-facing)                                      //
+// ------------------------------------------------------------------ //
+
+export const vaakmirrorAPI = {
+  getPatientDashboard: (patientId) => api.get(`/vaakmirror/patients/${patientId}/dashboard`),
 }
 
 export default api

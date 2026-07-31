@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Settings } from 'lucide-react'
 import { logEvent, getAgentDecision } from './lib/api'
+import { getNextLevelRoute } from './lib/levelProgress'
 
 const MIN_PEAK_RMS_DEFAULT = 0.05
 const MAX_EXPECTED_PEAK_RMS_DEFAULT = 0.4
@@ -570,6 +571,9 @@ export default function BubbleWrapPop() {
             <h1 className="bwp-title">Sheet complete!</h1>
             <p className="bwp-subtitle">You popped every bubble!</p>
             <p style={{ fontSize: '0.95rem', opacity: 0.85, margin: '-14px 0 20px' }}>{agentFeedback}</p>
+            {getNextLevelRoute(LEVEL_ID) && (
+              <button className="bwp-btn" onClick={() => navigate(getNextLevelRoute(LEVEL_ID))}>Next Level →</button>
+            )}
             <button className="bwp-btn" onClick={handlePlayAgain}>New Sheet!</button>
             <button
               className="bwp-btn"
