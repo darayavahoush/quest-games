@@ -57,6 +57,16 @@ function ShapeSvg({ shape }) {
       return <ellipse cx="60" cy="46" rx="18" ry="22" fill="none" />
     case 'open-wide':
       return <ellipse cx="60" cy="46" rx="30" ry="26" fill="none" />
+    case 'tongue-between-teeth':
+      return (
+        <>
+          <path d="M22 40 h76" strokeDasharray="6 4" />
+          <path d="M22 52 h76" strokeDasharray="6 4" />
+          <path d="M48 46 Q60 58 72 46 Q60 50 48 46 Z" fill="currentColor" opacity="0.7" stroke="none" />
+        </>
+      )
+    case 'neutral-open':
+      return <ellipse cx="60" cy="46" rx="22" ry="14" fill="none" />
     default:
       return null
   }
