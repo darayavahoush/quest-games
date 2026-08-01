@@ -64,7 +64,7 @@ class Patient(Base):
     # to grant parent access without also exposing the kid's own login code.
     # Nullable: most patients won't have one generated until a therapist
     # requests it. Single-use — cleared once redeemed (see parent-register).
-    parent_invite_code = mapped_column(nullable=True, unique=True)
+    parent_invite_code: Mapped[str | None] = mapped_column(nullable=True, unique=True)
     age:              Mapped[int | None]    = mapped_column(Integer)
     diagnosis_notes:  Mapped[str | None]   = mapped_column(Text)
     is_active:        Mapped[bool]          = mapped_column(Boolean, default=True)
