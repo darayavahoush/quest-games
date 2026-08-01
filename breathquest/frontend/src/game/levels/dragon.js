@@ -1,6 +1,6 @@
 import { drawGradientBg, drawText, ParticleSystem, rand, clamp } from '../engine/render.js'
 
-const GAP_WIDTHS = [90, 105, 120, 135, 150]
+const GAP_WIDTHS = [90, 105, 120, 135, 150, 165]
 const PLAT_W     = 190
 const PLAT_H     = 65
 const FLOOR_Y    = 520
@@ -45,10 +45,10 @@ export function createDragonLevel() {
       if (gapIndex >= GAP_WIDTHS.length && !done) {
         doneTimer += dt
         if (doneTimer > 1.0) done = true
-        return done ? { stars: 3, message: 'Dragon master! 🔥 All gaps crossed!' } : null
+        return done ? { stars: 3, targetHits: GAP_WIDTHS.length, mistakes: 0, message: 'Dragon master! 🔥 All gaps crossed!' } : null
       }
 
-      const isBlowing = breath >= 0.06
+      const isBlowing = breath >= 0.13 // needs a real puff, not a light huff — this is the expert closer level
       if (isBlowing) {
         firePower = clamp(firePower + (breath + 0.2) * dt * 2.5, 0, 1)
         const mouthPos = _dragonMouthPos(dragonBob)

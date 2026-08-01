@@ -1,6 +1,6 @@
 import { drawGradientBg, drawText, ParticleSystem, rand, clamp } from '../engine/render.js'
 
-const SEEDS_NEEDED = 20
+const SEEDS_NEEDED = 28
 
 class Dandelion {
   constructor(x, y) {
@@ -51,7 +51,7 @@ export function createDandelionLevel() {
       t += dt; spawnT += dt; puffCd = Math.max(0, puffCd - dt)
       if (spawnT > 1.8 && spawned < 8) { dandelions.push(new Dandelion(920, rand(180,400))); spawnT=0; spawned++ }
 
-      const isBlowing = breath >= 0.08
+      const isBlowing = breath >= 0.15 // needs a real puff, not a light huff — second-to-last, tougher level
       const puffStart = isBlowing && !wasBlowing && puffCd <= 0
       wasBlowing = isBlowing
 

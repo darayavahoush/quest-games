@@ -8,12 +8,13 @@ import { drawText, ParticleSystem, rand, clamp } from '../engine/render.js'
  */
 
 const COLORS  = ['#E24B4A','#A855F7','#3B82F6','#10B981','#F97316','#EC4899','#06B6D4']
-const NEEDED  = 5
+const NEEDED  = 7
 const TARGET_MIN = 0.52
 const TARGET_MAX = 0.82
 
 export function createBalloonLevel() {
   let score      = 0
+  let mistakes   = 0
   let t          = 0
   let wobbleT    = 0
   let size       = 0.1
@@ -72,7 +73,7 @@ export function createBalloonLevel() {
       if (done) {
         doneTimer += dt
         if (doneTimer > 0.8)
-          return { stars: 3, message: `Popped ${score} balloons! 🎈 Amazing!` }
+          return { stars: 3, targetHits: score, mistakes, message: `Popped ${score} balloons! 🎈 Amazing!` }
         return null
       }
 
@@ -85,6 +86,7 @@ export function createBalloonLevel() {
 
       // Over-inflate = pop but no score, reset
       if (size >= 1.0 && popAnim <= 0) {
+        mistakes++
         for (let i = 0; i < 20; i++) {
           ps.emit(400, 290, {
             count: 1, color: '#888',

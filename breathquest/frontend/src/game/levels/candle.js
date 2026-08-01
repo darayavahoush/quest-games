@@ -1,6 +1,6 @@
 import { drawText, ParticleSystem, rand, clamp } from '../engine/render.js'
 
-const N = 5
+const N = 7
 
 // Candle colors
 const CANDLE_COLS = ['#E24B4A', '#FAC775', '#A8FF6F', '#60A5FA', '#C084FC']

@@ -1,7 +1,7 @@
 import { drawGradientBg, drawText, makeStars, drawStars, ParticleSystem, rand, clamp } from '../engine/render.js'
 
 export function createPinwheelLevel() {
-  const GOAL   = 1440
+  const GOAL   = 2000
   let angle    = 0
   let spinSpd  = 0
   let total    = 0

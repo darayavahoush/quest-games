@@ -6,7 +6,7 @@ import { drawGradientBg, drawText, makeStars, ParticleSystem, rand, clamp, lerp 
  * Much more forgiving than Geometry Dash — kite drifts slowly, rings are big.
  */
 
-const N_RINGS   = 4
+const N_RINGS   = 6
 const KITE_X    = 160    // kite stays at fixed X, world scrolls
 const SCROLL    = 60     // very slow
 const RISE_SPD  = 220    // how fast kite rises when blowing
@@ -104,7 +104,7 @@ export function createFloatRiderLevel() {
         completeTimer += dt
         if (completeTimer > 1.0) {
           const stars = score >= N_RINGS ? 3 : score >= Math.ceil(N_RINGS * 0.6) ? 2 : 1
-          return { stars, message: score >= N_RINGS ? 'Perfect flight! ⭐ All rings!' : `Got ${score}/${N_RINGS} rings! 🪁` }
+          return { stars, targetHits: score, message: score >= N_RINGS ? 'Perfect flight! ⭐ All rings!' : `Got ${score}/${N_RINGS} rings! 🪁` }
         }
       }
       return null
