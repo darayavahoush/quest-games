@@ -13,7 +13,8 @@ import ProgressRing from './components/ProgressRing.jsx'
 import MouthShapeGuide from './components/MouthShapeGuide.jsx'
 import CelebrationOverlay from './components/CelebrationOverlay.jsx'
 
-const ROUND_SIZE = 6
+const ROUND_SIZE = 10
+const MAX_ATTEMPTS = 3 // 3 tries per note before moving on
 const TRAVEL_MS = 3000
 const CATCH_WINDOW_START = 0.68 // last ~32% of travel is the catchable window
 const CALIB_MS = 1100
@@ -63,6 +64,7 @@ export default function LipSyncHero() {
   const [baselineSpread, setBaselineSpread] = useState(null)
   const [calibProgress, setCalibProgress] = useState(0)
   const [attempt, setAttempt] = useState(0)
+  const [retryCount, setRetryCount] = useState(0)
 
   const current = round[roundIndex]
   const target = current ? SHAPE_TARGETS[current.shape] : null
@@ -87,10 +89,18 @@ export default function LipSyncHero() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attempt, baselineSpread, complete])
 
-  // Once a note resolves (caught or missed), pause briefly then move on
+  // Once a note resolves (caught or missed), pause briefly then either
+  // retry the same note (up to MAX_ATTEMPTS) or move on.
   useEffect(() => {
     if (!outcome) return
     const t = setTimeout(() => {
+      const shouldRetry = outcome === 'missed' && retryCount + 1 < MAX_ATTEMPTS
+      if (shouldRetry) {
+        setRetryCount((c) => c + 1)
+        setAttempt((a) => a + 1) // restarts the timer/audio for the same note
+        return
+      }
+      setRetryCount(0)
       const isLast = roundIndex + 1 >= ROUND_SIZE
       if (isLast) {
         playFanfare()
@@ -102,7 +112,7 @@ export default function LipSyncHero() {
       }
     }, RESOLVE_DELAY_MS)
     return () => clearTimeout(t)
-  }, [outcome, roundIndex])
+  }, [outcome, roundIndex, retryCount])
 
   // Clear the celebration overlay a moment after it appears — without this,
   // it stays visible indefinitely after the first catch since nothing else
@@ -433,7 +443,7 @@ export default function LipSyncHero() {
                   Note {roundIndex + 1} of {ROUND_SIZE}
                 </p>
                 <div className="flex items-center gap-5 mb-6">
-                  <div className="w-20 h-20 shrink-0 rounded-2xl bg-ink border border-white/10 flex items-center justify-center p-3">
+                  <div className="w-36 h-36 shrink-0 rounded-2xl bg-ink border border-white/10 flex items-center justify-center p-4">
                     <MouthShapeGuide shape={current.shape} manner={current.manner} tier={tier} className="w-full h-full" />
                   </div>
                   <div className="w-16 h-16 shrink-0 rounded-2xl bg-coral/15 border border-coral/30 flex items-center justify-center">
@@ -463,8 +473,10 @@ export default function LipSyncHero() {
                   {outcome === 'caught'
                     ? 'Caught it! 🎉'
                     : outcome === 'missed'
-                      ? 'Missed that one — next one\u2019s coming up.'
-                      : 'Hold the shape as the note reaches the marker on the right.'}
+                      ? retryCount + 1 < MAX_ATTEMPTS
+                        ? `Missed that one — try ${retryCount + 2} of ${MAX_ATTEMPTS}, here it comes again.`
+                        : 'Missed that one — next one\u2019s coming up.'
+                      : `Hold the shape as the note reaches the marker on the right.${retryCount > 0 ? ` (Attempt ${retryCount + 1} of ${MAX_ATTEMPTS})` : ''}`}
                 </p>
                 <div className="h-px bg-white/10 mb-6" />
                 <p className="text-paper/50 text-xs leading-relaxed">

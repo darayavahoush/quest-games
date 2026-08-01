@@ -14,7 +14,7 @@ import ProgressRing from './components/ProgressRing.jsx'
 import TongueShapeGuide from './components/TongueShapeGuide.jsx'
 import CelebrationOverlay from './components/CelebrationOverlay.jsx'
 
-const ROUND_SIZE = 6
+const ROUND_SIZE = 10
 const HOLD_MS = 1800
 const OPEN_THRESHOLD = 0.22
 const CALIB_MS = 1400
@@ -397,7 +397,7 @@ export default function TongueTamer() {
                 <p className="font-mono text-xs uppercase tracking-widest text-paper/40 mb-3">
                   Move {roundIndex + 1} of {ROUND_SIZE}
                 </p>
-                <div className="w-24 h-24 rounded-2xl bg-ink border border-white/10 flex items-center justify-center p-3 mb-6">
+                <div className="w-36 h-36 rounded-2xl bg-ink border border-white/10 flex items-center justify-center p-4 mb-6">
                   <TongueShapeGuide move={current.id} tier={tier} className="w-full h-full" />
                 </div>
                 <p className="text-paper text-lg font-medium mb-2">{current.label}</p>

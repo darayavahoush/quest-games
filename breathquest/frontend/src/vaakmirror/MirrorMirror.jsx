@@ -14,7 +14,7 @@ import CharacterFilterPicker, { FILTERS } from './components/CharacterFilterPick
 import ProgressRing from './components/ProgressRing.jsx'
 import MouthShapeGuide from './components/MouthShapeGuide.jsx'
 
-const DEFAULT_ROUND_SIZE = 8
+const DEFAULT_ROUND_SIZE = 12
 const HOLD_MS = 2000
 const CALIB_MS = 1100
 const MODEL_URL =
@@ -399,7 +399,7 @@ export default function MirrorMirror() {
                   Sound {roundIndex + 1} of {roundSize}
                 </p>
                 <div className="flex items-center gap-5 mb-6">
-                  <div className="w-20 h-20 shrink-0 rounded-2xl bg-ink border border-white/10 flex items-center justify-center p-3">
+                  <div className="w-36 h-36 shrink-0 rounded-2xl bg-ink border border-white/10 flex items-center justify-center p-4">
                     <MouthShapeGuide shape={current.shape} manner={current.manner} tier={tier} className="w-full h-full" />
                   </div>
                   <div className="w-16 h-16 shrink-0 rounded-2xl bg-coral/15 border border-coral/30 flex items-center justify-center">
