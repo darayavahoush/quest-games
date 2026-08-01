@@ -49,3 +49,7 @@ export function logAttempt(sessionId, attempt) {
 export function endGameSession(sessionId) {
   return api.patch(`${VM}/sessions/${sessionId}/end`).then(r => r.data)
 }
+
+export function getWeakSounds() {
+  return api.get(`${VM}/sessions/weak-sounds`).then(r => r.data)
+}

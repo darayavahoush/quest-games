@@ -14,6 +14,7 @@ import VaakMirrorHome     from './vaakmirror/VaakMirrorHome'
 import MirrorMirror       from './vaakmirror/MirrorMirror'
 import TongueTamer        from './vaakmirror/TongueTamer'
 import LipSyncHero        from './vaakmirror/LipSyncHero'
+import MinimalPairDrill   from './vaakmirror/MinimalPairDrill'
 import ChimeHome          from './chime/ChimeHome'
 import VillageBuilder     from './chime/VillageBuilder'
 import RocketLaunch       from './chime/RocketLaunch'
@@ -128,6 +129,9 @@ function AppRoutes() {
       } />
       <Route path="/play/vaakmirror/lip-sync-hero" element={
         <ProtectedKid><LipSyncHero /></ProtectedKid>
+      } />
+      <Route path="/play/vaakmirror/minimal-pair-drill" element={
+        <ProtectedKid><MinimalPairDrill /></ProtectedKid>
       } />
       <Route path="/play/chime" element={
         <ProtectedKid><ChimeHome /></ProtectedKid>

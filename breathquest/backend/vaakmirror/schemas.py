@@ -43,6 +43,12 @@ class AttemptCreate(BaseModel):
     score: Optional[float] = None
 
 
+class WeakSound(BaseModel):
+    sound_id: str
+    accuracy: float
+    attempts: int
+
+
 class AttemptOut(BaseModel):
     id: int
     session_id: int
