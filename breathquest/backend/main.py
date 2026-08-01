@@ -9,7 +9,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from core.config import get_settings
 from database import create_tables
 from routers import auth, patients, sessions, dashboard, chime, voicehurdlerace, parent, kid_progress
-from vaakmirror.routers import sessions as vm_sessions, dashboard as vm_dashboard, exercises as vm_exercises, game_settings as vm_game_settings
+try:
+    from vaakmirror.routers import sessions as vm_sessions, dashboard as vm_dashboard, exercises as vm_exercises, game_settings as vm_game_settings
+    _VAAKMIRROR_IMPORT_ERROR = None
+except Exception as e:
+    # vaakmirror is a large, independently-evolving package bundled into this
+    # same deploy. A single bug anywhere in its import chain should not be able
+    # to take down patients/sessions/dashboard/chime — degrade to vaakmirror's
+    # routes being unavailable rather than the whole app failing to boot.
+    vm_sessions = vm_dashboard = vm_exercises = vm_game_settings = None
+    _VAAKMIRROR_IMPORT_ERROR = str(e)
+    import logging
+    logging.getLogger(__name__).error(f"vaakmirror routers failed to import, its endpoints will be unavailable: {e}")
 
 settings = get_settings()
 
@@ -53,10 +64,16 @@ app.include_router(kid_progress.router, prefix="/api/v1")
 # own /sessions, /dashboard routes above (both had prefix-less "/sessions"
 # etc. originally).
 VM_PREFIX = "/api/v1/vaakmirror"
-app.include_router(vm_sessions.router,   prefix=VM_PREFIX)
-app.include_router(vm_dashboard.router,  prefix=VM_PREFIX)
-app.include_router(vm_exercises.router,  prefix=VM_PREFIX)
-app.include_router(vm_game_settings.router, prefix=VM_PREFIX)
+if vm_sessions is not None:
+    app.include_router(vm_sessions.router,   prefix=VM_PREFIX)
+    app.include_router(vm_dashboard.router,  prefix=VM_PREFIX)
+    app.include_router(vm_exercises.router,  prefix=VM_PREFIX)
+    app.include_router(vm_game_settings.router, prefix=VM_PREFIX)
+else:
+    import logging
+    logging.getLogger(__name__).error(
+        f"Skipping vaakmirror route registration — import failed: {_VAAKMIRROR_IMPORT_ERROR}"
+    )
 
 
 @app.get("/health")
