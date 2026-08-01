@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
-import { Avatar } from '../../components/ui'
+import GameNavbar from '../../components/GameNavbar.jsx'
 import { loadScores, isUnlocked, LEVEL_ORDER, DIFFICULTY } from '../../game/scoring/index.js'
 
 const LEVELS = [
@@ -23,7 +22,6 @@ const CARD_THEMES = [
 ]
 
 export default function LevelSelect() {
-  const { patient, logout } = useAuth()
   const navigate = useNavigate()
   const [scores, setScores] = useState({})
   const [hovering, setHovering] = useState(null)
@@ -37,23 +35,11 @@ export default function LevelSelect() {
     <div className="min-h-screen" style={{
       background: 'radial-gradient(ellipse at 50% -10%, #1a2a4a 0%, #0d0d1a 60%)'
     }}>
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <Avatar avatar={patient?.avatar} size="sm" />
-          <div>
-            <span className="font-display font-bold text-white">{patient?.first_name}</span>
-            <span className="text-white/30 text-xs ml-2">#{patient?.player_code}</span>
-          </div>
-        </div>
-        {/* Total stars */}
-        <div className="flex items-center gap-2">
-          <span className="text-brand-amber font-bold text-sm">⭐ {totalStars} / {maxStars}</span>
-          {totalStars === maxStars && <span className="text-xs bg-brand-amber/20 text-brand-amber px-2 py-0.5 rounded-full">Perfect!</span>}
-        </div>
-        <button onClick={logout} className="text-white/30 hover:text-white/60 text-sm transition-colors">
-          Switch player
-        </button>
+      <GameNavbar activeApp="breathquest" />
+      {/* Stars sub-bar — unique to this page, kept alongside the shared navbar */}
+      <div className="flex items-center justify-center gap-2 px-6 py-2 border-b border-white/10">
+        <span className="text-brand-amber font-bold text-sm">⭐ {totalStars} / {maxStars}</span>
+        {totalStars === maxStars && <span className="text-xs bg-brand-amber/20 text-brand-amber px-2 py-0.5 rounded-full">Perfect!</span>}
       </div>
 
       <div className="max-w-3xl mx-auto px-6 py-8">

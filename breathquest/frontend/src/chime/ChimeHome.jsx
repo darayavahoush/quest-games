@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Rocket, Waves, Sparkles, Wind, Droplets, Mic } from 'lucide-react'
 import ChimeGameCard from './ChimeGameCard.jsx'
+import GameNavbar from '../components/GameNavbar.jsx'
 import { getPassedLevels, getUnlockedLevels, LEVEL_ROUTES } from './lib/levelProgress'
 import './chime-home.css'
 
@@ -38,6 +39,7 @@ export default function ChimeHome() {
 
   return (
     <section className="relative min-h-screen bg-ink overflow-hidden">
+      <GameNavbar activeApp="chime" />
       {/* ambient color life behind the grid — quiet, blurred, just enough
           to say "these games are colorful" before you even reach a card */}
       <div className="pointer-events-none absolute inset-0 opacity-[0.14]">
