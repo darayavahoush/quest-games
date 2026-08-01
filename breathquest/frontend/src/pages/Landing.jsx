@@ -126,7 +126,7 @@ export default function Landing() {
                             justify-center mx-auto mb-3">
               <Stethoscope className="w-7 h-7 text-mint-light" />
             </div>
-            <h2 className="font-vm-display text-xl font-bold text-mint-light mb-1">Therapist</h2>
+            <h2 className="font-vm-display text-xl font-bold text-mint-light mb-1">Teacher</h2>
             <p className="text-paper/50 text-sm mb-4">View dashboard &amp; progress</p>
             <span className="inline-flex items-center gap-1 text-xs font-semibold text-mint-light">
               Sign in <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />

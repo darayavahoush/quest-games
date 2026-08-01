@@ -10,7 +10,7 @@ import {
 const VALUE_PROPS = [
   { icon: ClipboardList, text: 'Assign exercises and track every session in one place' },
   { icon: LineChart, text: 'See progress trends across all your patients at a glance' },
-  { icon: ShieldCheck, text: "Each patient links only to their own therapist — nothing shared" },
+  { icon: ShieldCheck, text: "Each patient links only to their own teacher — nothing shared" },
 ]
 
 export default function TherapistLogin() {
@@ -85,7 +85,7 @@ export default function TherapistLogin() {
             <div className="w-14 h-14 rounded-2xl bg-mint/15 border border-mint/25 flex items-center justify-center mx-auto mb-4">
               <Stethoscope className="w-7 h-7 text-mint-light" />
             </div>
-            <h1 className="font-vm-display text-2xl font-bold text-white">Therapist Portal</h1>
+            <h1 className="font-vm-display text-2xl font-bold text-white">Teacher Portal</h1>
           </div>
 
           <div className="mb-6 hidden lg:block">

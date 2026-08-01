@@ -69,7 +69,7 @@ export default function KidPlay() {
             {'•'.repeat(pin.length)}
           </p>
         </div>
-        <p className="text-white/30 text-xs mb-8">Show this to your therapist too!</p>
+        <p className="text-white/30 text-xs mb-8">Show this to your teacher too!</p>
         <Button size="lg" onClick={() => navigate('/play/levels')}>Let's Play! 🚀</Button>
       </div>
     )

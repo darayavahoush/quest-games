@@ -2,10 +2,12 @@ import { Smile, Wand2, Music, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import GameCard from './components/GameCard.jsx'
 import MouthMotif from './components/MouthMotif.jsx'
+import GameNavbar from '../components/GameNavbar.jsx'
 
 export default function Landing() {
   return (
     <>
+      <GameNavbar activeApp="vaakmirror" />
       {/* Hero */}
       <section className="bg-ink relative overflow-hidden">
         <div className="max-w-6xl mx-auto px-6 pt-20 pb-24 grid md:grid-cols-2 gap-12 items-center relative z-10">
