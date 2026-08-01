@@ -13,8 +13,18 @@ from sqlalchemy import select, func, and_
 from database import get_db
 from models.models import Patient, GameSession
 from models.voicehurdlerace_models import VoiceHurdleRaceSession
-from vaakmirror.models import GameSession as VaakMirrorSession
 from retraining import data_store as chime_data_store
+
+# vaakmirror lives outside breathquest/backend (sibling package under the repo
+# root) and isn't guaranteed to be on the Python path in every deploy config —
+# Render's root directory here is breathquest/backend, so it structurally
+# cannot import this in production. Degrade to a 0 count rather than crashing
+# app startup; fix properly later by exposing this via an API/shared DB
+# instead of a cross-package model import.
+try:
+    from vaakmirror.models import GameSession as VaakMirrorSession
+except ImportError:
+    VaakMirrorSession = None
 from schemas.schemas import KidProgressOut
 from core.deps import get_current_patient
 
@@ -48,11 +58,14 @@ async def get_my_progress(
             and_(VoiceHurdleRaceSession.patient_id == patient.id, VoiceHurdleRaceSession.created_at >= week_ago)
         )
     )).scalar() or 0
-    vm_week = (await db.execute(
-        select(func.count(VaakMirrorSession.id)).where(
-            and_(VaakMirrorSession.patient_id == patient.id, VaakMirrorSession.started_at >= week_ago)
-        )
-    )).scalar() or 0
+    if VaakMirrorSession is not None:
+        vm_week = (await db.execute(
+            select(func.count(VaakMirrorSession.id)).where(
+                and_(VaakMirrorSession.patient_id == patient.id, VaakMirrorSession.started_at >= week_ago)
+            )
+        )).scalar() or 0
+    else:
+        vm_week = 0
     chime_week = chime_data_store.count_events_since([patient.id], week_ago.isoformat(), db_path=CHIME_DB_PATH)
 
     games_played_this_week = bq_week + vhr_week + vm_week + chime_week
