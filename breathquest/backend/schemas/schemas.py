@@ -12,6 +12,25 @@ import re
 #  Auth                                                                #
 # ------------------------------------------------------------------ #
 
+class LevelProgress(BaseModel):
+    level_id: str
+    level_name: str
+    attempts: int
+    best_stars: int
+    avg_stars: float
+    avg_breath_strength: float | None
+    last_played: datetime | None
+
+
+class WeeklySummaryOut(BaseModel):
+    patient_id: str
+    week_start: datetime
+    week_end: datetime
+    narrative: str            # dense multi-sentence paragraph
+    highlights: list[str]     # short chip-style facts for the UI
+    stats: dict[str, Any]     # raw numbers backing the narrative, for charts
+
+
 class TherapistRegister(BaseModel):
     email: EmailStr
     password: str
@@ -291,16 +310,6 @@ class NoteOut(BaseModel):
 #  Dashboard / Analytics                                               #
 # ------------------------------------------------------------------ #
 
-class LevelProgress(BaseModel):
-    level_id: str
-    level_name: str
-    attempts: int
-    best_stars: int
-    avg_stars: float
-    avg_breath_strength: float | None
-    last_played: datetime | None
-
-
 class PatientProgress(BaseModel):
     patient_id: str
     first_name: str
@@ -450,10 +459,3 @@ class PatientAlert(BaseModel):
 #  Weekly summary (rule-based, no LLM calls)                           #
 # ------------------------------------------------------------------ #
 
-class WeeklySummaryOut(BaseModel):
-    patient_id: str
-    week_start: datetime
-    week_end: datetime
-    narrative: str            # dense multi-sentence paragraph
-    highlights: list[str]     # short chip-style facts for the UI
-    stats: dict[str, Any]     # raw numbers backing the narrative, for charts
