@@ -2325,22 +2325,111 @@ function drawDog(
       : 0;
 
 
-  /* SHADOW DOES NOT ROTATE */
+  /* ----------------------------------------------------------
+     PSEUDO-3D SHADING HELPERS
+     Canvas 2D has no real depth, but a light source (fixed at
+     upper-left, matching drawSky's sun) plus three cheap tricks
+     reads as "3D" to the eye: (1) radial-gradient fills instead
+     of flat color, so each ellipsoid looks lit from one side and
+     shaded on the other, (2) a soft dark "ambient occlusion"
+     ellipse wherever one part sits in front of another (head/
+     body seam, ear bases), so parts look like they're actually
+     resting against each other instead of floating on top, and
+     (3) a soft specular highlight (radial gradient fading to
+     transparent) instead of the old flat "highlight" ellipses,
+     which reads as glossy/rounded rather than two-toned.
+  ---------------------------------------------------------- */
 
-  ctx.fillStyle =
-    'rgba(60,35,20,.22)';
+  function ellipsoidFill(
+    cx: number,
+    cy: number,
+    rx: number,
+    ry: number,
+    lightColor: string,
+    baseColor: string,
+    darkColor: string
+  ) {
+    const lightCx = cx - rx * 0.35;
+    const lightCy = cy - ry * 0.45;
+    const grad = ctx.createRadialGradient(
+      lightCx, lightCy, 0,
+      cx, cy, Math.max(rx, ry) * 1.15
+    );
+    grad.addColorStop(0, lightColor);
+    grad.addColorStop(0.55, baseColor);
+    grad.addColorStop(1, darkColor);
+    return grad;
+  }
+
+  function specularHighlight(
+    cx: number,
+    cy: number,
+    r: number,
+    color: string
+  ) {
+    const grad = ctx.createRadialGradient(
+      cx, cy, 0,
+      cx, cy, r
+    );
+    grad.addColorStop(0, color);
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    return grad;
+  }
+
+  function ambientOcclusion(
+    cx: number,
+    cy: number,
+    rx: number,
+    ry: number,
+    rotation: number
+  ) {
+    ctx.save();
+    const grad = ctx.createRadialGradient(
+      cx, cy, 0,
+      cx, cy, Math.max(rx, ry)
+    );
+    grad.addColorStop(0, 'rgba(45,25,15,.28)');
+    grad.addColorStop(1, 'rgba(45,25,15,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, rotation, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+
+  /* SHADOW DOES NOT ROTATE — soft radial falloff instead of a flat
+     fill so the dog reads as resting ON the ground, not pasted onto it */
+
+  const shadowRx =
+    state.isJumping
+      ? 28
+      : 50;
+
+  const shadowRy =
+    state.isJumping
+      ? 6
+      : 10;
+
+  const shadowGradient =
+    ctx.createRadialGradient(
+      x + 58, 415, 0,
+      x + 58, 415, shadowRx
+    );
+
+  shadowGradient.addColorStop(0, 'rgba(60,35,20,.30)');
+  shadowGradient.addColorStop(0.7, 'rgba(60,35,20,.15)');
+  shadowGradient.addColorStop(1, 'rgba(60,35,20,0)');
+
+  ctx.fillStyle = shadowGradient;
 
   ctx.beginPath();
 
   ctx.ellipse(
     x + 58,
     415,
-    state.isJumping
-      ? 28
-      : 50,
-    state.isJumping
-      ? 6
-      : 10,
+    shadowRx,
+    shadowRy,
     0,
     0,
     Math.PI * 2
@@ -2390,10 +2479,12 @@ function drawDog(
   }
 
 
-  /* BODY */
+  /* BODY — radial-gradient ellipsoid instead of flat fill */
 
-  ctx.fillStyle =
-    '#c96f35';
+  ctx.fillStyle = ellipsoidFill(
+    x + 50, drawY - 38, 49, 34,
+    '#f0a06a', '#c96f35', '#8a4a20'
+  );
 
   ctx.beginPath();
 
@@ -2410,27 +2501,8 @@ function drawDog(
   ctx.fill();
 
 
-  /* BODY HIGHLIGHT */
-
-  ctx.fillStyle =
-    '#dd8950';
-
-  ctx.beginPath();
-
-  ctx.ellipse(
-    x + 42,
-    drawY - 48,
-    30,
-    15,
-    -0.15,
-    0,
-    Math.PI * 2
-  );
-
-  ctx.fill();
-
-
-  /* WHITE BELLY */
+  /* WHITE BELLY (drawn before the head/ear occlusion pass so the
+     seam shadow below falls correctly across both body and belly) */
 
   ctx.fillStyle =
     '#fff7e8';
@@ -2450,10 +2522,24 @@ function drawDog(
   ctx.fill();
 
 
-  /* HEAD */
+  /* NECK SEAM — ambient occlusion where the head sits in front of
+     the body, so the head doesn't look like it's floating on top */
 
-  ctx.fillStyle =
-    '#c96f35';
+  ambientOcclusion(
+    x + 76,
+    drawY - 52,
+    22,
+    16,
+    -0.3
+  );
+
+
+  /* HEAD — radial-gradient sphere */
+
+  ctx.fillStyle = ellipsoidFill(
+    x + 90, drawY - 69, 37, 37,
+    '#f0a06a', '#c96f35', '#8a4a20'
+  );
 
   ctx.beginPath();
 
@@ -2468,17 +2554,20 @@ function drawDog(
   ctx.fill();
 
 
-  /* HEAD HIGHLIGHT */
+  /* HEAD SPECULAR HIGHLIGHT — soft glossy fade instead of a flat
+     two-tone patch, reads as a rounded lit surface rather than a sticker */
 
-  ctx.fillStyle =
-    '#dd8950';
+  ctx.fillStyle = specularHighlight(
+    x + 78, drawY - 82, 22,
+    'rgba(255,235,215,.55)'
+  );
 
   ctx.beginPath();
 
   ctx.arc(
-    x + 82,
-    drawY - 79,
-    20,
+    x + 78,
+    drawY - 82,
+    22,
     0,
     Math.PI * 2
   );
@@ -2486,10 +2575,19 @@ function drawDog(
   ctx.fill();
 
 
-  /* EARS */
+  /* EAR BASE OCCLUSION — small dark wedge where each ear meets the
+     head, before the ears themselves are drawn on top */
 
-  ctx.fillStyle =
-    '#87472a';
+  ambientOcclusion(x + 68, drawY - 68, 10, 12, -0.5);
+  ambientOcclusion(x + 106, drawY - 70, 10, 12, 0.45);
+
+
+  /* EARS — subtle gradient for a leathery, folded (not flat) look */
+
+  ctx.fillStyle = ellipsoidFill(
+    x + 66, drawY - 82, 14, 29,
+    '#a35a35', '#87472a', '#4a2513'
+  );
 
   ctx.beginPath();
 
@@ -2504,6 +2602,11 @@ function drawDog(
   );
 
   ctx.fill();
+
+  ctx.fillStyle = ellipsoidFill(
+    x + 108, drawY - 84, 13, 29,
+    '#a35a35', '#87472a', '#4a2513'
+  );
 
   ctx.beginPath();
 
@@ -2520,10 +2623,13 @@ function drawDog(
   ctx.fill();
 
 
-  /* MUZZLE */
+  /* MUZZLE — small volume gradient so it reads as protruding
+     forward off the face rather than a flat patch */
 
-  ctx.fillStyle =
-    '#fff7e8';
+  ctx.fillStyle = ellipsoidFill(
+    x + 104, drawY - 56, 23, 18,
+    '#fffdf7', '#fff7e8', '#e8d9c0'
+  );
 
   ctx.beginPath();
 
@@ -2576,10 +2682,12 @@ function drawDog(
   ctx.fill();
 
 
-  /* NOSE */
+  /* NOSE — tiny gradient so it catches light like a wet, rounded surface */
 
-  ctx.fillStyle =
-    '#2d211c';
+  ctx.fillStyle = ellipsoidFill(
+    x + 120, drawY - 60, 7, 5.5,
+    '#4a3830', '#2d211c', '#0f0a08'
+  );
 
   ctx.beginPath();
 
@@ -2616,10 +2724,18 @@ function drawDog(
   ctx.stroke();
 
 
-  /* COLLAR */
+  /* COLLAR — linear gradient across its width gives it a rounded,
+     cylindrical (not flat ribbon) look */
 
-  ctx.strokeStyle =
-    '#ef4444';
+  const collarGradient = ctx.createLinearGradient(
+    x + 60, drawY - 60,
+    x + 110, drawY - 30
+  );
+  collarGradient.addColorStop(0, '#f87171');
+  collarGradient.addColorStop(0.5, '#ef4444');
+  collarGradient.addColorStop(1, '#b91c1c');
+
+  ctx.strokeStyle = collarGradient;
 
   ctx.lineWidth = 7;
 
@@ -2636,10 +2752,13 @@ function drawDog(
   ctx.stroke();
 
 
-  /* COLLAR TAG */
+  /* COLLAR TAG — small gradient disc instead of flat fill, so it
+     reads as a rounded metal tag catching the light */
 
-  ctx.fillStyle =
-    '#facc15';
+  ctx.fillStyle = ellipsoidFill(
+    x + 82, drawY - 23, 6, 6,
+    '#fff5b8', '#facc15', '#a16207'
+  );
 
   ctx.beginPath();
 
@@ -2655,13 +2774,9 @@ function drawDog(
 
 
   /* ----------------------------------------------------------
-     LEGS
+     LEGS — a two-pass stroke (dark underside, lighter top) gives
+     each leg a cylindrical cross-section instead of a flat bar
   ---------------------------------------------------------- */
-
-  ctx.strokeStyle =
-    '#a85b31';
-
-  ctx.lineWidth = 11;
 
   ctx.lineCap =
     'round';
@@ -2672,122 +2787,72 @@ function drawDog(
         80
     );
 
+  function strokeLegSegment(
+    from: [number, number],
+    mid: [number, number] | null,
+    to: [number, number],
+    offset: number
+  ) {
+    ctx.beginPath();
+    ctx.moveTo(from[0] + offset, from[1] + offset);
+    if (mid) ctx.lineTo(mid[0] + offset, mid[1] + offset);
+    ctx.lineTo(to[0] + offset, to[1] + offset);
+    ctx.stroke();
+  }
+
+  function drawLegPair(
+    frontFrom: [number, number],
+    frontTo: [number, number],
+    frontMid: [number, number] | null,
+    rearFrom: [number, number],
+    rearTo: [number, number],
+    rearMid: [number, number] | null
+  ) {
+    // Underside shadow pass (drawn first, slightly offset + darker + wider)
+    ctx.strokeStyle = '#7a3f1e';
+    ctx.lineWidth = 12;
+    strokeLegSegment(frontFrom, frontMid, frontTo, 1.5);
+    strokeLegSegment(rearFrom, rearMid, rearTo, 1.5);
+
+    // Lit top pass, thinner, offset the other way
+    ctx.strokeStyle = '#c17840';
+    ctx.lineWidth = 8;
+    strokeLegSegment(frontFrom, frontMid, frontTo, -1);
+    strokeLegSegment(rearFrom, rearMid, rearTo, -1);
+  }
 
   if (
     state.isJumping
   ) {
-    /* tucked front leg */
-
-    ctx.beginPath();
-
-    ctx.moveTo(
-      x + 72,
-      drawY - 25
+    drawLegPair(
+      [x + 72, drawY - 25], [x + 86, drawY - 9], [x + 75, drawY - 3],
+      [x + 30, drawY - 24], [x + 18, drawY - 8], [x + 28, drawY - 2]
     );
-
-    ctx.lineTo(
-      x + 86,
-      drawY - 9
-    );
-
-    ctx.lineTo(
-      x + 75,
-      drawY - 3
-    );
-
-    ctx.stroke();
-
-
-    /* tucked rear leg */
-
-    ctx.beginPath();
-
-    ctx.moveTo(
-      x + 30,
-      drawY - 24
-    );
-
-    ctx.lineTo(
-      x + 18,
-      drawY - 8
-    );
-
-    ctx.lineTo(
-      x + 28,
-      drawY - 2
-    );
-
-    ctx.stroke();
   } else if (
     state.isStumbling
   ) {
-    ctx.beginPath();
-
-    ctx.moveTo(
-      x + 27,
-      drawY - 20
+    drawLegPair(
+      [x + 27, drawY - 20], [x + 8, drawY + 2], null,
+      [x + 70, drawY - 19], [x + 91, drawY - 1], null
     );
-
-    ctx.lineTo(
-      x + 8,
-      drawY + 2
-    );
-
-    ctx.stroke();
-
-    ctx.beginPath();
-
-    ctx.moveTo(
-      x + 70,
-      drawY - 19
-    );
-
-    ctx.lineTo(
-      x + 91,
-      drawY - 1
-    );
-
-    ctx.stroke();
   } else {
-    ctx.beginPath();
-
-    ctx.moveTo(
-      x + 30,
-      drawY - 20
+    drawLegPair(
+      [x + 30, drawY - 20], [x + 20 + runningPhase * 13, drawY + 6], null,
+      [x + 69, drawY - 19], [x + 77 - runningPhase * 13, drawY + 6], null
     );
-
-    ctx.lineTo(
-      x +
-        20 +
-        runningPhase * 13,
-      drawY + 6
-    );
-
-    ctx.stroke();
-
-
-    ctx.beginPath();
-
-    ctx.moveTo(
-      x + 69,
-      drawY - 19
-    );
-
-    ctx.lineTo(
-      x +
-        77 -
-        runningPhase * 13,
-      drawY + 6
-    );
-
-    ctx.stroke();
   }
 
 
-  /* TAIL */
+  /* TAIL — gradient stroke for the same cylindrical volume as the legs */
 
-  ctx.strokeStyle =
-    '#c96f35';
+  const tailGradient = ctx.createLinearGradient(
+    x - 21, drawY - 91,
+    x + 10, drawY - 44
+  );
+  tailGradient.addColorStop(0, '#e8935c');
+  tailGradient.addColorStop(1, '#a85b31');
+
+  ctx.strokeStyle = tailGradient;
 
   ctx.lineWidth = 12;
 
@@ -2824,6 +2889,7 @@ function drawDog(
 
   ctx.restore();
 }
+
 
 
 function drawBunny(
