@@ -23,6 +23,8 @@ import WindChimeGarden    from './chime/WindChimeGarden'
 import BubbleWrapPop      from './chime/BubbleWrapPop'
 import RequireLevelUnlocked from './chime/lib/RequireLevelUnlocked'
 import VoiceHurdleRace    from './voiceHurdleRace/VoiceHurdleRace'
+import ParentAuth         from './pages/parent/ParentAuth'
+import ParentDashboard    from './pages/parent/ParentDashboard'
 
 // Lets Quest Hub hand off a logged-in session by linking here with
 // ?token=&kind=&id=&name=&data= — adopts it into BreathQuest's OWN
@@ -74,6 +76,13 @@ function ProtectedKid({ children }) {
   const { isKid, loading } = useAuth()
   if (loading) return <PageLoader />
   if (!isKid) return <Navigate to="/play" replace />
+  return children
+}
+
+function ProtectedParent({ children }) {
+  const { isParent, loading } = useAuth()
+  if (loading) return <PageLoader />
+  if (!isParent) return <Navigate to="/parent/login" replace />
   return children
 }
 
@@ -141,6 +150,12 @@ function AppRoutes() {
       } />
       <Route path="/play/voice-hurdle-race" element={
         <ProtectedKid><VoiceHurdleRace /></ProtectedKid>
+      } />
+
+      {/* Parent */}
+      <Route path="/parent/login" element={<ParentAuth />} />
+      <Route path="/parent/dashboard" element={
+        <ProtectedParent><ParentDashboard /></ProtectedParent>
       } />
 
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -73,3 +73,31 @@ def decode_kid_token(token: str) -> dict | None:
         return payload
     except JWTError:
         return None
+
+
+# ------------------------------------------------------------------ #
+#  JWT (parents)                                                       #
+# ------------------------------------------------------------------ #
+
+def create_parent_token(parent_id: str, expires_delta: timedelta | None = None) -> str:
+    expire = datetime.now(timezone.utc) + (
+        expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    payload = {"sub": str(parent_id), "exp": expire, "type": "parent"}
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+def decode_parent_token(token: str) -> dict | None:
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        if payload.get("type") != "parent":
+            return None
+        return payload
+    except JWTError:
+        return None
+
+
+def generate_invite_code() -> str:
+    """Short, unambiguous (no 0/O/1/I) code for a therapist to hand a parent."""
+    alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+    return "".join(secrets.choice(alphabet) for _ in range(8))

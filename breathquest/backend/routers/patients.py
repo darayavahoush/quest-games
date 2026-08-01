@@ -12,6 +12,7 @@ from models.models import Therapist, Patient, GameSession
 from schemas.schemas import PatientCreate, PatientUpdate, PatientOut, PatientDetailOut
 from core.security import hash_pin
 from core.deps import get_current_therapist
+from core.security import generate_invite_code
 
 router = APIRouter(prefix="/patients", tags=["patients"])
 
@@ -134,3 +135,23 @@ async def delete_patient(
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
     await db.delete(patient)
+
+
+@router.post("/{patient_id}/parent-invite-code", response_model=ParentInviteCodeOut)
+async def generate_parent_invite_code(
+    patient_id: str,
+    therapist: Therapist = Depends(get_current_therapist),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Patient).where(Patient.id == patient_id, Patient.therapist_id == therapist.id)
+    )
+    patient = result.scalar_one_or_none()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    code = generate_invite_code()
+    patient.parent_invite_code = code
+    await db.flush()
+
+    return ParentInviteCodeOut(invite_code=code)

@@ -75,3 +75,21 @@ const fullBoostAlt = updateAltitude(0.3, 0.9, 0.1, configPB, 1);
 assert.ok(fullBoostAlt > noBoostAlt, 'full pitch boost should climb faster than no boost at same loudness');
 
 console.log('All pitch detection tests passed.');
+
+// --- updateAltitude with duration boost ---
+const configDB = { riseRate: 0.5, fallRate: 0.2, scoreThreshold: 0.4 };
+const noDurationAlt = updateAltitude(0.3, 0.9, 0.1, configDB, 0, 0);
+const partialDurationAlt = updateAltitude(0.3, 0.9, 0.1, configDB, 0, 1.25); // half of DURATION_BOOST_SECONDS
+const fullDurationAlt = updateAltitude(0.3, 0.9, 0.1, configDB, 0, 2.5);
+const overDurationAlt = updateAltitude(0.3, 0.9, 0.1, configDB, 0, 10); // should clamp, not exceed full
+
+assert.ok(partialDurationAlt > noDurationAlt, 'sustaining for half the boost window should climb faster than no sustain at all');
+assert.ok(fullDurationAlt > partialDurationAlt, 'sustaining for the full boost window should climb faster than a partial sustain');
+assert.strictEqual(fullDurationAlt, overDurationAlt, 'duration bonus should clamp at DURATION_BOOST_SECONDS, not keep growing forever');
+
+// A default (omitted) sustainedSeconds should behave identically to explicit 0,
+// so existing call sites that don't pass it are unaffected.
+const omittedDurationAlt = updateAltitude(0.3, 0.9, 0.1, configDB, 0);
+assert.strictEqual(omittedDurationAlt, noDurationAlt, 'omitting sustainedSeconds should behave like passing 0');
+
+console.log('All duration-boost tests passed.');

@@ -23,6 +23,8 @@ export const authAPI = {
   login:    (data) => api.post('/auth/login', data),
   kidRegister: (data) => api.post('/auth/kid-register', data),
   kidLogin:    (data) => api.post('/auth/kid-login', data),
+  parentRegister: (data) => api.post('/auth/parent-register', data),
+  parentLogin:    (data) => api.post('/auth/parent-login', data),
 }
 
 // ------------------------------------------------------------------ //
@@ -35,6 +37,7 @@ export const patientsAPI = {
   create: (data)       => api.post('/patients', data),
   update: (id, data)   => api.patch(`/patients/${id}`, data),
   delete: (id)         => api.delete(`/patients/${id}`),
+  generateParentInviteCode: (id) => api.post(`/patients/${id}/parent-invite-code`),
 }
 
 // ------------------------------------------------------------------ //

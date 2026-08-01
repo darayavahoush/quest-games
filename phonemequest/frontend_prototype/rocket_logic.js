@@ -20,14 +20,24 @@ function computeLoudnessScore(rms, noiseFloor, maxExpected) {
 // pitchBoost (0-1, optional) adds extra speed on top of the loudness-driven
 // base rate — purely a game-feel multiplier, not part of the scored/logged
 // loudness value itself.
-function updateAltitude(currentAltitude, score, dt, config, pitchBoost = 0) {
+// Duration-boost constants: reward SUSTAINED voicing, not just loud voicing.
+// A kid who holds a strong "aaaa" for DURATION_BOOST_SECONDS or more climbs up
+// to DURATION_BOOST_MAX extra on top of the loudness/pitch multipliers — this
+// directly reinforces breath-support duration (a real therapy target), not just
+// volume. sustainedSeconds resets to 0 the moment voicing drops below threshold,
+// so bursty loud-quiet-loud behavior doesn't accumulate the bonus.
+const DURATION_BOOST_SECONDS = 2.5;
+const DURATION_BOOST_MAX = 0.6;
+
+function updateAltitude(currentAltitude, score, dt, config, pitchBoost = 0, sustainedSeconds = 0) {
   const { riseRate, fallRate, scoreThreshold } = config;
   let next;
   if (score >= scoreThreshold) {
     const intensity = (score - scoreThreshold) / (1 - scoreThreshold); // 0..1
     const loudnessMultiplier = 0.4 + 1.4 * intensity; // wider range: barely-passing to very loud feels dramatically different
     const pitchMultiplier = 1 + 0.5 * pitchBoost; // up to +50% extra on top
-    next = currentAltitude + riseRate * loudnessMultiplier * pitchMultiplier * dt;
+    const durationMultiplier = 1 + DURATION_BOOST_MAX * Math.min(1, sustainedSeconds / DURATION_BOOST_SECONDS);
+    next = currentAltitude + riseRate * loudnessMultiplier * pitchMultiplier * durationMultiplier * dt;
   } else {
     next = currentAltitude - fallRate * dt;
   }
@@ -105,4 +115,4 @@ function pitchToBoost(pitchResult, boostMinHz = 220, boostMaxHz = 500, minConfid
   return Math.max(0, Math.min(1, t));
 }
 
-module.exports = { computeRMS, computeLoudnessScore, updateAltitude, detectPitch, pitchToBoost };
+module.exports = { computeRMS, computeLoudnessScore, updateAltitude, detectPitch, pitchToBoost, DURATION_BOOST_SECONDS, DURATION_BOOST_MAX };

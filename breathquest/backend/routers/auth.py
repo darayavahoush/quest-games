@@ -9,15 +9,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from database import get_db
-from models.models import Therapist, Patient
+from models.models import Therapist, Patient, Parent
 from schemas.schemas import (
     TherapistRegister, TherapistLogin, TokenResponse,
     KidLoginRequest, KidTokenResponse, KidRegisterRequest,
+    ParentRegisterRequest, ParentLoginRequest, ParentTokenResponse,
 )
 from core.security import (
     hash_password, verify_password,
     create_access_token,
     hash_pin, verify_pin, create_kid_token,
+    create_parent_token,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -131,4 +133,83 @@ async def kid_login(data: KidLoginRequest, db: AsyncSession = Depends(get_db)):
         first_name=patient.first_name,
         avatar=patient.avatar,
         player_code=patient.player_code,
+    )
+
+
+# ------------------------------------------------------------------ #
+#  Parent auth                                                         #
+# ------------------------------------------------------------------ #
+
+@router.post("/parent-register", response_model=ParentTokenResponse, status_code=201)
+async def parent_register(data: ParentRegisterRequest, db: AsyncSession = Depends(get_db)):
+    if not data.player_code and not data.invite_code:
+        raise HTTPException(status_code=400, detail="Provide either your child's player code or a therapist-issued invite code")
+    if data.player_code and data.invite_code:
+        raise HTTPException(status_code=400, detail="Provide only one of player_code or invite_code, not both")
+
+    if data.player_code:
+        result = await db.execute(select(Patient).where(Patient.player_code == data.player_code.upper()))
+    else:
+        result = await db.execute(select(Patient).where(Patient.parent_invite_code == data.invite_code.upper()))
+    patient = result.scalar_one_or_none()
+
+    if not patient:
+        raise HTTPException(status_code=404, detail="Code not found — check with your child or their therapist")
+
+    existing_parent = await db.execute(select(Parent).where(Parent.patient_id == patient.id))
+    if existing_parent.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="A parent account is already linked to this child")
+
+    existing_email = await db.execute(select(Parent).where(Parent.email == data.email))
+    if existing_email.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    parent = Parent(
+        patient_id=patient.id,
+        email=data.email,
+        hashed_password=hash_password(data.password),
+        full_name=data.full_name,
+    )
+    db.add(parent)
+
+    # Invite codes are single-use — clear it once redeemed so it can't be
+    # reused by someone else who happens to see it later.
+    if data.invite_code:
+        patient.parent_invite_code = None
+
+    await db.flush()
+
+    token = create_parent_token(parent.id)
+    return ParentTokenResponse(
+        access_token=token,
+        parent_id=parent.id,
+        patient_id=patient.id,
+        child_first_name=patient.first_name,
+    )
+
+
+@router.post("/parent-login", response_model=ParentTokenResponse)
+async def parent_login(data: ParentLoginRequest, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Parent).where(Parent.email == data.email))
+    parent = result.scalar_one_or_none()
+
+    if not parent or not verify_password(data.password, parent.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    if not parent.is_active:
+        raise HTTPException(status_code=403, detail="Account deactivated")
+
+    patient_result = await db.execute(select(Patient).where(Patient.id == parent.patient_id))
+    patient = patient_result.scalar_one_or_none()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Linked child account no longer exists")
+
+    parent.last_login = datetime.now(timezone.utc)
+
+    token = create_parent_token(parent.id)
+    return ParentTokenResponse(
+        access_token=token,
+        parent_id=parent.id,
+        patient_id=patient.id,
+        child_first_name=patient.first_name,
     )

@@ -8,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from database import get_db
-from models.models import Therapist, Patient
-from core.security import decode_access_token, decode_kid_token
+from models.models import Therapist, Patient, Parent
+from core.security import decode_access_token, decode_kid_token, decode_parent_token
 
 bearer = HTTPBearer()
 
@@ -56,3 +56,25 @@ async def get_current_patient(
         raise HTTPException(status_code=401, detail="Patient not found or inactive")
 
     return patient
+
+
+async def get_current_parent(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer),
+    db: AsyncSession = Depends(get_db),
+) -> Parent:
+    token = credentials.credentials
+    payload = decode_parent_token(token)
+
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired parent token",
+        )
+
+    result = await db.execute(select(Parent).where(Parent.id == payload["sub"]))
+    parent = result.scalar_one_or_none()
+
+    if not parent or not parent.is_active:
+        raise HTTPException(status_code=401, detail="Parent not found or inactive")
+
+    return parent

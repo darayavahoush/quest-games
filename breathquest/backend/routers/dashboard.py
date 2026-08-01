@@ -27,7 +27,12 @@ from schemas.schemas import (
 )
 from core.deps import get_current_therapist
 from services.weekly_summary import generate_weekly_summary
-from services.report_pdf import build_patient_report_pdf
+try:
+    from services.report_pdf import build_patient_report_pdf
+    _PDF_EXPORT_IMPORT_ERROR = None
+except ImportError as e:
+    build_patient_report_pdf = None
+    _PDF_EXPORT_IMPORT_ERROR = str(e)
 from fastapi.responses import FileResponse
 import tempfile, os
 
@@ -778,13 +783,23 @@ async def get_patient_report(
     goals = await list_goals(patient_id, therapist, db)
     assignments = await list_assignments(patient_id, therapist, db)
 
+    if build_patient_report_pdf is None:
+        raise HTTPException(
+            status_code=503,
+            detail=f"PDF export is temporarily unavailable: {_PDF_EXPORT_IMPORT_ERROR}",
+        )
+
     fd, tmp_path = tempfile.mkstemp(suffix=".pdf")
     os.close(fd)
-    build_patient_report_pdf(
-        patient=patient, progress=progress, weekly_summary=weekly_summary,
-        goals=goals, assignments=assignments, therapist=therapist,
-        output_path=tmp_path,
-    )
+    try:
+        build_patient_report_pdf(
+            patient=patient, progress=progress, weekly_summary=weekly_summary,
+            goals=goals, assignments=assignments, therapist=therapist,
+            output_path=tmp_path,
+        )
+    except Exception as e:
+        os.remove(tmp_path)
+        raise HTTPException(status_code=503, detail=f"PDF export failed: {e}")
 
     safe_name = patient.first_name.replace(" ", "_")
     return FileResponse(

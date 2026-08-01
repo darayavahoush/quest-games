@@ -9,6 +9,12 @@ const TARGET_F2_DEFAULT = 870.0
 const FORMANT_TOLERANCE_HZ = 450.0
 const NOISE_FLOOR_RMS_DEFAULT = 0.01
 const BASE_DEPTH_CONFIG = { sinkRate: 0.5, riseRate: 0.2, scoreThreshold: 0.08 }
+// Sustained "oooo" should sink faster than the same quality delivered in short
+// bursts — rewards breath duration, not just momentary vowel quality. Mirrors
+// the RocketLaunch duration-boost mechanic 1:1: dt accumulates while voiced,
+// resets to 0 the instant voicing drops, caps at DURATION_BOOST_SECONDS.
+const DURATION_BOOST_SECONDS = 2.5
+const DURATION_BOOST_MAX = 0.6
 const LEVEL_ID = 'oo'
 const AGENT_POLICY = 'tabular_q'
 const FISH_COLORS = ['#FF8C69', '#FFD166', '#A6E8FF', '#FF6B9D', '#7FE8C0']
@@ -114,11 +120,12 @@ function personalizeFormantTarget(formantReadings, fallbackF1 = TARGET_F1_DEFAUL
   const targetF2 = valid.reduce((s, r) => s + r.f2, 0) / valid.length
   return { targetF1, targetF2, usedFallback: false }
 }
-function updateDepth(currentDepth, qualityScore, dt, config) {
+function updateDepth(currentDepth, qualityScore, dt, config, sustainedSeconds = 0) {
   const { sinkRate, riseRate, scoreThreshold } = config
   if (qualityScore >= scoreThreshold) {
     const intensity = (qualityScore - scoreThreshold) / (1 - scoreThreshold)
-    return Math.max(0, Math.min(1, currentDepth + sinkRate * (0.4 + 0.6 * intensity) * dt))
+    const durationMultiplier = 1 + DURATION_BOOST_MAX * Math.min(1, sustainedSeconds / DURATION_BOOST_SECONDS)
+    return Math.max(0, Math.min(1, currentDepth + sinkRate * (0.4 + 0.6 * intensity) * durationMultiplier * dt))
   }
   return Math.max(0, Math.min(1, currentDepth - riseRate * dt))
 }
@@ -173,7 +180,7 @@ export default function SubmarineDive() {
     fish: [], seaweed: [], corals: [],
     buddyAppear: 0,
     attemptNumber: 0,
-    inVoicing: false, voicingScores: [],
+    inVoicing: false, voicingScores: [], sustainedSeconds: 0,
     W: 0, H: 0, DPR: 1,
   })
 
@@ -357,6 +364,7 @@ export default function SubmarineDive() {
     s.particles = []
     s.buddyAppear = 0
     s.quietStreak = 0
+    s.sustainedSeconds = 0
     s.lastFrameTime = performance.now()
     s.attemptStartTime = performance.now()
     setAriaMsg('Ready! Say a long "oooo" to dive.')
@@ -466,7 +474,17 @@ export default function SubmarineDive() {
     }
     const qualityScore = computeDiveScore(rms, f1, f2, s.noiseFloor, s.maxExpectedRms, s.targetF1, s.targetF2, FORMANT_TOLERANCE_HZ)
     s.smoothedQuality = s.smoothedQuality * 0.7 + qualityScore * 0.3
-    s.depth = updateDepth(s.depth, s.smoothedQuality, dt, s.difficultyConfig)
+
+    // Duration tracking mirrors RocketLaunch: accumulates on raw voicing (not
+    // the smoothed/gated score), resets the instant voicing stops, so bursty
+    // loud-quiet-loud "oooo"s don't accumulate the bonus.
+    if (isVoiced) {
+      s.sustainedSeconds += dt
+    } else {
+      s.sustainedSeconds = 0
+    }
+
+    s.depth = updateDepth(s.depth, s.smoothedQuality, dt, s.difficultyConfig, s.sustainedSeconds)
 
     if (isVoiced) {
       if (!s.inVoicing) s.inVoicing = true
@@ -744,6 +762,7 @@ export default function SubmarineDive() {
     s.particles = []
     s.buddyAppear = 0
     s.quietStreak = 0
+    s.sustainedSeconds = 0
     s.lastFrameTime = performance.now()
     s.attemptStartTime = performance.now()
     rafRef.current = requestAnimationFrame(gameLoop)

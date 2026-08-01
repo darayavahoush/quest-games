@@ -60,6 +60,11 @@ class Patient(Base):
     avatar:           Mapped[str]           = mapped_column(String(50), default="chick")
     pin_hash:         Mapped[str]           = mapped_column(String(64), nullable=False)
     player_code:      Mapped[str]           = mapped_column(String(10), unique=True, nullable=False, index=True)
+    # Separate from player_code deliberately — a therapist can hand this out
+    # to grant parent access without also exposing the kid's own login code.
+    # Nullable: most patients won't have one generated until a therapist
+    # requests it. Single-use — cleared once redeemed (see parent-register).
+    parent_invite_code = mapped_column(nullable=True, unique=True)
     age:              Mapped[int | None]    = mapped_column(Integer)
     diagnosis_notes:  Mapped[str | None]   = mapped_column(Text)
     is_active:        Mapped[bool]          = mapped_column(Boolean, default=True)
@@ -72,6 +77,7 @@ class Patient(Base):
     goals:       Mapped[list["Goal"]]       = relationship("models.models.Goal", back_populates="patient", cascade="all, delete-orphan")
     messages:    Mapped[list["Message"]]    = relationship("models.models.Message", back_populates="patient", cascade="all, delete-orphan")
     home_practice_logs: Mapped[list["HomePracticeLog"]] = relationship("models.models.HomePracticeLog", back_populates="patient", cascade="all, delete-orphan")
+    parent: Mapped["Parent | None"] = relationship("models.models.Parent", back_populates="patient", uselist=False, cascade="all, delete-orphan")
 
 
 class GameSession(Base):
@@ -202,3 +208,20 @@ class HomePracticeLog(Base):
     notes:         Mapped[str|None]      = mapped_column(Text)
 
     patient: Mapped["Patient"] = relationship(back_populates="home_practice_logs")
+
+
+class Parent(Base):
+    __tablename__ = "parents"
+
+    id: Mapped[str] = mapped_column(primary_key=True, default=lambda: __import__("uuid").uuid4().hex)
+    # One parent per child (unique) — matches the current product decision;
+    # relax this constraint later if multi-parent support is ever needed.
+    patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id"), unique=True, nullable=False)
+    email: Mapped[str] = mapped_column(unique=True, nullable=False)
+    hashed_password: Mapped[str] = mapped_column(nullable=False)
+    full_name: Mapped[str | None] = mapped_column(nullable=True)
+    is_active: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    last_login: Mapped[datetime | None] = mapped_column(nullable=True)
+
+    patient: Mapped["Patient"] = relationship("models.models.Patient", back_populates="parent")

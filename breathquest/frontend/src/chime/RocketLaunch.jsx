@@ -143,7 +143,7 @@ export default function RocketLaunch() {
     stars: [], particles: [], sparkles: [],
     difficultyConfig: { ...BASE_ALTITUDE_CONFIG },
     attemptStartTime: 0, attemptNumber: 0,
-    inVoicing: false, voicingScores: [],
+    inVoicing: false, voicingScores: [], sustainedSeconds: 0,
     W: 0, H: 0, DPR: 1,
   })
 
@@ -410,7 +410,16 @@ export default function RocketLaunch() {
       s.pitchBoost = 0
     }
 
-    s.altitude = updateAltitude(s.altitude, s.smoothedScore, dt, s.difficultyConfig, s.pitchBoost)
+    // Track sustained voicing duration BEFORE computing altitude, so this
+    // frame's climb already reflects how long the current burst has run —
+    // rewards sticking with it, not just being loud for a single frame.
+    if (rawScore > 0.15) {
+      s.sustainedSeconds += dt
+    } else {
+      s.sustainedSeconds = 0
+    }
+
+    s.altitude = updateAltitude(s.altitude, s.smoothedScore, dt, s.difficultyConfig, s.pitchBoost, s.sustainedSeconds)
 
     if (s.pitchBoost > 0.3 && Math.random() < s.pitchBoost * 0.6) spawnBoostSparkle()
 
@@ -642,6 +651,7 @@ export default function RocketLaunch() {
     s.altitude = 0
     s.hasLaunched = false
     s.particles = []
+    s.sustainedSeconds = 0
     s.lastFrameTime = performance.now()
     s.attemptStartTime = performance.now()
     rafRef.current = requestAnimationFrame(gameLoop)

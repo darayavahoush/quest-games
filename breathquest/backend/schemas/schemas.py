@@ -80,6 +80,58 @@ class KidTokenResponse(BaseModel):
     player_code: str
 
 
+class ParentRegisterRequest(BaseModel):
+    # Exactly one of these must be provided — validated in the endpoint,
+    # not here, since it needs a DB lookup either way.
+    player_code: str | None = None
+    invite_code: str | None = None
+    email: str
+    password: str
+    full_name: str | None = None
+
+
+class ParentLoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class ParentTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    parent_id: str
+    patient_id: str
+    child_first_name: str
+
+
+class ParentInviteCodeOut(BaseModel):
+    invite_code: str
+
+
+class ParentProgressOut(BaseModel):
+    """Parent view: more than the kid sees, but no clinical notes and no
+    raw per-attempt data — trend-level, not session-by-session."""
+    child_first_name: str
+    avatar: str
+    total_sessions: int
+    total_stars: int
+    max_possible_stars: int
+    completion_rate: float
+    improvement_trend: float | None
+    level_progress: list[LevelProgress]
+    weekly_summary: WeeklySummaryOut
+
+
+class KidProgressOut(BaseModel):
+    """What the child sees about themself — no scores, no clinical
+    language, just concrete, encouraging counts."""
+    first_name: str
+    avatar: str
+    total_stars: int
+    max_possible_stars: int
+    games_played_this_week: int
+    current_streak_days: int
+
+
 # ------------------------------------------------------------------ #
 #  Therapist                                                           #
 # ------------------------------------------------------------------ #

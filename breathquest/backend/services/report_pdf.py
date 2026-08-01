@@ -7,19 +7,29 @@ can never drift out of sync with what the therapist sees on screen.
 """
 
 from datetime import datetime, timezone
-from reportlab.lib.pagesizes import letter
-from reportlab.lib.units import inch
-from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak,
-)
 
-_styles = getSampleStyleSheet()
-_h1 = _styles["Title"]
-_h2 = ParagraphStyle("h2", parent=_styles["Heading2"], spaceBefore=14, spaceAfter=6)
-_body = _styles["Normal"]
-_small = ParagraphStyle("small", parent=_styles["Normal"], fontSize=9, textColor=colors.grey)
+# reportlab is imported lazily (inside build_patient_report_pdf) rather than
+# at module load time. If reportlab is ever missing or fails to install, this
+# module can still be imported cleanly — only the PDF-export endpoint itself
+# fails, not the entire app's startup. See PDF_EXPORT_UNAVAILABLE below.
+_styles = _h1 = _h2 = _body = _small = None
+PDF_EXPORT_UNAVAILABLE = None  # set to the ImportError string if unavailable
+
+
+def _init_styles():
+    global _styles, _h1, _h2, _body, _small, PDF_EXPORT_UNAVAILABLE
+    if _styles is not None or PDF_EXPORT_UNAVAILABLE is not None:
+        return
+    try:
+        from reportlab.lib import colors
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        _styles = getSampleStyleSheet()
+        _h1 = _styles["Title"]
+        _h2 = ParagraphStyle("h2", parent=_styles["Heading2"], spaceBefore=14, spaceAfter=6)
+        _body = _styles["Normal"]
+        _small = ParagraphStyle("small", parent=_styles["Normal"], fontSize=9, textColor=colors.grey)
+    except ImportError as e:
+        PDF_EXPORT_UNAVAILABLE = str(e)
 
 
 def _fmt_date(d):
@@ -42,6 +52,17 @@ def build_patient_report_pdf(
     therapist:       Therapist ORM object
     output_path:     where to write the PDF
     """
+    _init_styles()
+    if PDF_EXPORT_UNAVAILABLE:
+        raise RuntimeError(f"PDF export is temporarily unavailable: {PDF_EXPORT_UNAVAILABLE}")
+
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.units import inch
+    from reportlab.lib import colors
+    from reportlab.platypus import (
+        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak,
+    )
+
     doc = SimpleDocTemplate(
         output_path, pagesize=letter,
         topMargin=0.75 * inch, bottomMargin=0.75 * inch,
