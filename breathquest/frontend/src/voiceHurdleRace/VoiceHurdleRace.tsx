@@ -31,6 +31,12 @@ import LevelSelection from './LevelSelection';
 import { voiceHurdleRaceApi } from '../api/voiceHurdleRaceApi';
 import { useAuth } from '../context/AuthContext';
 
+import {
+  RaceTheme,
+  CreatureType,
+  getTheme,
+} from './raceThemes';
+
 
 /* ============================================================
    MAIN COMPONENT
@@ -338,7 +344,8 @@ export default function VoiceHurdleRace() {
 
       renderGame(
         currentCanvas,
-        state
+        state,
+        selectedLevel?.id ?? 1
       );
 
 
@@ -997,7 +1004,8 @@ export default function VoiceHurdleRace() {
 
 function renderGame(
   canvas: HTMLCanvasElement,
-  state: GameState
+  state: GameState,
+  levelId: number
 ) {
   const ctx =
     canvas.getContext('2d');
@@ -1005,6 +1013,9 @@ function renderGame(
   if (!ctx) {
     return;
   }
+
+  const theme =
+    getTheme(levelId);
 
   ctx.clearRect(
     0,
@@ -1041,43 +1052,50 @@ function renderGame(
 
   drawSky(
     ctx,
-    canvas
+    canvas,
+    theme
   );
 
   drawMountains(
     ctx,
     canvas,
-    state.distanceTravelled
+    state.distanceTravelled,
+    theme
   );
 
   drawHills(
     ctx,
     canvas,
-    state.distanceTravelled
+    state.distanceTravelled,
+    theme
   );
 
   drawTrees(
     ctx,
     canvas,
-    state.distanceTravelled
+    state.distanceTravelled,
+    theme
   );
 
   drawGrassDetails(
     ctx,
     canvas,
-    state.distanceTravelled
+    state.distanceTravelled,
+    theme
   );
 
   drawRoad(
     ctx,
     canvas,
-    state.distanceTravelled
+    state.distanceTravelled,
+    theme
   );
 
   drawRoadsideFlowers(
     ctx,
     canvas,
-    state.distanceTravelled
+    state.distanceTravelled,
+    theme
   );
 
   drawFinishProgress(
@@ -1100,9 +1118,10 @@ function renderGame(
     state
   );
 
-  drawDog(
+  drawCreature(
     ctx,
-    state
+    state,
+    theme.creature
   );
 
   drawGameEffects(
@@ -1121,7 +1140,8 @@ function renderGame(
 
 function drawSky(
   ctx: CanvasRenderingContext2D,
-  canvas: HTMLCanvasElement
+  canvas: HTMLCanvasElement,
+  theme: RaceTheme
 ) {
   const gradient =
     ctx.createLinearGradient(
@@ -1133,17 +1153,17 @@ function drawSky(
 
   gradient.addColorStop(
     0,
-    '#55c8ff'
+    theme.sky.top
   );
 
   gradient.addColorStop(
     0.58,
-    '#c3efff'
+    theme.sky.mid
   );
 
   gradient.addColorStop(
     1,
-    '#f0fbff'
+    theme.sky.bottom
   );
 
   ctx.fillStyle =
@@ -1308,7 +1328,8 @@ function drawCloud(
 function drawMountains(
   ctx: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
-  distance: number
+  distance: number,
+  theme: RaceTheme
 ) {
   const offset =
     -(
@@ -1326,7 +1347,7 @@ function drawMountains(
       repeat * 1100;
 
     ctx.fillStyle =
-      '#79add1';
+      theme.mountain.fill;
 
     ctx.beginPath();
 
@@ -1373,7 +1394,7 @@ function drawMountains(
     /* SNOW CAPS */
 
     ctx.fillStyle =
-      'rgba(245,252,255,.75)';
+      theme.mountain.snow;
 
     ctx.beginPath();
 
@@ -1421,7 +1442,8 @@ function drawMountains(
 function drawHills(
   ctx: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
-  distance: number
+  distance: number,
+  theme: RaceTheme
 ) {
   const offset =
     -(
@@ -1439,7 +1461,7 @@ function drawHills(
       repeat * 1100;
 
     ctx.fillStyle =
-      '#72d178';
+      theme.hills;
 
     ctx.beginPath();
 
@@ -1493,7 +1515,8 @@ function drawHills(
 function drawTrees(
   ctx: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
-  distance: number
+  distance: number,
+  theme: RaceTheme
 ) {
   const spacing =
     245;
@@ -1514,7 +1537,8 @@ function drawTrees(
     drawTree(
       ctx,
       x,
-      300
+      300,
+      theme
     );
   }
 }
@@ -1523,7 +1547,8 @@ function drawTrees(
 function drawTree(
   ctx: CanvasRenderingContext2D,
   x: number,
-  y: number
+  y: number,
+  theme: RaceTheme
 ) {
   /* SHADOW */
 
@@ -1548,7 +1573,7 @@ function drawTree(
   /* TRUNK */
 
   ctx.fillStyle =
-    '#855126';
+    theme.tree.trunk;
 
   roundRect(
     ctx,
@@ -1565,7 +1590,7 @@ function drawTree(
   /* TREE TOP */
 
   ctx.fillStyle =
-    '#279b47';
+    theme.tree.top;
 
   ctx.beginPath();
 
@@ -1581,7 +1606,7 @@ function drawTree(
 
 
   ctx.fillStyle =
-    '#4fc45d';
+    theme.tree.highlight;
 
   ctx.beginPath();
 
@@ -1607,7 +1632,7 @@ function drawTree(
   /* FRUIT */
 
   ctx.fillStyle =
-    '#ef4444';
+    theme.tree.fruit;
 
   ctx.beginPath();
 
@@ -1638,7 +1663,8 @@ function drawTree(
 function drawGrassDetails(
   ctx: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
-  distance: number
+  distance: number,
+  theme: RaceTheme
 ) {
   const spacing =
     75;
@@ -1650,7 +1676,7 @@ function drawGrassDetails(
     ) % spacing;
 
   ctx.strokeStyle =
-    'rgba(25,130,55,.45)';
+    theme.grassDetail;
 
   ctx.lineWidth = 3;
 
@@ -1699,7 +1725,8 @@ function drawGrassDetails(
 function drawRoad(
   ctx: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
-  distance: number
+  distance: number,
+  theme: RaceTheme
 ) {
   const roadTop =
     canvas.height - 165;
@@ -1708,7 +1735,7 @@ function drawRoad(
   /* GRASS EDGE */
 
   ctx.fillStyle =
-    '#48ad49';
+    theme.road.grassEdge;
 
   ctx.fillRect(
     0,
@@ -1730,17 +1757,17 @@ function drawRoad(
 
   roadGradient.addColorStop(
     0,
-    '#e5aa65'
+    theme.road.gradientTop
   );
 
   roadGradient.addColorStop(
     0.5,
-    '#c98447'
+    theme.road.gradientMid
   );
 
   roadGradient.addColorStop(
     1,
-    '#9d542e'
+    theme.road.gradientBottom
   );
 
   ctx.fillStyle =
@@ -1758,7 +1785,7 @@ function drawRoad(
   /* ROAD TOP HIGHLIGHT */
 
   ctx.fillStyle =
-    'rgba(255,225,170,.5)';
+    theme.road.highlight;
 
   ctx.fillRect(
     0,
@@ -1784,7 +1811,7 @@ function drawRoad(
     x += spacing
   ) {
     ctx.fillStyle =
-      'rgba(255,230,185,.28)';
+      theme.road.detail1;
 
     ctx.beginPath();
 
@@ -1802,7 +1829,7 @@ function drawRoad(
 
 
     ctx.fillStyle =
-      'rgba(100,50,25,.12)';
+      theme.road.detail2;
 
     ctx.beginPath();
 
@@ -1828,7 +1855,8 @@ function drawRoad(
 function drawRoadsideFlowers(
   ctx: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
-  distance: number
+  distance: number,
+  theme: RaceTheme
 ) {
   const spacing =
     155;
@@ -1851,7 +1879,7 @@ function drawRoadsideFlowers(
       178;
 
     ctx.strokeStyle =
-      '#238c3b';
+      theme.flowers.stem;
 
     ctx.lineWidth = 3;
 
@@ -1874,8 +1902,8 @@ function drawRoadsideFlowers(
       Math.floor(
         x / spacing
       ) % 2 === 0
-        ? '#f472b6'
-        : '#a855f7';
+        ? theme.flowers.petalA
+        : theme.flowers.petalB;
 
     ctx.fillStyle =
       flowerColour;
@@ -1914,7 +1942,7 @@ function drawRoadsideFlowers(
     }
 
     ctx.fillStyle =
-      '#fde047';
+      theme.flowers.center;
 
     ctx.beginPath();
 
@@ -2795,6 +2823,2530 @@ function drawDog(
   ctx.stroke();
 
   ctx.restore();
+}
+
+
+function drawBunny(
+  ctx: CanvasRenderingContext2D,
+  state: GameState
+) {
+  const x =
+    state.puppyX;
+
+  const y =
+    state.puppyY;
+
+
+  /* ----------------------------------------------------------
+     RUN ANIMATION
+  ---------------------------------------------------------- */
+
+  const moving =
+    state.puppySpeed > 0 &&
+    !state.isJumping &&
+    !state.isStumbling;
+
+  const bounce =
+    moving
+      ? Math.sin(
+          performance.now() /
+            Math.max(
+              50,
+              145 -
+                state.puppySpeed *
+                  0.23
+            )
+        ) * 5
+      : 0;
+
+  const drawY =
+    y + bounce;
+
+
+  /* ----------------------------------------------------------
+     STUMBLE
+  ---------------------------------------------------------- */
+
+  const stumbleProgress =
+    state.isStumbling
+      ? Math.min(
+          1,
+          (
+            performance.now() -
+            state.stumbleStartedAt
+          ) / 650
+        )
+      : 0;
+
+  const stumbleRotation =
+    state.isStumbling
+      ? Math.sin(
+          stumbleProgress *
+            Math.PI
+        ) * 0.32
+      : 0;
+
+
+  /* SHADOW DOES NOT ROTATE */
+
+  ctx.fillStyle =
+    'rgba(60,35,20,.22)';
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 58,
+    415,
+    state.isJumping
+      ? 28
+      : 50,
+    state.isJumping
+      ? 6
+      : 10,
+    0,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  ctx.save();
+
+  ctx.translate(
+    x + 58,
+    drawY - 45
+  );
+
+  ctx.rotate(
+    stumbleRotation
+  );
+
+  ctx.translate(
+    -(x + 58),
+    -(drawY - 45)
+  );
+
+
+  /*
+   * Slight squash/stretch.
+   */
+
+  if (
+    state.isJumping
+  ) {
+    ctx.translate(
+      x + 55,
+      drawY - 40
+    );
+
+    ctx.scale(
+      0.96,
+      1.06
+    );
+
+    ctx.translate(
+      -(x + 55),
+      -(drawY - 40)
+    );
+  }
+
+
+  /* BODY */
+
+  ctx.fillStyle =
+    '#f5c6d6';
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 50,
+    drawY - 38,
+    49,
+    34,
+    0,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* BODY HIGHLIGHT */
+
+  ctx.fillStyle =
+    '#fbdde8';
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 42,
+    drawY - 48,
+    30,
+    15,
+    -0.15,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* WHITE BELLY */
+
+  ctx.fillStyle =
+    '#fffaf5';
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 62,
+    drawY - 34,
+    28,
+    24,
+    0,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* HEAD */
+
+  ctx.fillStyle =
+    '#f5c6d6';
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 90,
+    drawY - 69,
+    37,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* HEAD HIGHLIGHT */
+
+  ctx.fillStyle =
+    '#fbdde8';
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 82,
+    drawY - 79,
+    20,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* EARS (tall bunny ears) */
+
+  ctx.fillStyle =
+    '#e8a0bd';
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 74,
+    drawY - 112,
+    9,
+    46,
+    -0.12,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 100,
+    drawY - 114,
+    9,
+    46,
+    0.12,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+  ctx.fillStyle =
+    '#fbdde8';
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 74,
+    drawY - 108,
+    4,
+    32,
+    -0.12,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 100,
+    drawY - 110,
+    4,
+    32,
+    0.12,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* MUZZLE */
+
+  ctx.fillStyle =
+    '#fffaf5';
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 104,
+    drawY - 56,
+    23,
+    18,
+    0,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* EYE */
+
+  ctx.fillStyle =
+    '#3a2a2f';
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 99,
+    drawY - 75,
+    5.5,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* EYE SHINE */
+
+  ctx.fillStyle =
+    '#fff';
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 101,
+    drawY - 77,
+    2,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* NOSE */
+
+  ctx.fillStyle =
+    '#d67a95';
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 122,
+    drawY - 58,
+    7,
+    5.5,
+    0,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* SMILE */
+
+  ctx.strokeStyle =
+    '#a85a72';
+
+  ctx.lineWidth = 2.5;
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 111,
+    drawY - 51,
+    10,
+    0.15,
+    1.5
+  );
+
+  ctx.stroke();
+
+
+  /* COLLAR */
+
+  ctx.strokeStyle =
+    '#f472b6';
+
+  ctx.lineWidth = 7;
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 85,
+    drawY - 45,
+    25,
+    0.5,
+    2.7
+  );
+
+  ctx.stroke();
+
+
+  /* COLLAR TAG */
+
+  ctx.fillStyle =
+    '#facc15';
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 82,
+    drawY - 23,
+    6,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* ----------------------------------------------------------
+     LEGS
+  ---------------------------------------------------------- */
+
+  ctx.strokeStyle =
+    '#e0a8bd';
+
+  ctx.lineWidth = 11;
+
+  ctx.lineCap =
+    'round';
+
+  const runningPhase =
+    Math.sin(
+      performance.now() /
+        80
+    );
+
+
+  if (
+    state.isJumping
+  ) {
+    /* tucked front leg */
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x + 72,
+      drawY - 25
+    );
+
+    ctx.lineTo(
+      x + 86,
+      drawY - 9
+    );
+
+    ctx.lineTo(
+      x + 75,
+      drawY - 3
+    );
+
+    ctx.stroke();
+
+
+    /* tucked rear leg */
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x + 30,
+      drawY - 24
+    );
+
+    ctx.lineTo(
+      x + 18,
+      drawY - 8
+    );
+
+    ctx.lineTo(
+      x + 28,
+      drawY - 2
+    );
+
+    ctx.stroke();
+  } else if (
+    state.isStumbling
+  ) {
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x + 27,
+      drawY - 20
+    );
+
+    ctx.lineTo(
+      x + 8,
+      drawY + 2
+    );
+
+    ctx.stroke();
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x + 70,
+      drawY - 19
+    );
+
+    ctx.lineTo(
+      x + 91,
+      drawY - 1
+    );
+
+    ctx.stroke();
+  } else {
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x + 30,
+      drawY - 20
+    );
+
+    ctx.lineTo(
+      x +
+        20 +
+        runningPhase * 13,
+      drawY + 6
+    );
+
+    ctx.stroke();
+
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x + 69,
+      drawY - 19
+    );
+
+    ctx.lineTo(
+      x +
+        77 -
+        runningPhase * 13,
+      drawY + 6
+    );
+
+    ctx.stroke();
+  }
+
+
+  /* TAIL (cotton puff) */
+
+  ctx.fillStyle =
+    '#fffaf5';
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 6,
+    drawY - 46,
+    13,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+  ctx.restore();
+}
+
+
+
+function drawFox(
+  ctx: CanvasRenderingContext2D,
+  state: GameState
+) {
+  const x =
+    state.puppyX;
+
+  const y =
+    state.puppyY;
+
+
+  /* ----------------------------------------------------------
+     RUN ANIMATION
+  ---------------------------------------------------------- */
+
+  const moving =
+    state.puppySpeed > 0 &&
+    !state.isJumping &&
+    !state.isStumbling;
+
+  const bounce =
+    moving
+      ? Math.sin(
+          performance.now() /
+            Math.max(
+              50,
+              145 -
+                state.puppySpeed *
+                  0.23
+            )
+        ) * 5
+      : 0;
+
+  const drawY =
+    y + bounce;
+
+
+  /* ----------------------------------------------------------
+     STUMBLE
+  ---------------------------------------------------------- */
+
+  const stumbleProgress =
+    state.isStumbling
+      ? Math.min(
+          1,
+          (
+            performance.now() -
+            state.stumbleStartedAt
+          ) / 650
+        )
+      : 0;
+
+  const stumbleRotation =
+    state.isStumbling
+      ? Math.sin(
+          stumbleProgress *
+            Math.PI
+        ) * 0.32
+      : 0;
+
+
+  /* SHADOW DOES NOT ROTATE */
+
+  ctx.fillStyle =
+    'rgba(60,35,20,.22)';
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 58,
+    415,
+    state.isJumping
+      ? 28
+      : 50,
+    state.isJumping
+      ? 6
+      : 10,
+    0,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  ctx.save();
+
+  ctx.translate(
+    x + 58,
+    drawY - 45
+  );
+
+  ctx.rotate(
+    stumbleRotation
+  );
+
+  ctx.translate(
+    -(x + 58),
+    -(drawY - 45)
+  );
+
+
+  /*
+   * Slight squash/stretch.
+   */
+
+  if (
+    state.isJumping
+  ) {
+    ctx.translate(
+      x + 55,
+      drawY - 40
+    );
+
+    ctx.scale(
+      0.96,
+      1.06
+    );
+
+    ctx.translate(
+      -(x + 55),
+      -(drawY - 40)
+    );
+  }
+
+
+  /* BODY */
+
+  ctx.fillStyle =
+    '#e0692f';
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 50,
+    drawY - 38,
+    49,
+    34,
+    0,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* BODY HIGHLIGHT */
+
+  ctx.fillStyle =
+    '#f0895a';
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 42,
+    drawY - 48,
+    30,
+    15,
+    -0.15,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* WHITE BELLY */
+
+  ctx.fillStyle =
+    '#fff7ec';
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 62,
+    drawY - 34,
+    28,
+    24,
+    0,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* HEAD */
+
+  ctx.fillStyle =
+    '#e0692f';
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 90,
+    drawY - 69,
+    37,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* HEAD HIGHLIGHT */
+
+  ctx.fillStyle =
+    '#f0895a';
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 82,
+    drawY - 79,
+    20,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* EARS (pointed fox ears) */
+
+  ctx.fillStyle =
+    '#b8461f';
+
+  ctx.beginPath();
+
+  ctx.moveTo(
+    x + 58,
+    drawY - 78
+  );
+
+  ctx.lineTo(
+    x + 68,
+    drawY - 118
+  );
+
+  ctx.lineTo(
+    x + 82,
+    drawY - 80
+  );
+
+  ctx.closePath();
+
+  ctx.fill();
+
+  ctx.beginPath();
+
+  ctx.moveTo(
+    x + 96,
+    drawY - 82
+  );
+
+  ctx.lineTo(
+    x + 112,
+    drawY - 120
+  );
+
+  ctx.lineTo(
+    x + 122,
+    drawY - 80
+  );
+
+  ctx.closePath();
+
+  ctx.fill();
+
+  ctx.fillStyle =
+    '#2a1610';
+
+  ctx.beginPath();
+
+  ctx.moveTo(
+    x + 64,
+    drawY - 96
+  );
+
+  ctx.lineTo(
+    x + 68,
+    drawY - 112
+  );
+
+  ctx.lineTo(
+    x + 74,
+    drawY - 92
+  );
+
+  ctx.closePath();
+
+  ctx.fill();
+
+  ctx.beginPath();
+
+  ctx.moveTo(
+    x + 103,
+    drawY - 98
+  );
+
+  ctx.lineTo(
+    x + 112,
+    drawY - 114
+  );
+
+  ctx.lineTo(
+    x + 116,
+    drawY - 92
+  );
+
+  ctx.closePath();
+
+  ctx.fill();
+
+
+  /* MUZZLE */
+
+  ctx.fillStyle =
+    '#fff7ec';
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 104,
+    drawY - 56,
+    23,
+    18,
+    0,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* EYE */
+
+  ctx.fillStyle =
+    '#201510';
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 99,
+    drawY - 75,
+    5.5,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* EYE SHINE */
+
+  ctx.fillStyle =
+    '#fff';
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 101,
+    drawY - 77,
+    2,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* NOSE */
+
+  ctx.fillStyle =
+    '#241a15';
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 122,
+    drawY - 58,
+    7,
+    5.5,
+    0,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* SMILE */
+
+  ctx.strokeStyle =
+    '#7a3210';
+
+  ctx.lineWidth = 2.5;
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 111,
+    drawY - 51,
+    10,
+    0.15,
+    1.5
+  );
+
+  ctx.stroke();
+
+
+  /* COLLAR */
+
+  ctx.strokeStyle =
+    '#22c55e';
+
+  ctx.lineWidth = 7;
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 85,
+    drawY - 45,
+    25,
+    0.5,
+    2.7
+  );
+
+  ctx.stroke();
+
+
+  /* COLLAR TAG */
+
+  ctx.fillStyle =
+    '#facc15';
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 82,
+    drawY - 23,
+    6,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* ----------------------------------------------------------
+     LEGS
+  ---------------------------------------------------------- */
+
+  ctx.strokeStyle =
+    '#3a2a22';
+
+  ctx.lineWidth = 11;
+
+  ctx.lineCap =
+    'round';
+
+  const runningPhase =
+    Math.sin(
+      performance.now() /
+        80
+    );
+
+
+  if (
+    state.isJumping
+  ) {
+    /* tucked front leg */
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x + 72,
+      drawY - 25
+    );
+
+    ctx.lineTo(
+      x + 86,
+      drawY - 9
+    );
+
+    ctx.lineTo(
+      x + 75,
+      drawY - 3
+    );
+
+    ctx.stroke();
+
+
+    /* tucked rear leg */
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x + 30,
+      drawY - 24
+    );
+
+    ctx.lineTo(
+      x + 18,
+      drawY - 8
+    );
+
+    ctx.lineTo(
+      x + 28,
+      drawY - 2
+    );
+
+    ctx.stroke();
+  } else if (
+    state.isStumbling
+  ) {
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x + 27,
+      drawY - 20
+    );
+
+    ctx.lineTo(
+      x + 8,
+      drawY + 2
+    );
+
+    ctx.stroke();
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x + 70,
+      drawY - 19
+    );
+
+    ctx.lineTo(
+      x + 91,
+      drawY - 1
+    );
+
+    ctx.stroke();
+  } else {
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x + 30,
+      drawY - 20
+    );
+
+    ctx.lineTo(
+      x +
+        20 +
+        runningPhase * 13,
+      drawY + 6
+    );
+
+    ctx.stroke();
+
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x + 69,
+      drawY - 19
+    );
+
+    ctx.lineTo(
+      x +
+        77 -
+        runningPhase * 13,
+      drawY + 6
+    );
+
+    ctx.stroke();
+  }
+
+
+  /* TAIL (big bushy tail) */
+
+  ctx.strokeStyle =
+    '#e0692f';
+
+  ctx.lineWidth = 20;
+
+  ctx.lineCap =
+    'round';
+
+  const tailWave =
+    moving
+      ? Math.sin(
+          performance.now() /
+            85
+        ) * 9
+      : 0;
+
+  ctx.beginPath();
+
+  ctx.moveTo(
+    x + 8,
+    drawY - 42
+  );
+
+  ctx.quadraticCurveTo(
+    x - 34,
+    drawY -
+      68 -
+      tailWave,
+    x - 12,
+    drawY -
+      98 -
+      tailWave
+  );
+
+  ctx.stroke();
+
+  ctx.fillStyle =
+    '#fff7ec';
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x - 12,
+    drawY -
+      98 -
+      tailWave,
+    9,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+  ctx.restore();
+}
+
+
+
+function drawDragon(
+  ctx: CanvasRenderingContext2D,
+  state: GameState
+) {
+  const x =
+    state.puppyX;
+
+  const y =
+    state.puppyY;
+
+
+  /* ----------------------------------------------------------
+     RUN ANIMATION
+  ---------------------------------------------------------- */
+
+  const moving =
+    state.puppySpeed > 0 &&
+    !state.isJumping &&
+    !state.isStumbling;
+
+  const bounce =
+    moving
+      ? Math.sin(
+          performance.now() /
+            Math.max(
+              50,
+              145 -
+                state.puppySpeed *
+                  0.23
+            )
+        ) * 5
+      : 0;
+
+  const drawY =
+    y + bounce;
+
+
+  /* ----------------------------------------------------------
+     STUMBLE
+  ---------------------------------------------------------- */
+
+  const stumbleProgress =
+    state.isStumbling
+      ? Math.min(
+          1,
+          (
+            performance.now() -
+            state.stumbleStartedAt
+          ) / 650
+        )
+      : 0;
+
+  const stumbleRotation =
+    state.isStumbling
+      ? Math.sin(
+          stumbleProgress *
+            Math.PI
+        ) * 0.32
+      : 0;
+
+
+  /* SHADOW DOES NOT ROTATE */
+
+  ctx.fillStyle =
+    'rgba(60,35,20,.22)';
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 58,
+    415,
+    state.isJumping
+      ? 28
+      : 50,
+    state.isJumping
+      ? 6
+      : 10,
+    0,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  ctx.save();
+
+  ctx.translate(
+    x + 58,
+    drawY - 45
+  );
+
+  ctx.rotate(
+    stumbleRotation
+  );
+
+  ctx.translate(
+    -(x + 58),
+    -(drawY - 45)
+  );
+
+
+  /*
+   * Slight squash/stretch.
+   */
+
+  if (
+    state.isJumping
+  ) {
+    ctx.translate(
+      x + 55,
+      drawY - 40
+    );
+
+    ctx.scale(
+      0.96,
+      1.06
+    );
+
+    ctx.translate(
+      -(x + 55),
+      -(drawY - 40)
+    );
+  }
+
+
+  /* BODY */
+
+  ctx.fillStyle =
+    '#2f9e8a';
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 50,
+    drawY - 38,
+    49,
+    34,
+    0,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* BODY HIGHLIGHT */
+
+  ctx.fillStyle =
+    '#4fd6bd';
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 42,
+    drawY - 48,
+    30,
+    15,
+    -0.15,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* WHITE BELLY */
+
+  ctx.fillStyle =
+    '#d9c2f0';
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 62,
+    drawY - 34,
+    28,
+    24,
+    0,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* HEAD */
+
+  ctx.fillStyle =
+    '#2f9e8a';
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 90,
+    drawY - 69,
+    37,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* HEAD HIGHLIGHT */
+
+  ctx.fillStyle =
+    '#4fd6bd';
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 82,
+    drawY - 79,
+    20,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* HORNS (small dragon horns) */
+
+  ctx.fillStyle =
+    '#6b3fa0';
+
+  ctx.beginPath();
+
+  ctx.moveTo(
+    x + 70,
+    drawY - 88
+  );
+
+  ctx.lineTo(
+    x + 75,
+    drawY - 106
+  );
+
+  ctx.lineTo(
+    x + 82,
+    drawY - 88
+  );
+
+  ctx.closePath();
+
+  ctx.fill();
+
+  ctx.beginPath();
+
+  ctx.moveTo(
+    x + 98,
+    drawY - 90
+  );
+
+  ctx.lineTo(
+    x + 105,
+    drawY - 108
+  );
+
+  ctx.lineTo(
+    x + 112,
+    drawY - 90
+  );
+
+  ctx.closePath();
+
+  ctx.fill();
+
+  ctx.fillStyle =
+    'rgba(139,92,246,.35)';
+
+  ctx.beginPath();
+
+  ctx.moveTo(
+    x + 24,
+    drawY - 52
+  );
+
+  ctx.quadraticCurveTo(
+    x - 6,
+    drawY - 82,
+    x + 10,
+    drawY - 108
+  );
+
+  ctx.quadraticCurveTo(
+    x + 26,
+    drawY - 80,
+    x + 30,
+    drawY - 48
+  );
+
+  ctx.closePath();
+
+  ctx.fill();
+
+
+  /* MUZZLE */
+
+  ctx.fillStyle =
+    '#d9c2f0';
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 104,
+    drawY - 56,
+    23,
+    18,
+    0,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* EYE */
+
+  ctx.fillStyle =
+    '#1a1015';
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 99,
+    drawY - 75,
+    5.5,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* EYE SHINE */
+
+  ctx.fillStyle =
+    '#fff';
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 101,
+    drawY - 77,
+    2,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* NOSE */
+
+  ctx.fillStyle =
+    '#241830';
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 122,
+    drawY - 58,
+    7,
+    5.5,
+    0,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* SMILE */
+
+  ctx.strokeStyle =
+    '#1f6b5c';
+
+  ctx.lineWidth = 2.5;
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 111,
+    drawY - 51,
+    10,
+    0.15,
+    1.5
+  );
+
+  ctx.stroke();
+
+
+  /* COLLAR */
+
+  ctx.strokeStyle =
+    '#fbbf24';
+
+  ctx.lineWidth = 7;
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 85,
+    drawY - 45,
+    25,
+    0.5,
+    2.7
+  );
+
+  ctx.stroke();
+
+
+  /* COLLAR TAG */
+
+  ctx.fillStyle =
+    '#facc15';
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 82,
+    drawY - 23,
+    6,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* ----------------------------------------------------------
+     LEGS
+  ---------------------------------------------------------- */
+
+  ctx.strokeStyle =
+    '#237a6a';
+
+  ctx.lineWidth = 11;
+
+  ctx.lineCap =
+    'round';
+
+  const runningPhase =
+    Math.sin(
+      performance.now() /
+        80
+    );
+
+
+  if (
+    state.isJumping
+  ) {
+    /* tucked front leg */
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x + 72,
+      drawY - 25
+    );
+
+    ctx.lineTo(
+      x + 86,
+      drawY - 9
+    );
+
+    ctx.lineTo(
+      x + 75,
+      drawY - 3
+    );
+
+    ctx.stroke();
+
+
+    /* tucked rear leg */
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x + 30,
+      drawY - 24
+    );
+
+    ctx.lineTo(
+      x + 18,
+      drawY - 8
+    );
+
+    ctx.lineTo(
+      x + 28,
+      drawY - 2
+    );
+
+    ctx.stroke();
+  } else if (
+    state.isStumbling
+  ) {
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x + 27,
+      drawY - 20
+    );
+
+    ctx.lineTo(
+      x + 8,
+      drawY + 2
+    );
+
+    ctx.stroke();
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x + 70,
+      drawY - 19
+    );
+
+    ctx.lineTo(
+      x + 91,
+      drawY - 1
+    );
+
+    ctx.stroke();
+  } else {
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x + 30,
+      drawY - 20
+    );
+
+    ctx.lineTo(
+      x +
+        20 +
+        runningPhase * 13,
+      drawY + 6
+    );
+
+    ctx.stroke();
+
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x + 69,
+      drawY - 19
+    );
+
+    ctx.lineTo(
+      x +
+        77 -
+        runningPhase * 13,
+      drawY + 6
+    );
+
+    ctx.stroke();
+  }
+
+
+  /* TAIL (spiky dragon tail) */
+
+  ctx.strokeStyle =
+    '#2f9e8a';
+
+  ctx.lineWidth = 12;
+
+  ctx.lineCap =
+    'round';
+
+  const tailWave =
+    moving
+      ? Math.sin(
+          performance.now() /
+            85
+        ) * 9
+      : 0;
+
+  ctx.beginPath();
+
+  ctx.moveTo(
+    x + 10,
+    drawY - 44
+  );
+
+  ctx.quadraticCurveTo(
+    x - 21,
+    drawY -
+      70 -
+      tailWave,
+    x - 5,
+    drawY -
+      91 -
+      tailWave
+  );
+
+  ctx.stroke();
+
+  ctx.fillStyle =
+    '#6b3fa0';
+
+  ctx.beginPath();
+
+  ctx.moveTo(
+    x - 12,
+    drawY -
+      64 -
+      tailWave
+  );
+
+  ctx.lineTo(
+    x - 22,
+    drawY -
+      72 -
+      tailWave
+  );
+
+  ctx.lineTo(
+    x - 10,
+    drawY -
+      76 -
+      tailWave
+  );
+
+  ctx.closePath();
+
+  ctx.fill();
+
+  ctx.beginPath();
+
+  ctx.moveTo(
+    x - 3,
+    drawY -
+      85 -
+      tailWave
+  );
+
+  ctx.lineTo(
+    x - 13,
+    drawY -
+      93 -
+      tailWave
+  );
+
+  ctx.lineTo(
+    x - 1,
+    drawY -
+      97 -
+      tailWave
+  );
+
+  ctx.closePath();
+
+  ctx.fill();
+
+  ctx.restore();
+}
+
+
+
+function drawUnicorn(
+  ctx: CanvasRenderingContext2D,
+  state: GameState
+) {
+  const x =
+    state.puppyX;
+
+  const y =
+    state.puppyY;
+
+
+  /* ----------------------------------------------------------
+     RUN ANIMATION
+  ---------------------------------------------------------- */
+
+  const moving =
+    state.puppySpeed > 0 &&
+    !state.isJumping &&
+    !state.isStumbling;
+
+  const bounce =
+    moving
+      ? Math.sin(
+          performance.now() /
+            Math.max(
+              50,
+              145 -
+                state.puppySpeed *
+                  0.23
+            )
+        ) * 5
+      : 0;
+
+  const drawY =
+    y + bounce;
+
+
+  /* ----------------------------------------------------------
+     STUMBLE
+  ---------------------------------------------------------- */
+
+  const stumbleProgress =
+    state.isStumbling
+      ? Math.min(
+          1,
+          (
+            performance.now() -
+            state.stumbleStartedAt
+          ) / 650
+        )
+      : 0;
+
+  const stumbleRotation =
+    state.isStumbling
+      ? Math.sin(
+          stumbleProgress *
+            Math.PI
+        ) * 0.32
+      : 0;
+
+
+  /* SHADOW DOES NOT ROTATE */
+
+  ctx.fillStyle =
+    'rgba(60,35,20,.22)';
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 58,
+    415,
+    state.isJumping
+      ? 28
+      : 50,
+    state.isJumping
+      ? 6
+      : 10,
+    0,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  ctx.save();
+
+  ctx.translate(
+    x + 58,
+    drawY - 45
+  );
+
+  ctx.rotate(
+    stumbleRotation
+  );
+
+  ctx.translate(
+    -(x + 58),
+    -(drawY - 45)
+  );
+
+
+  /*
+   * Slight squash/stretch.
+   */
+
+  if (
+    state.isJumping
+  ) {
+    ctx.translate(
+      x + 55,
+      drawY - 40
+    );
+
+    ctx.scale(
+      0.96,
+      1.06
+    );
+
+    ctx.translate(
+      -(x + 55),
+      -(drawY - 40)
+    );
+  }
+
+
+  /* BODY */
+
+  ctx.fillStyle =
+    '#f3ecff';
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 50,
+    drawY - 38,
+    49,
+    34,
+    0,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* BODY HIGHLIGHT */
+
+  ctx.fillStyle =
+    '#ffffff';
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 42,
+    drawY - 48,
+    30,
+    15,
+    -0.15,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* WHITE BELLY */
+
+  ctx.fillStyle =
+    '#fdf4ff';
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 62,
+    drawY - 34,
+    28,
+    24,
+    0,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* HEAD */
+
+  ctx.fillStyle =
+    '#f3ecff';
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 90,
+    drawY - 69,
+    37,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* HEAD HIGHLIGHT */
+
+  ctx.fillStyle =
+    '#ffffff';
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 82,
+    drawY - 79,
+    20,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* HORN (single spiral horn) */
+
+  ctx.fillStyle =
+    '#fbbf24';
+
+  ctx.beginPath();
+
+  ctx.moveTo(
+    x + 82,
+    drawY - 88
+  );
+
+  ctx.lineTo(
+    x + 90,
+    drawY - 122
+  );
+
+  ctx.lineTo(
+    x + 98,
+    drawY - 88
+  );
+
+  ctx.closePath();
+
+  ctx.fill();
+
+  ctx.strokeStyle =
+    '#fde68a';
+
+  ctx.lineWidth = 1.5;
+
+  ctx.beginPath();
+
+  ctx.moveTo(
+    x + 86,
+    drawY - 95
+  );
+
+  ctx.lineTo(
+    x + 91,
+    drawY - 108
+  );
+
+  ctx.stroke();
+
+  ctx.fillStyle =
+    '#e8a0ff';
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 66,
+    drawY - 82,
+    9,
+    22,
+    -0.5,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 108,
+    drawY - 84,
+    8,
+    22,
+    0.45,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* MUZZLE */
+
+  ctx.fillStyle =
+    '#fdf4ff';
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 104,
+    drawY - 56,
+    23,
+    18,
+    0,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* EYE */
+
+  ctx.fillStyle =
+    '#2a2030';
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 99,
+    drawY - 75,
+    5.5,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* EYE SHINE */
+
+  ctx.fillStyle =
+    '#fff';
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 101,
+    drawY - 77,
+    2,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* NOSE */
+
+  ctx.fillStyle =
+    '#d8a8e8';
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x + 122,
+    drawY - 58,
+    7,
+    5.5,
+    0,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* SMILE */
+
+  ctx.strokeStyle =
+    '#b088c8';
+
+  ctx.lineWidth = 2.5;
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 111,
+    drawY - 51,
+    10,
+    0.15,
+    1.5
+  );
+
+  ctx.stroke();
+
+
+  /* COLLAR */
+
+  ctx.strokeStyle =
+    '#f472b6';
+
+  ctx.lineWidth = 7;
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 85,
+    drawY - 45,
+    25,
+    0.5,
+    2.7
+  );
+
+  ctx.stroke();
+
+
+  /* COLLAR TAG */
+
+  ctx.fillStyle =
+    '#facc15';
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x + 82,
+    drawY - 23,
+    6,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  /* ----------------------------------------------------------
+     LEGS
+  ---------------------------------------------------------- */
+
+  ctx.strokeStyle =
+    '#e8d8f5';
+
+  ctx.lineWidth = 11;
+
+  ctx.lineCap =
+    'round';
+
+  const runningPhase =
+    Math.sin(
+      performance.now() /
+        80
+    );
+
+
+  if (
+    state.isJumping
+  ) {
+    /* tucked front leg */
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x + 72,
+      drawY - 25
+    );
+
+    ctx.lineTo(
+      x + 86,
+      drawY - 9
+    );
+
+    ctx.lineTo(
+      x + 75,
+      drawY - 3
+    );
+
+    ctx.stroke();
+
+
+    /* tucked rear leg */
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x + 30,
+      drawY - 24
+    );
+
+    ctx.lineTo(
+      x + 18,
+      drawY - 8
+    );
+
+    ctx.lineTo(
+      x + 28,
+      drawY - 2
+    );
+
+    ctx.stroke();
+  } else if (
+    state.isStumbling
+  ) {
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x + 27,
+      drawY - 20
+    );
+
+    ctx.lineTo(
+      x + 8,
+      drawY + 2
+    );
+
+    ctx.stroke();
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x + 70,
+      drawY - 19
+    );
+
+    ctx.lineTo(
+      x + 91,
+      drawY - 1
+    );
+
+    ctx.stroke();
+  } else {
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x + 30,
+      drawY - 20
+    );
+
+    ctx.lineTo(
+      x +
+        20 +
+        runningPhase * 13,
+      drawY + 6
+    );
+
+    ctx.stroke();
+
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x + 69,
+      drawY - 19
+    );
+
+    ctx.lineTo(
+      x +
+        77 -
+        runningPhase * 13,
+      drawY + 6
+    );
+
+    ctx.stroke();
+  }
+
+
+  /* TAIL (flowing rainbow tail) */
+
+  ctx.lineWidth = 8;
+
+  ctx.lineCap =
+    'round';
+
+  const tailWave =
+    moving
+      ? Math.sin(
+          performance.now() /
+            85
+        ) * 9
+      : 0;
+
+  const rainbowColours =
+    [
+      '#f472b6',
+      '#fb923c',
+      '#fde047',
+      '#4ade80',
+      '#60a5fa',
+      '#c084fc',
+    ];
+
+  rainbowColours.forEach(
+    (colour, i) => {
+      ctx.strokeStyle =
+        colour;
+
+      ctx.beginPath();
+
+      ctx.moveTo(
+        x + 10,
+        drawY - 44
+      );
+
+      ctx.quadraticCurveTo(
+        x - 21 - i * 4,
+        drawY -
+          70 -
+          tailWave -
+          i * 5,
+        x - 5 - i * 5,
+        drawY -
+          91 -
+          tailWave -
+          i * 7
+      );
+
+      ctx.stroke();
+    }
+  );
+
+  ctx.restore();
+}
+
+
+/* ============================================================
+   CREATURE DISPATCH
+============================================================ */
+
+function drawCreature(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  creature: CreatureType
+) {
+  switch (creature) {
+    case 'bunny':
+      drawBunny(ctx, state);
+      return;
+    case 'fox':
+      drawFox(ctx, state);
+      return;
+    case 'dragon':
+      drawDragon(ctx, state);
+      return;
+    case 'unicorn':
+      drawUnicorn(ctx, state);
+      return;
+    default:
+      drawDog(ctx, state);
+      return;
+  }
 }
 
 
