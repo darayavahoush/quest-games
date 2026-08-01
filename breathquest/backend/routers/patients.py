@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from database import get_db
 from models.models import Therapist, Patient, GameSession
-from schemas.schemas import PatientCreate, PatientUpdate, PatientOut, PatientDetailOut
+from schemas.schemas import PatientCreate, PatientUpdate, PatientOut, PatientDetailOut, ParentInviteCodeOut
 from core.security import hash_pin
 from core.deps import get_current_therapist
 from core.security import generate_invite_code
