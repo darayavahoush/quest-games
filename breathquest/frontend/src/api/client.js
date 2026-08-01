@@ -14,6 +14,44 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+// A 401 here means the backend has rejected the token itself (expired,
+// invalid, or the patient/therapist/parent record it points to no longer
+// exists) — not a per-endpoint permission issue. Before this, that state was
+// invisible: AuthContext only checks whether *something* is in localStorage
+// to decide isKid/isTherapist/isParent, it never re-validates the token, so
+// the UI kept acting "logged in" while every real request quietly failed and
+// each caller improvised its own fallback (e.g. Chime's level-unlock check
+// silently treating "couldn't reach the backend" the same as "nothing
+// passed yet", which looks exactly like a stuck next-level bug rather than
+// what it actually is — a dead session). Handle it once, here, instead.
+//
+// Skip this for the auth endpoints themselves — a wrong PIN/password is a
+// legitimate 401 with no session to invalidate, not a dead-session signal.
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && !error.config?.url?.startsWith('/auth/')) {
+      const userType = localStorage.getItem('bq_user_type')
+      localStorage.removeItem('bq_token')
+      localStorage.removeItem('bq_user_type')
+      localStorage.removeItem('bq_user_data')
+
+      const loginPath = userType === 'therapist' ? '/therapist/login'
+        : userType === 'parent' ? '/parent/login'
+        : '/play' // kid landing — mirrors ProtectedKid's own redirect target
+
+      // Full reload, not a router push: this file has no router context (it's
+      // a plain axios instance, not a component), and a hard reload is exactly
+      // what's needed anyway to clear any in-memory AuthContext/game state left
+      // over from the dead session.
+      if (window.location.pathname !== loginPath) {
+        window.location.href = loginPath
+      }
+    }
+    return Promise.reject(error)
+  }
+)
+
 // ------------------------------------------------------------------ //
 //  Auth                                                                //
 // ------------------------------------------------------------------ //
