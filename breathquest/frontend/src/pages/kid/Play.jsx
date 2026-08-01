@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { getErrorMessage } from '../../api/client'
 import { Button } from '../../components/ui'
 
 const AVATARS = ['chick', 'dragon', 'cloud', 'star', 'rocket', 'fish']
@@ -30,7 +31,7 @@ export default function KidPlay() {
       const data = await registerKid(firstName.trim(), avatar, pin)
       setRegistered({ player_code: data.player_code, first_name: data.first_name })
     } catch (e) {
-      setError(e.response?.data?.detail || 'Something went wrong')
+      setError(getErrorMessage(e))
     } finally {
       setLoading(false)
     }

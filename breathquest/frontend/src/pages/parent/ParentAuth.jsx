@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { getErrorMessage } from '../../api/client'
 
 export default function ParentAuth() {
   const navigate = useNavigate()
@@ -27,7 +28,7 @@ export default function ParentAuth() {
       }
       navigate('/parent/dashboard')
     } catch (err) {
-      setError(err?.response?.data?.detail || 'Something went wrong — please try again.')
+      setError(getErrorMessage(err, 'Something went wrong — please try again.'))
     } finally {
       setBusy(false)
     }

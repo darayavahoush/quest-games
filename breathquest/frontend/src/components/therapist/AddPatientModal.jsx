@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { patientsAPI } from '../../api/client'
+import { patientsAPI, getErrorMessage } from '../../api/client'
 import { Button, Input, Avatar } from '../ui'
 
 const AVATARS = ['chick', 'dragon', 'cloud', 'star', 'rocket', 'fish']
@@ -23,7 +23,7 @@ export default function AddPatientModal({ onClose, onAdded }) {
       })
       onAdded()
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to add patient')
+      setError(getErrorMessage(err, 'Failed to add patient'))
     } finally {
       setLoading(false)
     }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { getErrorMessage } from '../../api/client'
 import { Button, Input, Card } from '../../components/ui'
 import {
   ClipboardList, LineChart, ShieldCheck,
@@ -36,7 +37,7 @@ export default function TherapistLogin() {
       }
       navigate('/therapist/dashboard')
     } catch (err) {
-      setError(err.response?.data?.detail || 'Something went wrong')
+      setError(getErrorMessage(err))
     } finally {
       setLoading(false)
     }

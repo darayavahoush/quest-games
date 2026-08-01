@@ -148,4 +148,24 @@ export const vaakmirrorAPI = {
   getPatientDashboard: (patientId) => api.get(`/vaakmirror/patients/${patientId}/dashboard`),
 }
 
+// FastAPI's `detail` field is a plain string for most HTTPExceptions (e.g.
+// "Invalid email or password"), but automatic Pydantic request-validation
+// failures (422s — e.g. an email that fails EmailStr's format check) return
+// an *array* of {type, loc, msg, input, ctx} objects instead. Every login/
+// register form does `setError(err.response?.data?.detail || fallback)` and
+// renders `error` directly as JSX text; when detail is that array, React
+// tries to render objects as children and the whole page crashes (React
+// error #31), not just the form. Normalize once, here, instead of leaving
+// every call site to assume detail is always a string.
+export function getErrorMessage(err, fallback = 'Something went wrong') {
+  const detail = err?.response?.data?.detail
+  if (!detail) return fallback
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) {
+    const messages = detail.map(d => d?.msg).filter(Boolean)
+    return messages.length ? messages.join('; ') : fallback
+  }
+  return fallback
+}
+
 export default api
