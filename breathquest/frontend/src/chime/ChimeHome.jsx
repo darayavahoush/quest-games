@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Rocket, Waves, Sparkles, Wind, Droplets, Mic } from 'lucide-react'
+import { Rocket, Waves, Sparkles, Wind, Droplets, Feather, PawPrint, Mic } from 'lucide-react'
 import ChimeGameCard from './ChimeGameCard.jsx'
 import GameNavbar from '../components/GameNavbar.jsx'
 import { getPassedLevels, getUnlockedLevels, LEVEL_ROUTES } from './lib/levelProgress'
@@ -21,6 +21,12 @@ const GAMES = [
   { levelId: 'ha', to: LEVEL_ROUTES.ha, title: 'Bubble Wrap Pop',
     blurb: 'A sharp "ha!" pops the bubbles one by one.',
     accent: '#7850DC', icon: Droplets },
+  { levelId: 'ee', to: LEVEL_ROUTES.ee, title: 'Kite Flyer',
+    blurb: 'A long, bright "eeee" lifts your kite higher into the sky.',
+    accent: '#2FB8A6', icon: Feather },
+  { levelId: 'r', to: LEVEL_ROUTES.r, title: "Lion's Roar",
+    blurb: 'A strong, growly "rrrr" makes your lion roar louder.',
+    accent: '#F0604A', icon: PawPrint },
   { levelId: 'village-builder', to: LEVEL_ROUTES['village-builder'], title: 'Village Builder',
     blurb: 'Say the word shown on screen. The closer your pronunciation, the bigger the building you earn.',
     accent: '#F472B6', icon: Mic },

@@ -3,7 +3,7 @@
 // only this kid's events (backend derives identity from the token).
 import { getEvents } from './api'
 
-export const LEVEL_ORDER = ['aa', 'oo', 'ma', 'fa', 'ha', 'village-builder']
+export const LEVEL_ORDER = ['aa', 'oo', 'ma', 'fa', 'ha', 'ee', 'r', 'village-builder']
 
 // Single source of truth for levelId -> route, so ChimeHome's cards and each
 // game's own "Next Level" button can never point at different paths.
@@ -13,6 +13,8 @@ export const LEVEL_ROUTES = {
   ma: '/play/chime/firefly-jar',
   fa: '/play/chime/wind-chime-garden',
   ha: '/play/chime/bubble-wrap-pop',
+  ee: '/play/chime/kite-flyer',
+  r: '/play/chime/lions-roar',
   'village-builder': '/play/chime/village-builder',
 }
 

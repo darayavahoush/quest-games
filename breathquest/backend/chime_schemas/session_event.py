@@ -24,7 +24,7 @@ from pydantic import BaseModel
 
 
 class PhonemePayload(BaseModel):
-    target_phoneme: Literal["aa", "oo", "ma", "fa", "ha", "word"]
+    target_phoneme: Literal["aa", "oo", "ma", "fa", "ha", "ee", "r", "word"]
     target_word: Optional[str] = None          # only set when target_phoneme == "word"
     score: float                                # 0.0-1.0, from FeatureResult.score
     is_valid_attempt: bool

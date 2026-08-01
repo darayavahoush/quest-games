@@ -8,16 +8,21 @@ Chime is a separate game from BreathQuest, with its own mechanics —
 they share the site (auth, DB, deployment) but not level designs.
 
 Level -> extractor -> mechanic:
-  aa   -> vowel_loudness   -> Rocket Launch
-  oo   -> vowel_quality    -> Submarine Dive
-  ma   -> syllable_rhythm  -> Drum Island
-  fa   -> frication        -> Wind Chime Garden
-  ha   -> aspiration_burst -> Bubble Wrap Pop
+  aa   -> vowel_loudness    -> Rocket Launch
+  oo   -> vowel_quality     -> Submarine Dive
+  ma   -> syllable_rhythm   -> Drum Island (shell demo) / Firefly Jar (live)
+  fa   -> frication         -> Wind Chime Garden
+  ha   -> aspiration_burst  -> Bubble Wrap Pop
+  ee   -> vowel_quality_ee  -> Kite Flyer
+  r    -> rhotic            -> Lion's Roar
   word -> word_level/asr_match.py -> Village Builder
 """
 
 from .common import FeatureResult
-from . import vowel_loudness, vowel_quality, syllable_rhythm, frication, aspiration_burst
+from . import (
+    vowel_loudness, vowel_quality, syllable_rhythm, frication, aspiration_burst,
+    vowel_quality_ee, rhotic,
+)
 
 EXTRACTORS = {
     "aa": vowel_loudness.extract,
@@ -25,7 +30,10 @@ EXTRACTORS = {
     "ma": syllable_rhythm.extract,
     "fa": frication.extract,
     "ha": aspiration_burst.extract,
+    "ee": vowel_quality_ee.extract,
+    "r": rhotic.extract,
 }
 
 __all__ = ["FeatureResult", "EXTRACTORS", "vowel_loudness", "vowel_quality",
-           "syllable_rhythm", "frication", "aspiration_burst"]
+           "syllable_rhythm", "frication", "aspiration_burst",
+           "vowel_quality_ee", "rhotic"]
