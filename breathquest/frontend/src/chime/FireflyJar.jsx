@@ -28,6 +28,22 @@ function scoreBurst(rmsEnvelope, durationS, minPeakRms = MIN_PEAK_RMS_DEFAULT, m
   return { score: magnitudeScore * durationPenalty, isValidAttempt: true, peakRms }
 }
 
+// "ma" is a discrete burst, not a sustained tone, so there's no continuous
+// voicing to reward the way Rocket Launch/Submarine Dive/Wind Chime Garden
+// do. The burst-appropriate equivalent: reward a quick, clean *streak* of
+// catches in a row (rapid "ma-ma-ma", not one lone "ma" then a long pause).
+// Each catch inside STREAK_GAP_S of the previous one extends the streak;
+// a catch after a longer gap, or a burst that fails to catch, resets it to
+// 0 — same "resets the instant it breaks" behavior as the sustain games,
+// just measured burst-to-burst instead of frame-to-frame.
+const STREAK_GAP_S = 1.2
+const STREAK_LENGTH_FOR_MAX = 4  // 4 quick catches in a row = max bonus
+const STREAK_BONUS_MAX = 1       // +1 extra firefly per catch at max streak
+
+function computeStreakBonus(streakCount) {
+  return Math.min(STREAK_BONUS_MAX, Math.floor(STREAK_BONUS_MAX * streakCount / STREAK_LENGTH_FOR_MAX))
+}
+
 function personalizeBurstRange(peakRmsReadings, noiseFloor, fallbackMax = MAX_EXPECTED_PEAK_RMS_DEFAULT) {
   const valid = peakRmsReadings.filter(p => p > 0)
   const minPeakRms = Math.max(0.01, noiseFloor * 1.8)
@@ -79,6 +95,7 @@ export default function FireflyJar() {
     firefliesCaught: 0, catchThreshold: CATCH_THRESHOLD_DEFAULT,
     minPeakRms: MIN_PEAK_RMS_DEFAULT, maxExpectedPeakRms: MAX_EXPECTED_PEAK_RMS_DEFAULT,
     burstEnvelope: [], inBurst: false, burstStartTime: 0,
+    catchStreak: 0, lastCatchTime: -1,
     freeFireflies: [], jarFireflies: [], caughtPulse: 0,
     lastFrameTime: 0, quietStreak: 0,
     hasFinished: false, particles: [],
@@ -240,6 +257,8 @@ export default function FireflyJar() {
     s.jarFireflies = []
     s.hasFinished = false
     s.particles = []
+    s.catchStreak = 0
+    s.lastCatchTime = -1
     s.lastFrameTime = performance.now()
     s.attemptStartTime = performance.now()
     setAriaMsg('Ready! Say "ma" to catch a firefly.')
@@ -345,11 +364,23 @@ export default function FireflyJar() {
       const durationS = (now - s.burstStartTime) / 1000
       const { score, isValidAttempt } = scoreBurst(s.burstEnvelope, durationS, s.minPeakRms, s.maxExpectedPeakRms)
       if (isValidAttempt && score >= s.catchThreshold && s.firefliesCaught < NUM_FIREFLIES) {
-        s.firefliesCaught++
+        const gapS = s.lastCatchTime >= 0 ? (now - s.lastCatchTime) / 1000 : Infinity
+        s.catchStreak = gapS <= STREAK_GAP_S ? s.catchStreak + 1 : 1
+        s.lastCatchTime = now
+        const bonus = Math.min(computeStreakBonus(s.catchStreak), NUM_FIREFLIES - 1 - s.firefliesCaught)
+        const gained = 1 + Math.max(0, bonus)
+
+        for (let i = 0; i < gained && s.firefliesCaught < NUM_FIREFLIES; i++) {
+          s.firefliesCaught++
+          spawnJarFirefly()
+        }
         s.caughtPulse = 1
         s.quietStreak = 0
-        spawnJarFirefly()
         playCatch()
+      } else if (isValidAttempt) {
+        // A real attempt that didn't clear the catch threshold breaks the streak,
+        // same as it would if this were a sustain mechanic losing voicing quality.
+        s.catchStreak = 0
       }
       // One backend event per detected burst, scored on real audio quality.
       logBurstAttempt(score, isValidAttempt)
@@ -520,6 +551,8 @@ export default function FireflyJar() {
     s.jarFireflies = []
     s.hasFinished = false
     s.particles = []
+    s.catchStreak = 0
+    s.lastCatchTime = -1
     s.lastFrameTime = performance.now()
     s.attemptStartTime = performance.now()
     rafRef.current = requestAnimationFrame(gameLoop)

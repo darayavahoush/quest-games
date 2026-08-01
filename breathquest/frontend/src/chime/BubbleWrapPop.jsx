@@ -40,6 +40,19 @@ function popNextBubble(poppedFlags, burstScore, popThreshold = 0.3) {
   return { poppedFlags: next, justPopped: nextIndex }
 }
 
+// "ha!" is a discrete burst, not a sustained tone, so there's no continuous
+// voicing to reward the way Rocket Launch/Submarine Dive/Wind Chime Garden
+// do. Same burst-appropriate streak-boost as Firefly Jar: a quick run of
+// pops in a row (rapid "ha-ha-ha") pops extra bubbles per hit; a slow lone
+// "ha" or a burst that misses the threshold resets the streak to 0.
+const STREAK_GAP_S = 1.2
+const STREAK_LENGTH_FOR_MAX = 4
+const STREAK_BONUS_MAX = 1
+
+function computeStreakBonus(streakCount) {
+  return Math.min(STREAK_BONUS_MAX, Math.floor(STREAK_BONUS_MAX * streakCount / STREAK_LENGTH_FOR_MAX))
+}
+
 function computeGridForTargetPops(targetPops) {
   const cols = Math.min(6, Math.max(2, Math.round(Math.sqrt(targetPops * 1.3))))
   const rows = Math.ceil(targetPops / cols)
@@ -90,6 +103,7 @@ export default function BubbleWrapPop() {
     poppedFlags: [], popPulse: [],
     popThreshold: BASE_POP_THRESHOLD,
     burstEnvelope: [], inBurst: false, burstStartTime: 0,
+    popStreak: 0, lastPopTime: -1,
     minPeakRms: MIN_PEAK_RMS_DEFAULT,
     maxExpectedPeakRms: MAX_EXPECTED_PEAK_RMS_DEFAULT,
     lastFrameTime: 0, quietStreak: 0,
@@ -258,6 +272,8 @@ export default function BubbleWrapPop() {
     s.popPulse = new Array(s.gridCols * s.gridRows).fill(0)
     s.hasFinished = false
     s.particles = []
+    s.popStreak = 0
+    s.lastPopTime = -1
     s.lastFrameTime = performance.now()
     s.attemptStartTime = performance.now()
   }
@@ -369,9 +385,25 @@ export default function BubbleWrapPop() {
       if (isValidAttempt) {
         const result = popNextBubble(s.poppedFlags, score, s.popThreshold)
         if (result.justPopped >= 0) {
-          s.poppedFlags = result.poppedFlags
+          const gapS = s.lastPopTime >= 0 ? (now - s.lastPopTime) / 1000 : Infinity
+          s.popStreak = gapS <= STREAK_GAP_S ? s.popStreak + 1 : 1
+          s.lastPopTime = now
+          const bonus = computeStreakBonus(s.popStreak)
+
+          let flags = result.poppedFlags
           s.popPulse[result.justPopped] = 1
+          for (let i = 0; i < bonus; i++) {
+            const extra = popNextBubble(flags, score, s.popThreshold)
+            if (extra.justPopped < 0) break
+            flags = extra.poppedFlags
+            s.popPulse[extra.justPopped] = 1
+          }
+          s.poppedFlags = flags
           playPopSound()
+        } else {
+          // A real attempt that didn't pop a bubble breaks the streak, same
+          // as it would if this were a sustain mechanic losing voicing quality.
+          s.popStreak = 0
         }
       }
       // One backend event per detected burst, scored on real audio quality — matches
