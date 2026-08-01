@@ -39,9 +39,10 @@ function personalizeCentroidRange(centroidReadings, fallbackMin = MIN_CENTROID_H
   const maxCentroid = Math.min(8000, mean * 1.3)
   return { minCentroid, maxCentroid, usedFallback: false }
 }
-function updateChimeRotation(currentAngle, currentSpeed, fricationScore, dt, config) {
+function updateChimeRotation(currentAngle, currentSpeed, fricationScore, dt, config, sustainedSeconds = 0) {
   const { maxSpeed, spinUpRate, decayRate } = config
-  const targetSpeed = fricationScore * maxSpeed
+  const durationMultiplier = 1 + DURATION_BOOST_MAX * Math.min(1, sustainedSeconds / DURATION_BOOST_SECONDS)
+  const targetSpeed = fricationScore * maxSpeed * durationMultiplier
   const nextSpeed = currentSpeed < targetSpeed ? Math.min(targetSpeed, currentSpeed + spinUpRate * dt) : Math.max(targetSpeed, currentSpeed - decayRate * dt)
   const nextAngle = currentAngle + nextSpeed * dt
   const fullRotations = Math.floor(nextAngle / (2 * Math.PI)) - Math.floor(currentAngle / (2 * Math.PI))
@@ -50,6 +51,14 @@ function updateChimeRotation(currentAngle, currentSpeed, fricationScore, dt, con
 
 const ROTATION_CONFIG = { maxSpeed: 5, spinUpRate: 8, decayRate: 3 }
 const TARGET_BUBBLES_DEFAULT = 4
+
+// Rewards sticking with the "ffff" sound, not just being fricative for one frame:
+// the chimes spin faster the longer voicing has been continuously held, capping
+// at DURATION_BOOST_MAX extra once DURATION_BOOST_SECONDS of unbroken frication
+// is reached. Resets to 0 the instant voicing breaks (see gameLoop) — ported
+// 1:1 from Rocket Launch / Submarine Dive's duration-boost mechanic.
+const DURATION_BOOST_MAX = 0.6
+const DURATION_BOOST_SECONDS = 2.5
 
 const DIFFICULTY_AGENT = {
   SAFE_RANGE: [4, 14],
@@ -97,7 +106,7 @@ export default function WindChimeGarden() {
     stars: [], fireflies: [], bubbles: [],
     minCentroid: MIN_CENTROID_HZ_DEFAULT, maxCentroid: MAX_EXPECTED_CENTROID_HZ_DEFAULT,
     bubbleNotes: [523.25, 587.33, 659.25, 698.46, 783.99, 880.0, 987.77, 1046.5],
-    inVoicing: false, voicingScores: [],
+    inVoicing: false, voicingScores: [], sustainedSeconds: 0,
     W: 0, H: 0, DPR: 1,
   })
 
@@ -262,7 +271,7 @@ export default function WindChimeGarden() {
     setScreen('playing')
     setHudVisible(true)
     const s = stateRef.current
-    s.angle = 0; s.speed = 0; s.bubblesSpawned = 0; s.bubbles = []; s.hasFinished = false
+    s.angle = 0; s.speed = 0; s.bubblesSpawned = 0; s.bubbles = []; s.hasFinished = false; s.sustainedSeconds = 0
     s.lastFrameTime = performance.now()
     s.attemptStartTime = performance.now()
     setAriaMsg('Ready! Say a long "ffff" to blow bubbles.')
@@ -325,7 +334,16 @@ export default function WindChimeGarden() {
     const { score, isValidAttempt } = computeFricationScore(rms, centroid, s.noiseFloor, s.minCentroid, s.maxCentroid)
     s.smoothedScore = s.smoothedScore * 0.7 + score * 0.3
 
-    const result = updateChimeRotation(s.angle, s.speed, score, dt, ROTATION_CONFIG)
+    // Track sustained frication duration BEFORE computing rotation, so this
+    // frame's boost reflects voicing held up to (not including) this frame —
+    // matches Rocket Launch / Submarine Dive's ordering exactly.
+    if (isValidAttempt && score > 0.05) {
+      s.sustainedSeconds += dt
+    } else {
+      s.sustainedSeconds = 0
+    }
+
+    const result = updateChimeRotation(s.angle, s.speed, score, dt, ROTATION_CONFIG, s.sustainedSeconds)
     s.angle = result.angle; s.speed = result.speed
     if (result.chimesRung > 0 && s.bubblesSpawned < s.targetBubbles) {
       for (let i = 0; i < result.chimesRung && s.bubblesSpawned < s.targetBubbles; i++) {
@@ -567,7 +585,7 @@ export default function WindChimeGarden() {
   function handlePlayAgain() {
     const s = stateRef.current
     setSuccessVisible(false)
-    s.angle = 0; s.speed = 0; s.bubblesSpawned = 0; s.bubbles = []; s.hasFinished = false; s.particles = []
+    s.angle = 0; s.speed = 0; s.bubblesSpawned = 0; s.bubbles = []; s.hasFinished = false; s.particles = []; s.sustainedSeconds = 0
     s.lastFrameTime = performance.now()
     s.attemptStartTime = performance.now()
     rafRef.current = requestAnimationFrame(gameLoop)
