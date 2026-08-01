@@ -20,6 +20,7 @@ export default function GamePage() {
   const breathLog   = useRef([])
   const eventBatch  = useRef([])
   const flushTimer  = useRef(null)
+  const breatheTimer = useRef(null)
   const lastTime    = useRef(null)
   const metricsRef  = useRef({ timeSeconds: 0, mistakes: 0, targetHits: 0, puffs: 0, progress: 0 })
   const startTime   = useRef(null)
@@ -48,10 +49,17 @@ export default function GamePage() {
     engineRef.current = engine
 
     engine.onCalibrated = () => {
-      setPhase('playing')
-      startTime.current = performance.now()
-      startGameLoop()
-      flushTimer.current = setInterval(flushEvents, 2500)
+      // Give the kid a beat to take a big breath in before the level starts
+      // scoring their exhale — the in-breath is what actually powers a
+      // strong, controlled out-breath, so cueing it explicitly matters more
+      // here than in a typical "ready, set, go" countdown.
+      setPhase('breathe')
+      breatheTimer.current = setTimeout(() => {
+        setPhase('playing')
+        startTime.current = performance.now()
+        startGameLoop()
+        flushTimer.current = setInterval(flushEvents, 2500)
+      }, 2200)
     }
 
     engine.onBreath = (v) => {
@@ -154,6 +162,7 @@ export default function GamePage() {
   const cleanup = () => {
     cancelAnimationFrame(rafRef.current)
     clearInterval(flushTimer.current)
+    clearTimeout(breatheTimer.current)
     engineRef.current?.stop()
   }
 
@@ -254,6 +263,21 @@ export default function GamePage() {
             </div>
           )}
 
+          {/* BREATHE — cue the inhale before scoring starts */}
+          {phase === 'breathe' && (
+            <div className="flex flex-col items-center justify-center text-center py-16 rounded-2xl"
+                 style={{ minHeight: H, background: 'linear-gradient(135deg, #1a1a2e, #12122A)',
+                          border: `2px solid ${meta.color}33` }}>
+              <div className="text-8xl mb-6" style={{ animation: 'breatheIn 2.2s ease-in-out' }}>
+                👃
+              </div>
+              <h2 className="font-display text-3xl font-black text-white mb-2">
+                Take a big breath in!
+              </h2>
+              <p className="text-white/40">Fill up your belly like a balloon… then get ready to blow 💨</p>
+            </div>
+          )}
+
           {/* COMPLETE */}
           {phase === 'complete' && result && (
             <div className="flex flex-col items-center justify-center text-center py-10 rounded-2xl relative overflow-hidden"
@@ -336,8 +360,10 @@ export default function GamePage() {
             </div>
           )}
 
-          {/* Debug panel */}
-          {phase === 'playing' && (
+          {/* Debug panel — raw mic/breath values, dev-only. Never shown to
+              kids or parents in production; import.meta.env.DEV is false
+              in any built/deployed bundle. */}
+          {import.meta.env.DEV && phase === 'playing' && (
             <div className="mt-2 bg-black/50 border border-white/10 rounded-xl p-2.5 font-mono text-xs flex gap-4 flex-wrap">
               <span>🎤 Raw:<span className={debug.raw > debug.floor ? ' text-green-400' : ' text-red-400'}> {debug.raw}</span></span>
               <span>〰 Base:<span className="text-yellow-400"> {debug.floor}</span></span>
@@ -354,6 +380,7 @@ export default function GamePage() {
 
       <style>{`
         @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+        @keyframes breatheIn { 0%{transform:scale(0.85)} 70%{transform:scale(1.25)} 100%{transform:scale(1.15)} }
       `}</style>
     </div>
   )
