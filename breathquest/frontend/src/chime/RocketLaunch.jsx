@@ -26,14 +26,22 @@ function computeLoudnessScore(rms, noiseFloor, maxExpected) {
   return Math.max(0, Math.min(1, score))
 }
 
-function updateAltitude(currentAltitude, score, dt, config, pitchBoost = 0) {
+// Rewards sticking with a sound, not just being loud for one frame: rise rate
+// ramps up the longer voicing has been continuously held, capping at
+// DURATION_BOOST_MAX extra once DURATION_BOOST_SECONDS of unbroken voicing
+// is reached. Resets to 0 the instant voicing breaks (see gameLoop).
+const DURATION_BOOST_MAX = 0.6 // up to +60% extra rise rate at full sustain
+const DURATION_BOOST_SECONDS = 2.5 // seconds of continuous voicing to hit max boost
+
+function updateAltitude(currentAltitude, score, dt, config, pitchBoost = 0, sustainedSeconds = 0) {
   const { riseRate, fallRate, scoreThreshold } = config
   let next
   if (score >= scoreThreshold) {
     const intensity = (score - scoreThreshold) / (1 - scoreThreshold)
     const loudnessMultiplier = 0.4 + 1.4 * intensity
     const pitchMultiplier = 1 + 0.5 * pitchBoost
-    next = currentAltitude + riseRate * loudnessMultiplier * pitchMultiplier * dt
+    const durationMultiplier = 1 + DURATION_BOOST_MAX * Math.min(1, sustainedSeconds / DURATION_BOOST_SECONDS)
+    next = currentAltitude + riseRate * loudnessMultiplier * pitchMultiplier * durationMultiplier * dt
   } else {
     next = currentAltitude - fallRate * dt
   }
@@ -144,6 +152,7 @@ export default function RocketLaunch() {
     difficultyConfig: { ...BASE_ALTITUDE_CONFIG },
     attemptStartTime: 0, attemptNumber: 0,
     inVoicing: false, voicingScores: [], sustainedSeconds: 0,
+    scrollY: 0,
     W: 0, H: 0, DPR: 1,
   })
 
@@ -421,6 +430,13 @@ export default function RocketLaunch() {
 
     s.altitude = updateAltitude(s.altitude, s.smoothedScore, dt, s.difficultyConfig, s.pitchBoost, s.sustainedSeconds)
 
+    // Starfield speed mirrors the same duration ramp as altitude, so the sky
+    // visibly streams faster the longer a sound is held, and settles back to
+    // a slow drift the moment voicing breaks — reinforces "keep going" visually.
+    const scrollBoost = 1 + DURATION_BOOST_MAX * Math.min(1, s.sustainedSeconds / DURATION_BOOST_SECONDS)
+    const scrollSpeed = (rawScore > 0.15 ? 40 * scrollBoost : 8) // px/sec
+    s.scrollY = (s.scrollY + scrollSpeed * dt) % 100000
+
     if (s.pitchBoost > 0.3 && Math.random() < s.pitchBoost * 0.6) spawnBoostSparkle()
 
     // Track sustained voicing segments for real per-attempt logging.
@@ -470,7 +486,10 @@ export default function RocketLaunch() {
       const twinkle = reduceMotionRef.current ? 0.8 : 0.6 + 0.4 * Math.sin(starTimeRef.current * star.speed + star.phase)
       ctx.globalAlpha = twinkle
       ctx.fillStyle = '#FFF8EC'
-      ctx.beginPath(); ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2); ctx.fill()
+      // Stars stream downward (rocket reads as climbing past them); reduceMotion
+      // keeps them static since large full-field motion is what that setting exists to avoid.
+      const y = reduceMotionRef.current ? star.y : (star.y + s.scrollY) % s.H
+      ctx.beginPath(); ctx.arc(star.x, y, star.r, 0, Math.PI * 2); ctx.fill()
     }
     ctx.restore()
   }
@@ -652,6 +671,7 @@ export default function RocketLaunch() {
     s.hasLaunched = false
     s.particles = []
     s.sustainedSeconds = 0
+    s.scrollY = 0
     s.lastFrameTime = performance.now()
     s.attemptStartTime = performance.now()
     rafRef.current = requestAnimationFrame(gameLoop)
