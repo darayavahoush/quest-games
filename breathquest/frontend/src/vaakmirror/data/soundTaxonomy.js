@@ -109,6 +109,72 @@ export const SOUNDS = [
   { id: 'ga', label: 'ga', place: PLACE.VELAR, manner: MANNER.PLOSIVE, voicing: VOICING.VOICED, shape: 'open-wide' },
   { id: 'wa', label: 'wa', place: PLACE.LABIOVELAR, manner: MANNER.APPROXIMANT, voicing: VOICING.VOICED, shape: 'round-forward' },
   { id: 'ya', label: 'ya', place: PLACE.PALATAL, manner: MANNER.APPROXIMANT, voicing: VOICING.VOICED, shape: 'wide-narrow' },
+
+  // --- Added: word-initial consonant clusters/blends. A blend moves through
+  // its two consonants too fast for two separate held shapes, so — same
+  // reasoning as ta/da/na and the CV syllables above — the scored target is
+  // the ONSET consonant's own shape, held through the blend. `place` here
+  // tags the onset consonant specifically (the blend as a whole doesn't
+  // have one single place of articulation).
+  { id: 'bl', label: 'bl', place: PLACE.BILABIAL, manner: MANNER.PLOSIVE, voicing: VOICING.VOICED, shape: 'lips-closed' },
+  { id: 'br', label: 'br', place: PLACE.BILABIAL, manner: MANNER.PLOSIVE, voicing: VOICING.VOICED, shape: 'lips-closed' },
+  { id: 'pl', label: 'pl', place: PLACE.BILABIAL, manner: MANNER.PLOSIVE, voicing: VOICING.UNVOICED, shape: 'lips-closed' },
+  { id: 'pr', label: 'pr', place: PLACE.BILABIAL, manner: MANNER.PLOSIVE, voicing: VOICING.UNVOICED, shape: 'lips-closed' },
+  { id: 'fl', label: 'fl', place: PLACE.LABIODENTAL, manner: MANNER.FRICATIVE, voicing: VOICING.UNVOICED, shape: 'lip-teeth' },
+  { id: 'fr', label: 'fr', place: PLACE.LABIODENTAL, manner: MANNER.FRICATIVE, voicing: VOICING.UNVOICED, shape: 'lip-teeth' },
+  { id: 'dr', label: 'dr', place: PLACE.ALVEOLAR, manner: MANNER.PLOSIVE, voicing: VOICING.VOICED, shape: 'tongue-tip-up' },
+  { id: 'tr', label: 'tr', place: PLACE.ALVEOLAR, manner: MANNER.PLOSIVE, voicing: VOICING.UNVOICED, shape: 'tongue-tip-up' },
+  { id: 'tw', label: 'tw', place: PLACE.ALVEOLAR, manner: MANNER.PLOSIVE, voicing: VOICING.UNVOICED, shape: 'tongue-tip-up' },
+  { id: 'sk', label: 'sk', place: PLACE.ALVEOLAR, manner: MANNER.FRICATIVE, voicing: VOICING.UNVOICED, shape: 'wide-narrow' },
+  { id: 'sl', label: 'sl', place: PLACE.ALVEOLAR, manner: MANNER.FRICATIVE, voicing: VOICING.UNVOICED, shape: 'wide-narrow' },
+  { id: 'sm', label: 'sm', place: PLACE.ALVEOLAR, manner: MANNER.FRICATIVE, voicing: VOICING.UNVOICED, shape: 'wide-narrow' },
+  { id: 'sn', label: 'sn', place: PLACE.ALVEOLAR, manner: MANNER.FRICATIVE, voicing: VOICING.UNVOICED, shape: 'wide-narrow' },
+  { id: 'sp', label: 'sp', place: PLACE.ALVEOLAR, manner: MANNER.FRICATIVE, voicing: VOICING.UNVOICED, shape: 'wide-narrow' },
+  { id: 'st', label: 'st', place: PLACE.ALVEOLAR, manner: MANNER.FRICATIVE, voicing: VOICING.UNVOICED, shape: 'wide-narrow' },
+  { id: 'sw', label: 'sw', place: PLACE.ALVEOLAR, manner: MANNER.FRICATIVE, voicing: VOICING.UNVOICED, shape: 'wide-narrow' },
+  { id: 'cl', label: 'cl', place: PLACE.VELAR, manner: MANNER.PLOSIVE, voicing: VOICING.UNVOICED, shape: 'open-wide' },
+  { id: 'cr', label: 'cr', place: PLACE.VELAR, manner: MANNER.PLOSIVE, voicing: VOICING.UNVOICED, shape: 'open-wide' },
+  { id: 'gl', label: 'gl', place: PLACE.VELAR, manner: MANNER.PLOSIVE, voicing: VOICING.VOICED, shape: 'open-wide' },
+  { id: 'gr', label: 'gr', place: PLACE.VELAR, manner: MANNER.PLOSIVE, voicing: VOICING.VOICED, shape: 'open-wide' },
+
+  // --- Added: word-final forms of the consonants that actually occur
+  // word-finally in English (no w/y/h/qu — see the notes on those above).
+  // Same shape as the word-initial/CV form of the same consonant: it's the
+  // same articulator position whichever end of the syllable it's on, and
+  // the connecting vowel itself isn't part of what's scored.
+  { id: 'ap', label: 'ap', place: PLACE.BILABIAL, manner: MANNER.PLOSIVE, voicing: VOICING.UNVOICED, shape: 'lips-closed' },
+  { id: 'ab', label: 'ab', place: PLACE.BILABIAL, manner: MANNER.PLOSIVE, voicing: VOICING.VOICED, shape: 'lips-closed' },
+  { id: 'am', label: 'am', place: PLACE.BILABIAL, manner: MANNER.NASAL, voicing: VOICING.VOICED, shape: 'lips-closed' },
+  { id: 'af', label: 'af', place: PLACE.LABIODENTAL, manner: MANNER.FRICATIVE, voicing: VOICING.UNVOICED, shape: 'lip-teeth' },
+  { id: 'av', label: 'av', place: PLACE.LABIODENTAL, manner: MANNER.FRICATIVE, voicing: VOICING.VOICED, shape: 'lip-teeth' },
+  { id: 'as', label: 'as', place: PLACE.ALVEOLAR, manner: MANNER.FRICATIVE, voicing: VOICING.UNVOICED, shape: 'wide-narrow' },
+  { id: 'az', label: 'az', place: PLACE.ALVEOLAR, manner: MANNER.FRICATIVE, voicing: VOICING.VOICED, shape: 'wide-narrow' },
+  { id: 'at', label: 'at', place: PLACE.ALVEOLAR, manner: MANNER.PLOSIVE, voicing: VOICING.UNVOICED, shape: 'tongue-tip-up' },
+  { id: 'ad', label: 'ad', place: PLACE.ALVEOLAR, manner: MANNER.PLOSIVE, voicing: VOICING.VOICED, shape: 'tongue-tip-up' },
+  { id: 'an', label: 'an', place: PLACE.ALVEOLAR, manner: MANNER.NASAL, voicing: VOICING.VOICED, shape: 'tongue-tip-up' },
+  { id: 'al', label: 'al', place: PLACE.ALVEOLAR, manner: MANNER.LATERAL, voicing: VOICING.VOICED, shape: 'tongue-tip-up' },
+  { id: 'ar', label: 'ar', place: PLACE.POST_ALVEOLAR, manner: MANNER.APPROXIMANT, voicing: VOICING.VOICED, shape: 'wide-narrow' },
+  { id: 'ash', label: 'ash', place: PLACE.POST_ALVEOLAR, manner: MANNER.FRICATIVE, voicing: VOICING.UNVOICED, shape: 'round-forward' },
+  { id: 'ach', label: 'ach', place: PLACE.POST_ALVEOLAR, manner: MANNER.AFFRICATE, voicing: VOICING.UNVOICED, shape: 'round-forward' },
+  { id: 'aj', label: 'aj', place: PLACE.POST_ALVEOLAR, manner: MANNER.AFFRICATE, voicing: VOICING.VOICED, shape: 'round-forward' },
+  { id: 'ak', label: 'ak', place: PLACE.VELAR, manner: MANNER.PLOSIVE, voicing: VOICING.UNVOICED, shape: 'open-wide' },
+  { id: 'ag', label: 'ag', place: PLACE.VELAR, manner: MANNER.PLOSIVE, voicing: VOICING.VOICED, shape: 'open-wide' },
+  { id: 'ang', label: 'ang', place: PLACE.VELAR, manner: MANNER.NASAL, voicing: VOICING.VOICED, shape: 'neutral-open' },
+
+  // --- Added: short/lax vowels (cat, bed, sit, cup). Deliberately grouped
+  // under the same loose 'neutral-open' target used for h/ng, NOT given
+  // individual shapes — mouthMetrics.js only measures openness + lip
+  // spread, and these four vowels don't differ enough on either axis to
+  // be honestly told apart from each other (or from 'ah') with that metric
+  // set alone; telling them apart really needs tongue height/backness,
+  // which isn't tracked. Included per explicit sign-off to add them anyway
+  // as an approximate target rather than leaving them out entirely — but
+  // flagged here so it's clear these will all score identically to each
+  // other and shouldn't be trusted for fine vowel-quality feedback.
+  { id: 'ae', label: 'a (cat)', place: PLACE.GLOTTAL, manner: MANNER.APPROXIMANT, voicing: VOICING.VOICED, shape: 'neutral-open' },
+  { id: 'eh', label: 'e (bed)', place: PLACE.GLOTTAL, manner: MANNER.APPROXIMANT, voicing: VOICING.VOICED, shape: 'neutral-open' },
+  { id: 'ih', label: 'i (sit)', place: PLACE.GLOTTAL, manner: MANNER.APPROXIMANT, voicing: VOICING.VOICED, shape: 'neutral-open' },
+  { id: 'uh', label: 'u (cup)', place: PLACE.GLOTTAL, manner: MANNER.APPROXIMANT, voicing: VOICING.VOICED, shape: 'neutral-open' },
 ]
 
 // Human-friendly shape targets Mirror Mirror scores against, described in

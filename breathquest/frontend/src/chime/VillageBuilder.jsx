@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Settings, Volume2 } from 'lucide-react'
 import { scoreWord, transcribeAudio, logEvent, getAgentDecision } from './lib/api'
+import { sampleWordList } from './data/wordBank.js'
 
 // Canonical short code — LEVEL_ORDER in lib/levelProgress.js expects
 // 'village-builder', not the prototype's original 'word_village'. Same
@@ -10,7 +11,12 @@ import { scoreWord, transcribeAudio, logEvent, getAgentDecision } from './lib/ap
 const LEVEL_ID = 'village-builder'
 const AGENT_POLICY = 'tabular_q'
 
-const DEFAULT_WORD_LIST = ['ball', 'cat', 'dog', 'cup', 'hat', 'sun', 'bus', 'book']
+// Session size — how many houses/words per round. Previously this WAS
+// the word content too (a fixed 8-word DEFAULT_WORD_LIST that never
+// varied). Now it's just the round size; the actual words are randomly
+// sampled from data/wordBank.js's much larger, phoneme-tagged bank each
+// time startGame() runs, so replaying doesn't mean the same 8 words.
+const ROUND_SIZE = 8
 const HOUSE_COLORS = ['#C4487A', '#4ECDC4', '#D9713C', '#B983FF', '#FF8C69', '#4F9E5C', '#E8A33D', '#5EC8D8']
 
 const RMS_SPEECH_THRESHOLD = 0.015
@@ -94,17 +100,22 @@ function buildWordListFromInput(rawInput) {
   const words = rawInput.split(',').map(w => w.trim().toLowerCase()).filter(Boolean)
   if (words.length === 0) return null
   const list = []
-  for (let i = 0; i < DEFAULT_WORD_LIST.length; i++) list.push(words[i % words.length])
+  for (let i = 0; i < ROUND_SIZE; i++) list.push(words[i % words.length])
   return list
 }
 
 export default function VillageBuilder() {
   const navigate = useNavigate()
 
+  // One random sample per mount — computed once here (not inside each
+  // useState initializer separately) so wordList/targetWord/houseGrowPulse
+  // all agree on the same set instead of each independently resampling.
+  const initialWordList = useState(() => sampleWordList(ROUND_SIZE))[0]
+
   const [phase, setPhase] = useState('start') // start | micError | playing
-  const [wordList, setWordList] = useState(DEFAULT_WORD_LIST)
+  const [wordList, setWordList] = useState(initialWordList)
   const [customInput, setCustomInput] = useState('')
-  const [targetWord, setTargetWord] = useState(DEFAULT_WORD_LIST[0])
+  const [targetWord, setTargetWord] = useState(initialWordList[0])
   const [housesBuilt, setHousesBuilt] = useState(0)
   const [listeningLabel, setListeningLabel] = useState('🎙️ Listening...')
   const [recentAttempt, setRecentAttempt] = useState({ text: '', visible: false })
@@ -124,7 +135,7 @@ export default function VillageBuilder() {
   const vadIntervalRef = useRef(null)
   const animFrameCountRef = useRef(0)
   const rafIdRef = useRef(null)
-  const wordListRef = useRef(DEFAULT_WORD_LIST)
+  const wordListRef = useRef(initialWordList)
   const reduceMotionRef = useRef(reduceMotion)
   const mutedRef = useRef(muted)
 
@@ -133,7 +144,7 @@ export default function VillageBuilder() {
     matchThreshold: 0.45,
     currentWordIndex: 0,
     housesBuilt: 0,
-    houseGrowPulse: new Array(DEFAULT_WORD_LIST.length).fill(0),
+    houseGrowPulse: new Array(initialWordList.length).fill(0),
     attemptNumber: 0,
     hasFinished: false,
     particles: [],
@@ -609,7 +620,7 @@ export default function VillageBuilder() {
 
   const startGame = useCallback(async () => {
     const customList = buildWordListFromInput(customInput)
-    const finalList = customList || DEFAULT_WORD_LIST
+    const finalList = customList || sampleWordList(ROUND_SIZE)
     setWordList(finalList)
     wordListRef.current = finalList
     s.houseGrowPulse = new Array(finalList.length).fill(0)
