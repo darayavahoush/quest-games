@@ -2,7 +2,6 @@
 routers/auth.py — Authentication for therapists (JWT) and kids (PIN).
 """
 
-import random
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,6 +19,7 @@ from core.security import (
     create_access_token,
     hash_pin, verify_pin, create_kid_token,
     create_parent_token,
+    generate_unique_player_code,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -80,11 +80,7 @@ async def login_therapist(data: TherapistLogin, db: AsyncSession = Depends(get_d
 @router.post("/kid-register", response_model=KidTokenResponse, status_code=201)
 async def kid_register(data: KidRegisterRequest, db: AsyncSession = Depends(get_db)):
     # Generate short unique player code e.g. CHICK42
-    while True:
-        code = data.avatar.upper()[:5] + str(random.randint(10, 99))
-        exists = await db.execute(select(Patient).where(Patient.player_code == code))
-        if not exists.scalar_one_or_none():
-            break
+    code = await generate_unique_player_code(db, data.avatar)
 
     patient = Patient(
         therapist_id=None,

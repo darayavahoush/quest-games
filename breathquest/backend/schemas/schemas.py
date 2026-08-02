@@ -210,6 +210,7 @@ class PatientOut(BaseModel):
     age: int | None
     is_active: bool
     created_at: datetime
+    player_code: str
     # Note: diagnosis_notes and pin_hash are NOT exposed here (therapist-only)
 
 

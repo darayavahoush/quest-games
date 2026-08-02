@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any
+import random
 import secrets
 import hashlib
 
@@ -101,3 +102,20 @@ def generate_invite_code() -> str:
     """Short, unambiguous (no 0/O/1/I) code for a therapist to hand a parent."""
     alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
     return "".join(secrets.choice(alphabet) for _ in range(8))
+
+
+async def generate_unique_player_code(db, avatar: str) -> str:
+    """Same generator kid self-registration (auth.py's /kid-register) already
+    used inline — extracted here so routers/patients.py's therapist-driven
+    create_patient can share it. Before this, create_patient built a Patient()
+    with no player_code at all; since the column is NOT NULL + unique, every
+    single call 500'd with an IntegrityError, meaning a therapist could never
+    actually add a patient through that endpoint."""
+    from sqlalchemy import select
+    from models.models import Patient
+
+    while True:
+        code = avatar.upper()[:5] + str(random.randint(10, 99))
+        exists = await db.execute(select(Patient).where(Patient.player_code == code))
+        if not exists.scalar_one_or_none():
+            return code

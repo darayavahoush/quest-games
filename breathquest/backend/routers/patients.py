@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 from database import get_db
 from models.models import Therapist, Patient, GameSession
 from schemas.schemas import PatientCreate, PatientUpdate, PatientOut, PatientDetailOut, ParentInviteCodeOut
-from core.security import hash_pin
+from core.security import hash_pin, generate_unique_player_code
 from core.deps import get_current_therapist
 from core.security import generate_invite_code
 
@@ -23,11 +23,17 @@ async def create_patient(
     therapist: Therapist = Depends(get_current_therapist),
     db: AsyncSession = Depends(get_db),
 ):
+    # player_code is NOT NULL + unique on the model — this endpoint 500'd on
+    # every single call before this, since nothing here ever set it (kid
+    # self-registration, in auth.py, generated one inline; this therapist-
+    # driven path never did). Same collision-checked generator both use now.
+    player_code = await generate_unique_player_code(db, data.avatar)
     patient = Patient(
         therapist_id=therapist.id,
         first_name=data.first_name,
         avatar=data.avatar,
         pin_hash=hash_pin(data.pin),
+        player_code=player_code,
         age=data.age,
         diagnosis_notes=data.diagnosis_notes,
     )
