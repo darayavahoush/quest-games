@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Stethoscope, Sparkles, ArrowRight } from 'lucide-react'
+import { Stethoscope, Heart, Sparkles, ArrowRight } from 'lucide-react'
 import { Avatar } from '../components/ui'
 
 const EMBERS = [
@@ -87,7 +87,7 @@ export default function Landing() {
         </span>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-5 w-full max-w-lg relative z-10">
+      <div className="flex flex-col sm:flex-row gap-5 w-full max-w-3xl relative z-10">
         <button
           onClick={() => navigate('/play')}
           className="flex-1 group relative overflow-hidden rounded-[2rem] p-8 text-center
@@ -129,6 +129,28 @@ export default function Landing() {
             <h2 className="font-vm-display text-xl font-bold text-mint-light mb-1">Teacher</h2>
             <p className="text-paper/50 text-sm mb-4">View dashboard &amp; progress</p>
             <span className="inline-flex items-center gap-1 text-xs font-semibold text-mint-light">
+              Sign in <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </span>
+          </div>
+        </button>
+
+        <button
+          onClick={() => navigate('/parent/login')}
+          className="flex-1 group relative overflow-hidden rounded-[2rem] p-8 text-center
+                     bg-gradient-to-br from-coral/15 to-dusk-mid/50 backdrop-blur-sm border-2 border-coral/25
+                     hover:border-coral/60 hover:-translate-y-1 hover:shadow-2xl hover:shadow-coral/20
+                     transition-all duration-300"
+        >
+          <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full bg-coral/10 blur-2xl
+                          group-hover:bg-coral/20 transition-colors duration-300" />
+          <div className="relative">
+            <div className="w-14 h-14 rounded-2xl bg-coral/15 border border-coral/25 flex items-center
+                            justify-center mx-auto mb-3">
+              <Heart className="w-7 h-7 text-coral-light" />
+            </div>
+            <h2 className="font-vm-display text-xl font-bold text-coral-light mb-1">Parent</h2>
+            <p className="text-paper/50 text-sm mb-4">Follow along at home</p>
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-coral-light">
               Sign in <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </span>
           </div>
