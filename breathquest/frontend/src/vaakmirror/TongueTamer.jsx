@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, CameraOff, RefreshCw, ArrowUpCircle } from 'lucide-react'
+import { ArrowLeft, CameraOff, RefreshCw, ArrowUpCircle, Volume2 } from 'lucide-react'
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision'
 import { TONGUE_MOVES } from './data/tongueMoves.js'
 import { computeMouthMetrics } from './lib/mouthMetrics.js'
 import { computeTongueMetrics, scoreTongueMove, computeElevationOffset, computeLateralOffset } from './lib/tongueTracking.js'
 import { drawMouthOutline, drawFaceFilter, drawTongueArrow } from './lib/faceOverlay.js'
 import { emaUpdate, emaUpdateObject, createTierStabilizer } from './lib/signalSmoothing.js'
-import { playChime, playFanfare } from './lib/sound.js'
+import { playChime, playFanfare, speakSound } from './lib/sound.js'
 import { createGameSession, logAttempt, endGameSession } from './lib/api.js'
 import CharacterFilterPicker, { FILTERS } from './components/CharacterFilterPicker.jsx'
 import ProgressRing from './components/ProgressRing.jsx'
@@ -75,6 +75,15 @@ export default function TongueTamer() {
   const [lowLight, setLowLight] = useState(false)
 
   const current = round[roundIndex]
+
+  // Speaks the move's own instruction text (e.g. "Lift your tongue tip to
+  // touch the ridge behind your top teeth") rather than a phoneme label —
+  // tongue moves aren't sounds, so the useful thing to hear here is the
+  // verbal cue, not a spoken letter name.
+  useEffect(() => {
+    if (!calibrated || complete || !current) return
+    speakSound(current.instruction)
+  }, [current, calibrated, complete])
 
   const advance = useCallback(() => {
     const isLast = roundIndex + 1 >= ROUND_SIZE
@@ -401,7 +410,16 @@ export default function TongueTamer() {
                   <TongueShapeGuide move={current.id} tier={tier} className="w-full h-full" />
                 </div>
                 <p className="text-paper text-lg font-medium mb-2">{current.label}</p>
-                <p className="text-paper/55 text-sm leading-relaxed mb-6">{current.instruction}</p>
+                <p className="text-paper/55 text-sm leading-relaxed mb-6 flex items-start gap-2">
+                  <span>{current.instruction}</span>
+                  <button
+                    onClick={() => speakSound(current.instruction)}
+                    className="text-paper/40 hover:text-coral transition-colors shrink-0 mt-0.5"
+                    title="Hear it again"
+                  >
+                    <Volume2 size={16} />
+                  </button>
+                </p>
                 <div className="h-px bg-white/10 mb-6" />
                 <p className="text-paper/50 text-xs leading-relaxed">
                   Hold the shown position for a couple of seconds to move to the next

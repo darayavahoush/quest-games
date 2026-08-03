@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, CameraOff, RefreshCw, Shuffle } from 'lucide-react'
+import { ArrowLeft, CameraOff, RefreshCw, Shuffle, Volume2 } from 'lucide-react'
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision'
 import { SOUNDS, SHAPE_TARGETS } from './data/soundTaxonomy.js'
 import { MINIMAL_PAIRS, findPairForSound, defaultPair } from './data/minimalPairs.js'
 import { computeMouthMetrics, scoreAgainstTarget } from './lib/mouthMetrics.js'
 import { drawMouthOutline, drawFaceFilter } from './lib/faceOverlay.js'
 import { emaUpdateObject, createTierStabilizer } from './lib/signalSmoothing.js'
-import { playChime, playFanfare } from './lib/sound.js'
+import { playChime, playFanfare, speakSound } from './lib/sound.js'
 import { createGameSession, logAttempt, endGameSession, getWeakSounds } from './lib/api.js'
 import CelebrationOverlay from './components/CelebrationOverlay.jsx'
 import CharacterFilterPicker, { FILTERS } from './components/CharacterFilterPicker.jsx'
@@ -100,6 +100,14 @@ export default function MinimalPairDrill() {
     setPairSource('manual')
     restartWith(next)
   }
+
+  // Speak whichever of the pair is currently up — arguably more valuable
+  // here than in Mirror Mirror, since discrimination drills are partly an
+  // ear-training exercise, not just mouth-shape production.
+  useEffect(() => {
+    if (!baselineSpread || complete || !current) return
+    speakSound(current.label)
+  }, [current, baselineSpread, complete])
 
   const advance = useCallback(() => {
     const isLast = roundIndex + 1 >= ROUND_SIZE
@@ -453,7 +461,16 @@ export default function MinimalPairDrill() {
                 <div className="w-28 h-28 mx-auto mb-6 rounded-2xl bg-ink border border-white/10 flex items-center justify-center p-3">
                   <MouthShapeGuide shape={current.shape} manner={current.manner} tier={tier} className="w-full h-full" />
                 </div>
-                <p className="text-paper text-lg font-medium mb-2 text-center">{target.label}</p>
+                <p className="text-paper text-lg font-medium mb-2 text-center flex items-center justify-center gap-2">
+                  {target.label}
+                  <button
+                    onClick={() => speakSound(current.label)}
+                    className="text-paper/40 hover:text-coral transition-colors"
+                    title="Hear it again"
+                  >
+                    <Volume2 size={16} />
+                  </button>
+                </p>
                 <p className="text-paper/45 text-sm leading-relaxed mb-6 text-center">
                   {current.place} &middot; {current.manner} &middot; {current.voicing}
                 </p>

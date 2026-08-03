@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, CameraOff, RefreshCw } from 'lucide-react'
+import { ArrowLeft, CameraOff, RefreshCw, Volume2 } from 'lucide-react'
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision'
 import { SOUNDS, SHAPE_TARGETS } from './data/soundTaxonomy.js'
 import { computeMouthMetrics, scoreAgainstTarget } from './lib/mouthMetrics.js'
 import { drawMouthOutline, drawFaceFilter } from './lib/faceOverlay.js'
 import { emaUpdateObject, createTierStabilizer } from './lib/signalSmoothing.js'
-import { playChime, playFanfare } from './lib/sound.js'
+import { playChime, playFanfare, speakSound } from './lib/sound.js'
 import { createGameSession, logAttempt, endGameSession, getGameSettings } from './lib/api.js'
 import { useAuth } from '../context/AuthContext'
 import CelebrationOverlay from './components/CelebrationOverlay.jsx'
@@ -82,6 +82,15 @@ export default function MirrorMirror() {
       cancelled = true
     }
   }, [patient?.patient_id])
+
+  // Speak the target sound aloud each time a new round item comes up —
+  // same pattern LipSyncHero already established (speakSound on note
+  // change, gated on calibration being done so it doesn't talk over the
+  // "relax your mouth" setup step).
+  useEffect(() => {
+    if (!baselineSpread || complete || !current) return
+    speakSound(current.label)
+  }, [current, baselineSpread, complete])
 
   const advance = useCallback(() => {
     const isLast = roundIndex + 1 >= roundSize
@@ -406,7 +415,16 @@ export default function MirrorMirror() {
                     <span className="font-display text-2xl font-bold text-coral">{current.label}</span>
                   </div>
                 </div>
-                <p className="text-paper text-lg font-medium mb-2">{target.label}</p>
+                <p className="text-paper text-lg font-medium mb-2 flex items-center gap-2">
+                  {target.label}
+                  <button
+                    onClick={() => speakSound(current.label)}
+                    className="text-paper/40 hover:text-coral transition-colors"
+                    title="Hear it again"
+                  >
+                    <Volume2 size={16} />
+                  </button>
+                </p>
                 <p className="text-paper/45 text-sm leading-relaxed mb-6">
                   {current.place} &middot; {current.manner} &middot; {current.voicing}
                 </p>
