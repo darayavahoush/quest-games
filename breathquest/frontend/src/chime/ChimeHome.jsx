@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { Rocket, Waves, Sparkles, Wind, Droplets, Feather, PawPrint, Mic } from 'lucide-react'
 import ChimeGameCard from './ChimeGameCard.jsx'
 import GameNavbar from '../components/GameNavbar.jsx'
-import { getPassedLevels, getUnlockedLevels, LEVEL_ROUTES } from './lib/levelProgress'
+import { getPassedLevels, getUnlockedLevels, LEVEL_ORDER, LEVEL_ROUTES } from './lib/levelProgress'
+import { getEvents } from './lib/api'
 import './chime-home.css'
 
 const GAMES = [
@@ -33,19 +34,53 @@ const GAMES = [
 ]
 
 export default function ChimeHome() {
-  const [unlocked, setUnlocked] = useState(null) // null = still loading
+  const [passed, setPassed]     = useState(null) // null = still loading
+  const [unlocked, setUnlocked] = useState(null)
+  const [plays, setPlays]       = useState({})
 
   useEffect(() => {
     let cancelled = false
     getPassedLevels()
-      .then(passed => { if (!cancelled) setUnlocked(getUnlockedLevels(passed)) })
-      .catch(() => { if (!cancelled) setUnlocked({ aa: true }) }) // fail-safe: first game only
+      .then(p => {
+        if (cancelled) return
+        setPassed(p)
+        setUnlocked(getUnlockedLevels(p))
+      })
+      .catch(() => { if (!cancelled) { setPassed({}); setUnlocked({ aa: true }) } }) // fail-safe: first game only
+
+    // Play counts — same events list getPassedLevels already fetches, just
+    // tallied per level instead of reduced to pass/fail, so cards can show
+    // "N plays" the way BreathQuest's stars card shows a play count.
+    getEvents()
+      .then(events => {
+        if (cancelled) return
+        const counts = {}
+        for (const e of events) {
+          if (!e.is_valid_attempt) continue
+          counts[e.level_id] = (counts[e.level_id] || 0) + 1
+        }
+        setPlays(counts)
+      })
+      .catch(() => {})
+
     return () => { cancelled = true }
   }, [])
+
+  const passedCount = passed ? LEVEL_ORDER.filter(id => passed[id]).length : 0
+  const totalCount = LEVEL_ORDER.length
 
   return (
     <section className="relative min-h-screen bg-ink overflow-hidden">
       <GameNavbar activeApp="chime" />
+      {/* Progress strip — same mechanic as BreathQuest's total-stars bar,
+          just counting games passed instead of a 0-3 star sum, since
+          Chime's own data is pass/fail rather than graded. */}
+      <div className="relative flex items-center justify-center gap-2 px-6 py-2.5 border-b border-white/10">
+        <span className="text-coral font-bold text-sm">🔔 {passedCount} / {totalCount} games passed</span>
+        {passedCount === totalCount && passed && (
+          <span className="text-xs bg-coral/20 text-coral px-2 py-0.5 rounded-full font-bold">Perfect!</span>
+        )}
+      </div>
       {/* ambient color life behind the grid — quiet, blurred, just enough
           to say "these games are colorful" before you even reach a card */}
       <div className="pointer-events-none absolute inset-0 opacity-[0.14]">
@@ -92,9 +127,21 @@ export default function ChimeHome() {
               accent={g.accent}
               icon={g.icon}
               live={unlocked ? !!unlocked[g.levelId] : g.levelId === 'aa'}
+              passed={passed ? !!passed[g.levelId] : false}
+              plays={plays[g.levelId] || 0}
+              lockedReason={i > 0 ? `Complete ${GAMES[i - 1].title} first` : undefined}
             />
           ))}
         </div>
+
+        {/* All complete! */}
+        {passed && passedCount === totalCount && (
+          <div className="mt-8 p-6 rounded-2xl text-center border border-coral/30 bg-coral/5">
+            <div className="text-4xl mb-2">🏆</div>
+            <p className="chime-display text-xl font-bold text-coral">All games passed!</p>
+            <p className="text-paper/50 text-sm mt-1">Every sound, unlocked. Nice work!</p>
+          </div>
+        )}
       </div>
     </section>
   )
