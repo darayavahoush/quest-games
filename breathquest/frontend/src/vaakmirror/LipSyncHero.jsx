@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, CameraOff, RefreshCw, Volume2 } from 'lucide-react'
+import { ArrowLeft, CameraOff, RefreshCw, Volume2, Lightbulb } from 'lucide-react'
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision'
 import { SOUNDS, SHAPE_TARGETS } from './data/soundTaxonomy.js'
+import { getPhonemeCue } from './data/phonemeCues.js'
 import { computeMouthMetrics, scoreAgainstTarget } from './lib/mouthMetrics.js'
 import { drawMouthOutline, drawFaceFilter } from './lib/faceOverlay.js'
 import { emaUpdateObject, createTierStabilizer } from './lib/signalSmoothing.js'
@@ -483,6 +484,23 @@ export default function LipSyncHero() {
                   No pressure if you miss one — there's always a next note, and
                   stars only ever add up, never subtract.
                 </p>
+
+                {retryCount > 0 && (
+                  <div className="mt-5 rounded-2xl bg-mint/10 border border-mint/25 p-4 flex gap-3">
+                    <Lightbulb size={18} className="text-mint shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-mint text-xs font-semibold uppercase tracking-wide mb-1">
+                        Try this
+                      </p>
+                      <p className="text-paper/80 text-sm leading-relaxed">
+                        {getPhonemeCue(current.id).tip}
+                      </p>
+                      <p className="text-paper/40 text-xs mt-1.5">
+                        Helpful tool: {getPhonemeCue(current.id).tool}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <div className="text-center py-6">

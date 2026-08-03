@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, CameraOff, RefreshCw, Shuffle, Volume2 } from 'lucide-react'
+import { ArrowLeft, CameraOff, RefreshCw, Shuffle, Volume2, Lightbulb } from 'lucide-react'
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision'
 import { SOUNDS, SHAPE_TARGETS } from './data/soundTaxonomy.js'
+import { getPhonemeCue } from './data/phonemeCues.js'
 import { MINIMAL_PAIRS, findPairForSound, defaultPair } from './data/minimalPairs.js'
 import { computeMouthMetrics, scoreAgainstTarget } from './lib/mouthMetrics.js'
 import { drawMouthOutline, drawFaceFilter } from './lib/faceOverlay.js'
@@ -17,6 +18,9 @@ import MouthShapeGuide from './components/MouthShapeGuide.jsx'
 const ROUND_SIZE = 10 // 5 reps of each side of the pair
 const HOLD_MS = 2000
 const CALIB_MS = 1100
+// Same threshold as Mirror Mirror — how long a kid can sit outside the
+// green tier on one side of the pair before we offer a concrete tip.
+const STRUGGLE_MS = 7000
 const MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'
 const WASM_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
@@ -66,6 +70,8 @@ export default function MinimalPairDrill() {
   const [calibProgress, setCalibProgress] = useState(0)
   const calibSamplesRef = useRef([])
   const calibStartRef = useRef(null)
+  const soundStartRef = useRef(null)
+  const [showCue, setShowCue] = useState(false)
 
   const current = round[roundIndex]
   const target = current ? SHAPE_TARGETS[current.shape] : null
@@ -116,6 +122,8 @@ export default function MinimalPairDrill() {
     setHoldProgress(0)
     smoothedRef.current = null
     tierStabilizerRef.current.reset()
+    soundStartRef.current = null
+    setShowCue(false)
 
     if (isLast) {
       playFanfare()
@@ -214,13 +222,19 @@ export default function MinimalPairDrill() {
             }
           }
         } else if (metrics && target) {
+          if (!soundStartRef.current) soundStartRef.current = performance.now()
           smoothedRef.current = emaUpdateObject(smoothedRef.current, metrics, ['openness', 'spread'], 0.3)
           const { score, tier: rawTier } = scoreAgainstTarget(smoothedRef.current, target, baselineSpread)
           const t = tierStabilizerRef.current.update(rawTier)
           frameTier = t
           setTier(t)
 
+          if (t !== 'green' && performance.now() - soundStartRef.current >= STRUGGLE_MS) {
+            setShowCue(true)
+          }
+
           if (t === 'green') {
+            setShowCue(false)
             if (!holdStartRef.current) holdStartRef.current = performance.now()
             const elapsed = performance.now() - holdStartRef.current
             setHoldProgress(Math.min(1, elapsed / HOLD_MS))
@@ -277,6 +291,8 @@ export default function MinimalPairDrill() {
     smoothedRef.current = null
     tierStabilizerRef.current.reset()
     setCelebrate(false)
+    soundStartRef.current = null
+    setShowCue(false)
   }
 
   function restart() {
@@ -292,6 +308,8 @@ export default function MinimalPairDrill() {
     setHoldProgress(0)
     smoothedRef.current = null
     tierStabilizerRef.current.reset()
+    soundStartRef.current = null
+    setShowCue(false)
   }
 
   const activeFilter = FILTERS.find((f) => f.id === filter)
@@ -479,6 +497,23 @@ export default function MinimalPairDrill() {
                   Watch which sound is highlighted — it switches between the two. Hold the green
                   outline for two seconds to move on.
                 </p>
+
+                {showCue && (
+                  <div className="mt-5 rounded-2xl bg-mint/10 border border-mint/25 p-4 flex gap-3">
+                    <Lightbulb size={18} className="text-mint shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-mint text-xs font-semibold uppercase tracking-wide mb-1">
+                        Try this
+                      </p>
+                      <p className="text-paper/80 text-sm leading-relaxed">
+                        {getPhonemeCue(current.id).tip}
+                      </p>
+                      <p className="text-paper/40 text-xs mt-1.5">
+                        Helpful tool: {getPhonemeCue(current.id).tool}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <div className="text-center py-6">

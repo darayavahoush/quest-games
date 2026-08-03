@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, CameraOff, RefreshCw, Volume2 } from 'lucide-react'
+import { ArrowLeft, CameraOff, RefreshCw, Volume2, Lightbulb } from 'lucide-react'
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision'
 import { SOUNDS, SHAPE_TARGETS } from './data/soundTaxonomy.js'
+import { getPhonemeCue } from './data/phonemeCues.js'
 import { computeMouthMetrics, scoreAgainstTarget } from './lib/mouthMetrics.js'
 import { drawMouthOutline, drawFaceFilter } from './lib/faceOverlay.js'
 import { emaUpdateObject, createTierStabilizer } from './lib/signalSmoothing.js'
@@ -17,6 +18,12 @@ import MouthShapeGuide from './components/MouthShapeGuide.jsx'
 const DEFAULT_ROUND_SIZE = 12
 const HOLD_MS = 2000
 const CALIB_MS = 1100
+// How long a kid can sit outside the green tier on one sound before we
+// offer a concrete "here's what to try" tip instead of just the passive
+// mouth-shape outline. Long enough that it doesn't fire on kids who are
+// just taking a breath between tries, short enough that it shows up
+// before frustration does.
+const STRUGGLE_MS = 7000
 const MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'
 const WASM_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
@@ -61,6 +68,8 @@ export default function MirrorMirror() {
   const [calibProgress, setCalibProgress] = useState(0)
   const calibSamplesRef = useRef([])
   const calibStartRef = useRef(null)
+  const soundStartRef = useRef(null)
+  const [showCue, setShowCue] = useState(false)
 
   const current = round[roundIndex]
   const target = current ? SHAPE_TARGETS[current.shape] : null
@@ -99,6 +108,8 @@ export default function MirrorMirror() {
     setHoldProgress(0)
     smoothedRef.current = null
     tierStabilizerRef.current.reset()
+    soundStartRef.current = null
+    setShowCue(false)
 
     if (isLast) {
       playFanfare()
@@ -201,13 +212,22 @@ export default function MirrorMirror() {
             }
           }
         } else if (metrics && target) {
+          if (!soundStartRef.current) soundStartRef.current = performance.now()
           smoothedRef.current = emaUpdateObject(smoothedRef.current, metrics, ['openness', 'spread'], 0.3)
           const { score, tier: rawTier } = scoreAgainstTarget(smoothedRef.current, target, baselineSpread)
           const t = tierStabilizerRef.current.update(rawTier)
           frameTier = t
           setTier(t)
 
+          // Same shape not landing after a while — surface a concrete,
+          // hands-on tip instead of leaving them stuck on the passive
+          // outline alone.
+          if (t !== 'green' && performance.now() - soundStartRef.current >= STRUGGLE_MS) {
+            setShowCue(true)
+          }
+
           if (t === 'green') {
+            setShowCue(false)
             if (!holdStartRef.current) holdStartRef.current = performance.now()
             const elapsed = performance.now() - holdStartRef.current
             setHoldProgress(Math.min(1, elapsed / HOLD_MS))
@@ -264,6 +284,8 @@ export default function MirrorMirror() {
     smoothedRef.current = null
     tierStabilizerRef.current.reset()
     setCelebrate(false)
+    soundStartRef.current = null
+    setShowCue(false)
   }
 
   function recalibrate() {
@@ -275,6 +297,8 @@ export default function MirrorMirror() {
     setHoldProgress(0)
     smoothedRef.current = null
     tierStabilizerRef.current.reset()
+    soundStartRef.current = null
+    setShowCue(false)
   }
 
   const activeFilter = FILTERS.find((f) => f.id === filter)
@@ -433,6 +457,23 @@ export default function MirrorMirror() {
                   Hold the green outline for two seconds to move to the next sound. No
                   score is shown — just keep going at your own pace.
                 </p>
+
+                {showCue && (
+                  <div className="mt-5 rounded-2xl bg-mint/10 border border-mint/25 p-4 flex gap-3">
+                    <Lightbulb size={18} className="text-mint shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-mint text-xs font-semibold uppercase tracking-wide mb-1">
+                        Try this
+                      </p>
+                      <p className="text-paper/80 text-sm leading-relaxed">
+                        {getPhonemeCue(current.id).tip}
+                      </p>
+                      <p className="text-paper/40 text-xs mt-1.5">
+                        Helpful tool: {getPhonemeCue(current.id).tool}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <div className="text-center py-6">
