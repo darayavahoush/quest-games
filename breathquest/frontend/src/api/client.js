@@ -156,6 +156,14 @@ export const meAPI = {
   progress: () => api.get('/me/progress'),
 }
 
+// ------------------------------------------------------------------ //
+//  Parent-facing                                                      //
+// ------------------------------------------------------------------ //
+
+export const parentAPI = {
+  progress: () => api.get('/parent/progress'),
+}
+
 // FastAPI's `detail` field is a plain string for most HTTPExceptions (e.g.
 // "Invalid email or password"), but automatic Pydantic request-validation
 // failures (422s — e.g. an email that fails EmailStr's format check) return
