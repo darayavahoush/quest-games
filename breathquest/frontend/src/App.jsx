@@ -10,6 +10,7 @@ import KidPlay            from './pages/kid/Play'
 import LevelSelect        from './pages/kid/LevelSelect'
 import GamePage           from './pages/kid/GamePage'
 import GamePicker         from './pages/kid/GamePicker'
+import MyProgress         from './pages/kid/MyProgress'
 import VaakMirrorHome     from './vaakmirror/VaakMirrorHome'
 import MirrorMirror       from './vaakmirror/MirrorMirror'
 import TongueTamer        from './vaakmirror/TongueTamer'
@@ -114,6 +115,9 @@ function AppRoutes() {
       } />
       <Route path="/play/levels" element={
         <ProtectedKid><LevelSelect /></ProtectedKid>
+      } />
+      <Route path="/play/progress" element={
+        <ProtectedKid><MyProgress /></ProtectedKid>
       } />
       <Route path="/play/game/:levelId" element={
         <ProtectedKid><GamePage /></ProtectedKid>

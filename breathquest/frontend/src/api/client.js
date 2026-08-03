@@ -148,6 +148,14 @@ export const vaakmirrorAPI = {
   getPatientDashboard: (patientId) => api.get(`/vaakmirror/patients/${patientId}/dashboard`),
 }
 
+// ------------------------------------------------------------------ //
+//  Kid-facing "my progress" — deliberately minimal endpoint, no scores //
+// ------------------------------------------------------------------ //
+
+export const meAPI = {
+  progress: () => api.get('/me/progress'),
+}
+
 // FastAPI's `detail` field is a plain string for most HTTPExceptions (e.g.
 // "Invalid email or password"), but automatic Pydantic request-validation
 // failures (422s — e.g. an email that fails EmailStr's format check) return
