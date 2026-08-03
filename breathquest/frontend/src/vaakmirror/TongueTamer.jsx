@@ -15,9 +15,14 @@ import TongueShapeGuide from './components/TongueShapeGuide.jsx'
 import CelebrationOverlay from './components/CelebrationOverlay.jsx'
 
 const ROUND_SIZE = 10
-const HOLD_MS = 1800
+const HOLD_MS = 2500
 const OPEN_THRESHOLD = 0.22
 const CALIB_MS = 1400
+// After this long stuck on one move without landing it, log it honestly
+// as missed and move on — same cap Mirror Mirror / Minimal Pair Drill use,
+// so no move can leave a kid stuck with no forward progress.
+const STRUGGLE_MS = 7000
+const MAX_ATTEMPTS = 3
 const MIN_CALIB_SAMPLES = 6
 const MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'
@@ -59,6 +64,7 @@ export default function TongueTamer() {
   const calibSamplesRef = useRef([])
   const calibLateralSamplesRef = useRef([])
   const calibStartRef = useRef(null)
+  const moveStartRef = useRef(null)
 
   const [status, setStatus] = useState('loading') // loading | ready | denied | error
   const [calibrated, setCalibrated] = useState(false)
@@ -85,21 +91,23 @@ export default function TongueTamer() {
     speakSound(current.instruction)
   }, [current, calibrated, complete])
 
-  const advance = useCallback(() => {
+  const advance = useCallback((opts = {}) => {
+    const { skipped = false } = opts
     const isLast = roundIndex + 1 >= ROUND_SIZE
-    setStars((s) => Math.min(ROUND_SIZE, s + 1))
+    if (!skipped) setStars((s) => Math.min(ROUND_SIZE, s + 1))
     holdStartRef.current = null
     setHoldProgress(0)
     smoothedTongueRef.current = null
     tierStabilizerRef.current.reset()
+    moveStartRef.current = null
 
     if (isLast) {
       playFanfare()
       setComplete(true)
       if (sessionIdRef.current) endGameSession(sessionIdRef.current).catch(() => {})
     } else {
-      playChime()
-      setCelebrate(true)
+      if (!skipped) playChime()
+      setCelebrate(!skipped)
       setRoundIndex((i) => i + 1)
     }
   }, [roundIndex])
@@ -220,6 +228,20 @@ export default function TongueTamer() {
             frameTier = t
             setTier(t)
 
+            if (!moveStartRef.current) moveStartRef.current = performance.now()
+
+            if (t !== 'green' && performance.now() - moveStartRef.current >= STRUGGLE_MS * MAX_ATTEMPTS) {
+              if (sessionIdRef.current && current) {
+                logAttempt(sessionIdRef.current, {
+                  sound_id: current.id,
+                  place: current.place,
+                  outcome: 'missed',
+                  score: 0,
+                }).catch(() => {})
+              }
+              advance({ skipped: true })
+            }
+
             if (t === 'green') {
               if (!holdStartRef.current) holdStartRef.current = performance.now()
               const elapsed = performance.now() - holdStartRef.current
@@ -283,6 +305,7 @@ export default function TongueTamer() {
     smoothedTongueRef.current = null
     tierStabilizerRef.current.reset()
     setCelebrate(false)
+    moveStartRef.current = null
   }
 
   const activeFilter = FILTERS.find((f) => f.id === filter)
@@ -290,7 +313,7 @@ export default function TongueTamer() {
 
   return (
     <div className="bg-ink min-h-[calc(100vh-4rem)]">
-      <div className="max-w-4xl mx-auto px-6 py-10">
+      <div className="max-w-5xl mx-auto px-6 py-10">
         <Link to="/play/vaakmirror" className="inline-flex items-center gap-1.5 text-paper/50 hover:text-paper text-sm mb-6">
           <ArrowLeft size={15} /> All games
         </Link>
@@ -312,7 +335,7 @@ export default function TongueTamer() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-[1fr,1fr] gap-6 items-start">
+        <div className="grid md:grid-cols-[3fr,2fr] gap-6 items-start">
           {/* Camera panel */}
           <div className="relative">
             <div

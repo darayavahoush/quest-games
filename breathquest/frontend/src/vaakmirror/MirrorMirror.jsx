@@ -16,7 +16,7 @@ import ProgressRing from './components/ProgressRing.jsx'
 import MouthShapeGuide from './components/MouthShapeGuide.jsx'
 
 const DEFAULT_ROUND_SIZE = 12
-const HOLD_MS = 2000
+const HOLD_MS = 3000
 const CALIB_MS = 1100
 // How long a kid can sit outside the green tier on one sound before we
 // offer a concrete "here's what to try" tip instead of just the passive
@@ -24,6 +24,12 @@ const CALIB_MS = 1100
 // just taking a breath between tries, short enough that it shows up
 // before frustration does.
 const STRUGGLE_MS = 7000
+// Cap on how many STRUGGLE_MS windows we let a kid sit on one sound
+// before moving on for them. Mirrors LipSyncHero's existing 3-tries-then-
+// advance pattern (MAX_ATTEMPTS there) — without this, a genuinely
+// difficult sound could leave a kid stuck indefinitely with no forward
+// progress and no path back to it later.
+const MAX_ATTEMPTS = 3
 const MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'
 const WASM_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
@@ -101,9 +107,10 @@ export default function MirrorMirror() {
     speakSound(current.label)
   }, [current, baselineSpread, complete])
 
-  const advance = useCallback(() => {
+  const advance = useCallback((opts = {}) => {
+    const { skipped = false } = opts
     const isLast = roundIndex + 1 >= roundSize
-    setStars((s) => Math.min(roundSize, s + 1))
+    if (!skipped) setStars((s) => Math.min(roundSize, s + 1))
     holdStartRef.current = null
     setHoldProgress(0)
     smoothedRef.current = null
@@ -116,8 +123,8 @@ export default function MirrorMirror() {
       setComplete(true)
       if (sessionIdRef.current) endGameSession(sessionIdRef.current).catch(() => {})
     } else {
-      playChime()
-      setCelebrate(true)
+      if (!skipped) playChime()
+      setCelebrate(!skipped)
       setRoundIndex((i) => i + 1)
     }
   }, [roundIndex, roundSize])
@@ -226,6 +233,24 @@ export default function MirrorMirror() {
             setShowCue(true)
           }
 
+          // Still not landing after MAX_ATTEMPTS full struggle windows —
+          // log it honestly as missed (not a silent skip) and move on,
+          // rather than leaving a kid stuck on one sound with no forward
+          // progress for the rest of the session.
+          if (t !== 'green' && performance.now() - soundStartRef.current >= STRUGGLE_MS * MAX_ATTEMPTS) {
+            if (sessionIdRef.current && current) {
+              logAttempt(sessionIdRef.current, {
+                sound_id: current.id,
+                place: current.place,
+                manner: current.manner,
+                voicing: current.voicing,
+                outcome: 'missed',
+                score: 0,
+              }).catch(() => {})
+            }
+            advance({ skipped: true })
+          }
+
           if (t === 'green') {
             setShowCue(false)
             if (!holdStartRef.current) holdStartRef.current = performance.now()
@@ -306,7 +331,7 @@ export default function MirrorMirror() {
 
   return (
     <div className="bg-ink min-h-[calc(100vh-4rem)]">
-      <div className="max-w-4xl mx-auto px-6 py-10">
+      <div className="max-w-5xl mx-auto px-6 py-10">
         <Link to="/play/vaakmirror" className="inline-flex items-center gap-1.5 text-paper/50 hover:text-paper text-sm mb-6">
           <ArrowLeft size={15} /> All games
         </Link>
@@ -319,7 +344,7 @@ export default function MirrorMirror() {
           <ProgressRing stars={stars} total={roundSize} />
         </div>
 
-        <div className="grid md:grid-cols-[1fr,1fr] gap-6 items-start">
+        <div className="grid md:grid-cols-[3fr,2fr] gap-6 items-start">
           {/* Camera panel */}
           <div className="relative">
             <div

@@ -326,7 +326,7 @@ export default function LipSyncHero() {
 
   return (
     <div className="bg-ink min-h-[calc(100vh-4rem)]">
-      <div className="max-w-4xl mx-auto px-6 py-10">
+      <div className="max-w-5xl mx-auto px-6 py-10">
         <Link to="/play/vaakmirror" className="inline-flex items-center gap-1.5 text-paper/50 hover:text-paper text-sm mb-6">
           <ArrowLeft size={15} /> All games
         </Link>
@@ -349,7 +349,7 @@ export default function LipSyncHero() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-[1fr,1fr] gap-6 items-start">
+        <div className="grid md:grid-cols-[3fr,2fr] gap-6 items-start">
           {/* Camera panel */}
           <div className="relative">
             <div

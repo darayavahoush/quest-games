@@ -16,11 +16,15 @@ import ProgressRing from './components/ProgressRing.jsx'
 import MouthShapeGuide from './components/MouthShapeGuide.jsx'
 
 const ROUND_SIZE = 10 // 5 reps of each side of the pair
-const HOLD_MS = 2000
+const HOLD_MS = 3000
 const CALIB_MS = 1100
 // Same threshold as Mirror Mirror — how long a kid can sit outside the
 // green tier on one side of the pair before we offer a concrete tip.
 const STRUGGLE_MS = 7000
+// Same cap as Mirror Mirror — after this many struggle windows on one
+// side of the pair, log it honestly as missed and move on rather than
+// leaving a kid stuck with no forward progress.
+const MAX_ATTEMPTS = 3
 const MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'
 const WASM_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
@@ -115,9 +119,10 @@ export default function MinimalPairDrill() {
     speakSound(current.label)
   }, [current, baselineSpread, complete])
 
-  const advance = useCallback(() => {
+  const advance = useCallback((opts = {}) => {
+    const { skipped = false } = opts
     const isLast = roundIndex + 1 >= ROUND_SIZE
-    setStars((s) => Math.min(ROUND_SIZE, s + 1))
+    if (!skipped) setStars((s) => Math.min(ROUND_SIZE, s + 1))
     holdStartRef.current = null
     setHoldProgress(0)
     smoothedRef.current = null
@@ -130,8 +135,8 @@ export default function MinimalPairDrill() {
       setComplete(true)
       if (sessionIdRef.current) endGameSession(sessionIdRef.current).catch(() => {})
     } else {
-      playChime()
-      setCelebrate(true)
+      if (!skipped) playChime()
+      setCelebrate(!skipped)
       setRoundIndex((i) => i + 1)
     }
   }, [roundIndex])
@@ -233,6 +238,20 @@ export default function MinimalPairDrill() {
             setShowCue(true)
           }
 
+          if (t !== 'green' && performance.now() - soundStartRef.current >= STRUGGLE_MS * MAX_ATTEMPTS) {
+            if (sessionIdRef.current && current) {
+              logAttempt(sessionIdRef.current, {
+                sound_id: current.id,
+                place: current.place,
+                manner: current.manner,
+                voicing: current.voicing,
+                outcome: 'missed',
+                score: 0,
+              }).catch(() => {})
+            }
+            advance({ skipped: true })
+          }
+
           if (t === 'green') {
             setShowCue(false)
             if (!holdStartRef.current) holdStartRef.current = performance.now()
@@ -318,7 +337,7 @@ export default function MinimalPairDrill() {
 
   return (
     <div className="bg-ink min-h-[calc(100vh-4rem)]">
-      <div className="max-w-4xl mx-auto px-6 py-10">
+      <div className="max-w-5xl mx-auto px-6 py-10">
         <Link to="/play/vaakmirror" className="inline-flex items-center gap-1.5 text-paper/50 hover:text-paper text-sm mb-6">
           <ArrowLeft size={15} /> All games
         </Link>
@@ -357,7 +376,7 @@ export default function MinimalPairDrill() {
           </div>
         </div>
 
-        <div className="grid md:grid-cols-[1fr,1fr] gap-6 items-start">
+        <div className="grid md:grid-cols-[3fr,2fr] gap-6 items-start">
           {/* Camera panel */}
           <div className="relative">
             <div
