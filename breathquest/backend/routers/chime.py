@@ -192,44 +192,9 @@ RECENT_WINDOW = 10
 
 @router.get("/difficulty/{level_id}", response_model=DifficultyDecision)
 def get_difficulty(level_id: str, patient: Patient = Depends(get_current_patient)):
-    events = data_store.get_events(child_id=patient.id, db_path=DB_PATH)
-    level_events = [e for e in events if e["level_id"] == level_id]
-    recent = level_events[-RECENT_WINDOW:]
-
-    if len(recent) < 3:
-        return DifficultyDecision(
-            action="hold",
-            message="Not enough recent attempts yet — holding difficulty steady.",
-            n_events_considered=len(recent),
-        )
-
-    valid = [e for e in recent if e["is_valid_attempt"]]
-    success_rate = sum(1 for e in valid if e["score"] >= 0.6) / len(recent)
-    quit_rate = sum(1 for e in recent if e["quit_flag"]) / len(recent)
-
-    if quit_rate > 0.3:
-        return DifficultyDecision(
-            action="lower",
-            message="A few tough attempts recently — let's make it a bit easier.",
-            n_events_considered=len(recent),
-        )
-    if success_rate > 0.8:
-        return DifficultyDecision(
-            action="raise",
-            message="Doing great! Let's raise the challenge a little.",
-            n_events_considered=len(recent),
-        )
-    if success_rate < 0.4:
-        return DifficultyDecision(
-            action="lower",
-            message="Let's ease up a bit so this feels achievable.",
-            n_events_considered=len(recent),
-        )
-    return DifficultyDecision(
-        action="hold",
-        message="Good steady progress — holding difficulty steady.",
-        n_events_considered=len(recent),
-    )
+    # Delegates to agent.service.AgentService — the same non-learning fallback
+    # heuristic BreathQuest's own levels now use too (routers/breath_agent.py).
+    return DifficultyDecision(**_agent_service.simple_difficulty_heuristic(patient.id, level_id))
 
 
 # ============================================================
@@ -343,91 +308,18 @@ async def score_phoneme(
 
 # ============================================================
 # Trained-agent decisions
+#
+# Delegates to agent.service.AgentService (shared with routers/breath_agent.py
+# — see that module's docstring for why BreathQuest's own levels reuse this
+# same instance rather than a second copy of the ladder).
 # ============================================================
-AGENT_MODELS_DIR = Path(__file__).resolve().parent.parent / "agent" / "models"
-ACTION_LABELS = ["lower", "hold", "raise"]
+from agent.service import AgentService
 
-_ppo_model = None
-_recurrent_ppo_model = None
-_shared_bandit_agent = None
-_recurrent_states: dict = {}
-_pending_transitions: dict = {}
-
-LIVE_ALP_SCALE = 4.0
-
-
-def _compute_reward(obs, next_obs, quit_flag: bool) -> float:
-    old_success_rate = float(obs[0])
-    new_success_rate = float(next_obs[0])
-    frustration = float(next_obs[2])
-    reward = LIVE_ALP_SCALE * abs(new_success_rate - old_success_rate)
-    reward -= frustration * 0.5
-    if quit_flag:
-        reward -= 1.0
-    return float(reward)
+_agent_service = AgentService(db_path=DB_PATH, recent_window=RECENT_WINDOW)
 
 
 def _maybe_update_tabular_q_from_new_event(child_id: str, level_id: str, quit_flag: bool):
-    key = (child_id, level_id)
-    pending = _pending_transitions.pop(key, None)
-    if pending is None:
-        return
-
-    from agent.child_q_store import update_child_agent_from_transition
-    next_obs, _n = _build_obs(child_id, level_id)
-    reward = _compute_reward(pending["obs"], next_obs, quit_flag)
-    update_child_agent_from_transition(
-        child_id, pending["obs"], pending["action"], reward, next_obs, quit_flag,
-    )
-
-
-def _action_message(action: str) -> str:
-    return {
-        "raise": "Doing great! Let's raise the challenge a little.",
-        "lower": "Let's ease up a bit so this feels achievable.",
-        "hold": "Good steady progress — holding difficulty steady.",
-    }[action]
-
-
-def _build_obs(child_id: str, level_id: str):
-    events = data_store.get_events(child_id=child_id, db_path=DB_PATH)
-    level_events = [e for e in events if e["level_id"] == level_id]
-    recent = level_events[-RECENT_WINDOW:]
-
-    if not recent:
-        return np.array([0.5, 0.5, 0.0], dtype=np.float32), 0
-
-    valid = [e for e in recent if e["is_valid_attempt"]]
-    success_rate = (sum(1 for e in valid if e["score"] >= 0.6) / len(recent)) if recent else 0.0
-    last_threshold = recent[-1].get("threshold_at_time")
-    difficulty = last_threshold if last_threshold is not None else 0.5
-    frustration = sum(1 for e in recent if e["quit_flag"]) / len(recent)
-
-    return np.array([success_rate, difficulty, frustration], dtype=np.float32), len(recent)
-
-
-def _get_ppo_model():
-    global _ppo_model
-    if _ppo_model is None:
-        from stable_baselines3 import PPO
-        _ppo_model = PPO.load(str(AGENT_MODELS_DIR / "ppo_difficulty.zip"))
-    return _ppo_model
-
-
-def _get_recurrent_ppo_model():
-    global _recurrent_ppo_model
-    if _recurrent_ppo_model is None:
-        from sb3_contrib import RecurrentPPO
-        _recurrent_ppo_model = RecurrentPPO.load(str(AGENT_MODELS_DIR / "recurrent_ppo_difficulty.zip"))
-    return _recurrent_ppo_model
-
-
-def _get_shared_bandit():
-    global _shared_bandit_agent
-    if _shared_bandit_agent is None:
-        from agent.baselines import EpsilonGreedyBanditAgent
-        _shared_bandit_agent = EpsilonGreedyBanditAgent()
-    return _shared_bandit_agent
+    _agent_service.maybe_update_tabular_q_from_new_event(child_id, level_id, quit_flag)
 
 
 @router.get("/agent/decide/{level_id}", response_model=AgentDecisionOut)
@@ -436,56 +328,10 @@ def agent_decide(
     policy: Literal["rule_based", "bandit", "tabular_q", "ppo", "recurrent_ppo"] = "tabular_q",
     patient: Patient = Depends(get_current_patient),
 ):
-    obs, n_events = _build_obs(patient.id, level_id)
-
-    if n_events < 3:
-        return AgentDecisionOut(
-            policy=policy,
-            action="hold",
-            n_events_considered=n_events,
-            message="Not enough recent attempts yet — holding difficulty steady.",
-        )
-
-    if policy == "rule_based":
-        from agent.baselines import RuleBasedAgent
-        action_idx = RuleBasedAgent().act(obs)
-
-    elif policy == "bandit":
-        action_idx = _get_shared_bandit().act(obs)
-
-    elif policy == "tabular_q":
-        from agent.child_q_store import load_child_agent
-        action_idx = load_child_agent(patient.id).act(obs)
-        _pending_transitions[(patient.id, level_id)] = {"obs": obs, "action": action_idx}
-
-    elif policy == "ppo":
-        try:
-            model = _get_ppo_model()
-        except FileNotFoundError as exc:
-            raise HTTPException(status_code=503, detail=f"PPO model not found: {exc}") from exc
-        action_idx, _ = model.predict(obs, deterministic=True)
-        action_idx = int(action_idx)
-
-    elif policy == "recurrent_ppo":
-        try:
-            model = _get_recurrent_ppo_model()
-        except FileNotFoundError as exc:
-            raise HTTPException(status_code=503, detail=f"Recurrent PPO model not found: {exc}") from exc
-        lstm_state = _recurrent_states.get(patient.id)
-        episode_start = np.array([patient.id not in _recurrent_states])
-        action_arr, lstm_state = model.predict(
-            obs.reshape(1, -1), state=lstm_state, episode_start=episode_start, deterministic=True,
-        )
-        _recurrent_states[patient.id] = lstm_state
-        action_idx = int(action_arr[0])
-
-    else:
-        raise HTTPException(status_code=400, detail=f"Unknown policy: {policy}")
-
-    action = ACTION_LABELS[action_idx]
-    return AgentDecisionOut(
-        policy=policy,
-        action=action,
-        n_events_considered=n_events,
-        message=_action_message(action),
-    )
+    try:
+        result = _agent_service.decide(patient.id, level_id, policy)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=f"Model not found: {exc}") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return AgentDecisionOut(**result)

@@ -1,18 +1,26 @@
 import { drawText, ParticleSystem, rand, clamp } from '../engine/render.js'
+import { DEFAULT_DIFFICULTY, scaleByDifficulty } from '../lib/difficulty.js'
 
 /**
  * Balloon Pop — simplified fun version
  * One big balloon on screen. Blow to inflate it to the star zone. 
  * It slowly deflates if you stop. Hit the zone = star collected = new balloon!
  * Very forgiving, very visual, very satisfying.
+ *
+ * `difficulty` (0..1, from the adaptive-difficulty agent — see
+ * breathquest/backend/routers/breath_agent.py) narrows or widens the target
+ * zone the kid has to hold the balloon in: wider/easier at 0, the original
+ * hand-tuned zone at 0.5, narrower/harder at 1.
  */
 
 const COLORS  = ['#E24B4A','#A855F7','#3B82F6','#10B981','#F97316','#EC4899','#06B6D4']
 const NEEDED  = 7
-const TARGET_MIN = 0.52
-const TARGET_MAX = 0.82
+const ZONE_CENTER = 0.67
 
-export function createBalloonLevel() {
+export function createBalloonLevel(difficulty = DEFAULT_DIFFICULTY) {
+  const zoneWidth = scaleByDifficulty(difficulty, 0.42, 0.30, 0.16)
+  const TARGET_MIN = ZONE_CENTER - zoneWidth / 2
+  const TARGET_MAX = ZONE_CENTER + zoneWidth / 2
   let score      = 0
   let mistakes   = 0
   let t          = 0

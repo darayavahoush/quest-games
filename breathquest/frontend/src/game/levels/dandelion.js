@@ -1,4 +1,5 @@
 import { drawGradientBg, drawText, ParticleSystem, rand, clamp } from '../engine/render.js'
+import { DEFAULT_DIFFICULTY, scaleByDifficulty } from '../lib/difficulty.js'
 
 const SEEDS_NEEDED = 28
 
@@ -29,7 +30,10 @@ class FlyingSeed {
   get alive() { return this.life > 0 && this.x < 900 }
 }
 
-export function createDandelionLevel() {
+// difficulty (0..1, from the adaptive agent) scales how strong a puff has
+// to be to release a seed — 0.5 is the original hand-tuned threshold.
+export function createDandelionLevel(difficulty = DEFAULT_DIFFICULTY) {
+  const PUFF_THRESHOLD = scaleByDifficulty(difficulty, 0.09, 0.15, 0.26)
   let collected  = 0
   let t          = 0
   let spawnT     = 0
@@ -51,7 +55,7 @@ export function createDandelionLevel() {
       t += dt; spawnT += dt; puffCd = Math.max(0, puffCd - dt)
       if (spawnT > 1.8 && spawned < 8) { dandelions.push(new Dandelion(920, rand(180,400))); spawnT=0; spawned++ }
 
-      const isBlowing = breath >= 0.15 // needs a real puff, not a light huff — second-to-last, tougher level
+      const isBlowing = breath >= PUFF_THRESHOLD // needs a real puff, not a light huff — second-to-last, tougher level
       const puffStart = isBlowing && !wasBlowing && puffCd <= 0
       wasBlowing = isBlowing
 

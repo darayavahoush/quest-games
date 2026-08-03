@@ -1,7 +1,11 @@
 import { drawGradientBg, drawText, makeStars, drawStars, ParticleSystem, rand, clamp } from '../engine/render.js'
+import { DEFAULT_DIFFICULTY, scaleByDifficulty } from '../lib/difficulty.js'
 
-export function createPinwheelLevel() {
-  const GOAL   = 2000
+// difficulty (0..1, from the adaptive agent) scales how much total blowing
+// is needed to finish — 0.5 is the original hand-tuned goal (2000, this is
+// the very first level, so the easy/hard range stays gentle).
+export function createPinwheelLevel(difficulty = DEFAULT_DIFFICULTY) {
+  const GOAL   = scaleByDifficulty(difficulty, 1400, 2000, 2800)
   let angle    = 0
   let spinSpd  = 0
   let total    = 0

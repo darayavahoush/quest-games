@@ -1,11 +1,15 @@
 import { drawText, ParticleSystem, rand, clamp } from '../engine/render.js'
+import { DEFAULT_DIFFICULTY, scaleByDifficulty } from '../lib/difficulty.js'
 
 const N = 7
 
 // Candle colors
 const CANDLE_COLS = ['#E24B4A', '#FAC775', '#A8FF6F', '#60A5FA', '#C084FC']
 
-export function createCandleLevel() {
+// difficulty (0..1, from the adaptive agent) scales how sharp a puff has to
+// be to blow a candle out — 0.5 is the original hand-tuned threshold.
+export function createCandleLevel(difficulty = DEFAULT_DIFFICULTY) {
+  const PUFF_THRESHOLD = scaleByDifficulty(difficulty, 0.11, 0.18, 0.30)
   const candles  = Array.from({ length: N }, () => ({ lit: true }))
   let current    = 0
   let puffCd     = 0
@@ -49,7 +53,7 @@ export function createCandleLevel() {
         return done ? { stars: 3, message: 'All candles out! Make a wish! 🎂' } : null
       }
 
-      if (breath >= 0.18 && puffCd <= 0 && candles[current]?.lit) {
+      if (breath >= PUFF_THRESHOLD && puffCd <= 0 && candles[current]?.lit) {
         candles[current].lit = false
         puffCd = 0.9
         const { cx, flameY } = candleGeom(current)

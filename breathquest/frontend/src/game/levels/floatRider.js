@@ -1,4 +1,5 @@
 import { drawGradientBg, drawText, makeStars, ParticleSystem, rand, clamp, lerp } from '../engine/render.js'
+import { DEFAULT_DIFFICULTY, scaleByDifficulty } from '../lib/difficulty.js'
 
 /**
  * Float Rider → Kite Flyer 🪁
@@ -9,13 +10,16 @@ import { drawGradientBg, drawText, makeStars, ParticleSystem, rand, clamp, lerp 
 const N_RINGS   = 6
 const KITE_X    = 160    // kite stays at fixed X, world scrolls
 const SCROLL    = 60     // very slow
-const RISE_SPD  = 220    // how fast kite rises when blowing
 const FALL_SPD  = 55     // very slow sink
 const RING_R    = 72     // very big rings
 const FLOOR_Y   = 500
 const CEIL_Y    = 70
 
-export function createFloatRiderLevel() {
+// difficulty (0..1, from the adaptive agent) scales how fast the kite rises
+// per unit of breath — 0.5 is the original hand-tuned rise speed. Harder
+// means a slower rise, so the kid has to sustain a stronger breath longer.
+export function createFloatRiderLevel(difficulty = DEFAULT_DIFFICULTY) {
+  const RISE_SPD = scaleByDifficulty(difficulty, 280, 220, 160)
   let kiteY       = 310
   let t           = 0
   let worldX      = 0

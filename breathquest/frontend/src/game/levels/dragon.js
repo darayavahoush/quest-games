@@ -1,11 +1,15 @@
 import { drawGradientBg, drawText, ParticleSystem, rand, clamp } from '../engine/render.js'
+import { DEFAULT_DIFFICULTY, scaleByDifficulty } from '../lib/difficulty.js'
 
 const GAP_WIDTHS = [90, 105, 120, 135, 150, 165]
 const PLAT_W     = 190
 const PLAT_H     = 65
 const FLOOR_Y    = 520
 
-export function createDragonLevel() {
+// difficulty (0..1, from the adaptive agent) scales how big a puff of air
+// is needed to breathe fire — 0.5 is the original hand-tuned threshold.
+export function createDragonLevel(difficulty = DEFAULT_DIFFICULTY) {
+  const FIRE_THRESHOLD = scaleByDifficulty(difficulty, 0.08, 0.13, 0.24)
   let gapIndex     = 0
   let firePower    = 0
   let t            = 0
@@ -48,7 +52,7 @@ export function createDragonLevel() {
         return done ? { stars: 3, targetHits: GAP_WIDTHS.length, mistakes: 0, message: 'Dragon master! 🔥 All gaps crossed!' } : null
       }
 
-      const isBlowing = breath >= 0.13 // needs a real puff, not a light huff — this is the expert closer level
+      const isBlowing = breath >= FIRE_THRESHOLD // needs a real puff, not a light huff — this is the expert closer level
       if (isBlowing) {
         firePower = clamp(firePower + (breath + 0.2) * dt * 2.5, 0, 1)
         const mouthPos = _dragonMouthPos(dragonBob)

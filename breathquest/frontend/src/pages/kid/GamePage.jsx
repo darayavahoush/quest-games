@@ -4,6 +4,11 @@ import { sessionsAPI } from '../../api/client'
 import { BreathEngine } from '../../game/engine/BreathEngine.js'
 import { LEVEL_FACTORIES, LEVEL_META } from '../../game/index.js'
 import { calcStars, saveScore, loadScores, isUnlocked, LEVEL_ORDER } from '../../game/scoring/index.js'
+import { getBreathAgentDecision, logBreathEvent } from '../../game/lib/api.js'
+import {
+  DEFAULT_DIFFICULTY, applyAction, loadStoredDifficulty, saveStoredDifficulty,
+  loadAttemptNumber, saveAttemptNumber,
+} from '../../game/lib/difficulty.js'
 
 const W = 800, H = 580
 
@@ -24,6 +29,7 @@ export default function GamePage() {
   const lastTime    = useRef(null)
   const metricsRef  = useRef({ timeSeconds: 0, mistakes: 0, targetHits: 0, puffs: 0, progress: 0 })
   const startTime   = useRef(null)
+  const difficultyRef = useRef(DEFAULT_DIFFICULTY)
 
   const [phase,       setPhase]       = useState('ready')
   const [calProgress, setCalProgress] = useState(0)
@@ -44,6 +50,20 @@ export default function GamePage() {
       const { data } = await sessionsAPI.start({ level_id: levelId })
       sessionRef.current = data.id
     } catch {}
+
+    // Ask the same adaptive-difficulty agent Chime's phoneme levels use
+    // (routers/breath_agent.py -> agent.service.AgentService) whether to
+    // raise/hold/lower this level's difficulty, then nudge our locally
+    // stored value accordingly. Falls back to last-known difficulty if the
+    // backend call fails, so a flaky connection never blocks play.
+    const priorDifficulty = loadStoredDifficulty(levelId)
+    let nextDifficulty = priorDifficulty
+    try {
+      const decision = await getBreathAgentDecision(levelId)
+      nextDifficulty = applyAction(priorDifficulty, decision.action)
+    } catch {}
+    difficultyRef.current = nextDifficulty
+    saveStoredDifficulty(levelId, nextDifficulty)
 
     const engine = new BreathEngine()
     engineRef.current = engine
@@ -87,7 +107,7 @@ export default function GamePage() {
   const startGameLoop = () => {
     const factory = LEVEL_FACTORIES[levelId]
     if (!factory) { setPhase('error'); return }
-    levelRef.current = factory()
+    levelRef.current = factory(difficultyRef.current)
     lastTime.current = performance.now()
 
     const ctx = canvasRef.current?.getContext('2d')
@@ -150,6 +170,22 @@ export default function GamePage() {
         })
       } catch {}
     }
+
+    // Feed this play back to the same adaptive-difficulty agent that just
+    // picked this level's difficulty — score is stars/3 so it lines up with
+    // the same >=0.6-is-a-success convention Chime's events already use.
+    const attemptNumber = loadAttemptNumber(levelId) + 1
+    saveAttemptNumber(levelId, attemptNumber)
+    try {
+      await logBreathEvent({
+        level_id: levelId,
+        attempt_number: attemptNumber,
+        score: stars / 3,
+        is_valid_attempt: true,
+        threshold_at_time: difficultyRef.current,
+        quit_flag: false,
+      })
+    } catch {}
   }, [levelId])
 
   const flushEvents = async () => {
@@ -164,6 +200,23 @@ export default function GamePage() {
     clearInterval(flushTimer.current)
     clearTimeout(breatheTimer.current)
     engineRef.current?.stop()
+  }
+
+  // Backing out mid-level is a real signal for the difficulty agent (same
+  // idea as the quit_flag Chime logs) — only fires while actually playing,
+  // not from the ready/complete/error screens.
+  const logQuitIfPlaying = () => {
+    if (phase !== 'playing' && phase !== 'breathe' && phase !== 'calibrating') return
+    const attemptNumber = loadAttemptNumber(levelId) + 1
+    saveAttemptNumber(levelId, attemptNumber)
+    logBreathEvent({
+      level_id: levelId,
+      attempt_number: attemptNumber,
+      score: 0,
+      is_valid_attempt: false,
+      threshold_at_time: difficultyRef.current,
+      quit_flag: true,
+    }).catch(() => {})
   }
 
   const replay = () => {
@@ -185,7 +238,7 @@ export default function GamePage() {
     <div className="min-h-screen flex flex-col bg-brand-dark">
       {/* Top bar */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-white/10 flex-shrink-0">
-        <button onClick={() => { cleanup(); navigate('/play/levels') }}
+        <button onClick={() => { logQuitIfPlaying(); cleanup(); navigate('/play/levels') }}
                 className="text-white/40 hover:text-white/70 text-sm transition-colors">
           ← Levels
         </button>
