@@ -462,6 +462,7 @@ export default function VillageBuilder() {
     try {
       mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true })
     } catch (err) {
+      console.error('Microphone access failed:', err)
       setMicErrorDetail('Please allow microphone access so your village can hear your words.')
       setPhase('micError')
       return false
@@ -491,7 +492,7 @@ export default function VillageBuilder() {
     playSuccessChime()
     spawnCelebrationParticles()
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      try { mediaRecorderRef.current.stop() } catch (e) { /* already stopped */ }
+      try { mediaRecorderRef.current.stop() } catch { /* already stopped */ }
     }
     setTimeout(() => setFinished(true), 500)
   }, [playSuccessChime, spawnCelebrationParticles])
@@ -563,6 +564,7 @@ export default function VillageBuilder() {
     try {
       recorder = new MediaRecorder(mediaStreamRef.current, { mimeType: 'audio/webm;codecs=opus' })
     } catch (err) {
+      console.error('MediaRecorder unavailable:', err)
       s.listening = false
       setListeningLabel("😕 Voice input isn't available in this browser.")
       return

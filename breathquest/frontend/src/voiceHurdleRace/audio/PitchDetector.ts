@@ -21,7 +21,6 @@ export class PitchDetector {
   detectPitch(buffer: Float32Array): number | null {
     const bufferSize = buffer.length;
     const yinBuffer = new Float32Array(bufferSize / 2);
-    let probability = 0;
     let tau;
 
     // Step 1: Difference function
@@ -47,7 +46,6 @@ export class PitchDetector {
         while (tau + 1 < bufferSize / 2 && yinBuffer[tau + 1] < yinBuffer[tau]) {
           tau++;
         }
-        probability = 1 - yinBuffer[tau];
         break;
       }
     }

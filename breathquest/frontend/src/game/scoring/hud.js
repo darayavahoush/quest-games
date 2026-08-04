@@ -6,7 +6,11 @@
 export function drawHUD(ctx, W, H, {
   breathVal, levelName, emoji, color,
   timeSeconds, stars, maxStars = 3,
-  score, scoreLabel, showCombo, combo,
+  // `score` is kept in the options shape for whoever wires this HUD up
+  // (it currently has no callers). Deliberately left undrawn rather than
+  // surfaced — raw scores are kept out of every kid-facing view elsewhere
+  // in the app. scoreLabel/showCombo/combo ARE drawn, further down.
+  score: _score, scoreLabel, showCombo, combo,
 }) {
   // Top bar background
   ctx.fillStyle = 'rgba(0,0,0,0.55)'

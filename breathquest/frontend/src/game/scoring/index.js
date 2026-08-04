@@ -53,7 +53,10 @@ export function getGrade(totalStars, maxStars) {
 
 // Calculate stars based on performance metrics
 export function calcStars(levelId, metrics) {
-  const { timeSeconds, mistakes, progress, puffs, targetHits } = metrics
+  // `puffs` now arrives with real data from dandelion.js, but it isn't
+  // factored into star tiers here — that's a difficulty-tuning decision,
+  // not something to guess at while just wiring up a metric.
+  const { timeSeconds, mistakes, progress, puffs: _puffs, targetHits } = metrics
 
   switch (levelId) {
     case 'pinwheel':

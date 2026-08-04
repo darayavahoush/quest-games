@@ -36,6 +36,7 @@ export default function usePhonemeAttempt(levelId, passThreshold = 0.6) {
 
       setStatus('result')
     } catch (err) {
+      console.error('Phoneme attempt scoring failed:', err)
       setError("Something went wrong scoring that attempt — want to try again?")
       setStatus('idle')
     }
@@ -62,6 +63,7 @@ export default function usePhonemeAttempt(levelId, passThreshold = 0.6) {
       recorder.start()
       setStatus('recording')
     } catch (err) {
+      console.error('Microphone access failed:', err)
       setError("Couldn't access the microphone — check permissions and try again.")
     }
   }, [handleRecordingComplete])

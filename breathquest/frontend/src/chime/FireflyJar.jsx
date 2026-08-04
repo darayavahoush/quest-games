@@ -110,10 +110,10 @@ export default function FireflyJar() {
   useEffect(() => { mutedRef.current = muted; localStorage.setItem('firefly_muted', muted) }, [muted])
 
   useEffect(() => {
+    const state = stateRef.current
     return () => {
       cancelAnimationFrame(rafRef.current)
-      const s = stateRef.current
-      if (s.audioCtx) s.audioCtx.close().catch(() => {})
+      if (state.audioCtx) state.audioCtx.close().catch(() => {})
     }
   }, [])
 

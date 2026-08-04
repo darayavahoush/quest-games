@@ -1,4 +1,4 @@
-import { drawGradientBg, drawText, makeStars, ParticleSystem, rand, clamp, lerp } from '../engine/render.js'
+import { drawGradientBg, drawText, ParticleSystem, rand, clamp, lerp } from '../engine/render.js'
 import { DEFAULT_DIFFICULTY, scaleByDifficulty } from '../lib/difficulty.js'
 
 /**

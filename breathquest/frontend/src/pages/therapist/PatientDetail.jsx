@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { dashboardAPI, chimeAPI, vaakmirrorAPI } from '../../api/client'
 import { voiceHurdleRaceApi } from '../../api/voiceHurdleRaceApi'
@@ -58,6 +58,22 @@ export default function PatientDetail() {
   const [newPractice, setNewPractice] = useState({ practiced_on: new Date().toISOString().slice(0, 10), duration_minutes: '', notes: '' })
   const [savingPractice, setSavingPractice] = useState(false)
 
+  const loadCareData = useCallback(() => {
+    setCareLoading(true)
+    Promise.all([
+      dashboardAPI.listAssignments(id),
+      dashboardAPI.listGoals(id),
+      dashboardAPI.listMessages(id),
+      dashboardAPI.listHomePractice(id),
+    ]).then(([a, g, m, h]) => {
+      setAssignments(a.data)
+      setGoals(g.data)
+      setMessages(m.data)
+      setHomePractice(h.data)
+    }).catch(err => { console.error('Failed to load Care tab data:', err); setCareError(true) })
+      .finally(() => setCareLoading(false))
+  }, [id])
+
   useEffect(() => {
     Promise.all([
       dashboardAPI.progress(id),
@@ -97,7 +113,7 @@ export default function PatientDetail() {
     }).finally(() => setAgentLoading(false))
 
     loadCareData()
-  }, [id])
+  }, [id, loadCareData])
 
   useEffect(() => {
     setSummaryLoading(true)
@@ -127,22 +143,6 @@ export default function PatientDetail() {
 
   const dismissAgentSuggestion = (game) => {
     setDismissedSuggestions(prev => ({ ...prev, [game]: true }))
-  }
-
-  const loadCareData = () => {
-    setCareLoading(true)
-    Promise.all([
-      dashboardAPI.listAssignments(id),
-      dashboardAPI.listGoals(id),
-      dashboardAPI.listMessages(id),
-      dashboardAPI.listHomePractice(id),
-    ]).then(([a, g, m, h]) => {
-      setAssignments(a.data)
-      setGoals(g.data)
-      setMessages(m.data)
-      setHomePractice(h.data)
-    }).catch(err => { console.error('Failed to load Care tab data:', err); setCareError(true) })
-      .finally(() => setCareLoading(false))
   }
 
   const saveAssignment = async () => {

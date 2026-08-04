@@ -1,5 +1,6 @@
 import usePhonemeAttempt from './lib/usePhonemeAttempt'
 import PhonemeGameShell from './lib/PhonemeGameShell'
+import { getNextLevelRoute } from './lib/levelProgress'
 
 const LEVEL_ID = 'r'
 
@@ -16,6 +17,7 @@ export default function LionsRoar() {
       passLabel="RAWR! What a roar! 🦁"
       tryAgainLabel='Try a strong, growly "rrrr"'
       promptText='Say a strong, growly "rrrr" like a lion'
+      nextLevelPath={getNextLevelRoute(LEVEL_ID)}
       visual={
         <div className="h-40 flex items-center justify-center">
           <span

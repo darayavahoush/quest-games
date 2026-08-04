@@ -63,12 +63,26 @@ export default function PhonemeGameShell({
             ) : (
               <p className="text-paper/50">{tryAgainLabel}</p>
             )}
-            <button
-              onClick={reset}
-              className={`mt-5 px-6 py-2.5 rounded-full ${bgAccentClass} text-ink-deep font-semibold hover:opacity-90 transition-opacity`}
-            >
-              Try again →
-            </button>
+            {passed && nextLevelPath ? (
+              <div className="flex flex-col items-center gap-3 mt-5">
+                <button
+                  onClick={() => navigate(nextLevelPath)}
+                  className={`px-6 py-2.5 rounded-full ${bgAccentClass} text-ink-deep font-semibold hover:opacity-90 transition-opacity`}
+                >
+                  Next Level →
+                </button>
+                <button onClick={reset} className="text-paper/40 hover:text-paper/70 text-sm underline underline-offset-4">
+                  Play again
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={reset}
+                className={`mt-5 px-6 py-2.5 rounded-full ${bgAccentClass} text-ink-deep font-semibold hover:opacity-90 transition-opacity`}
+              >
+                Try again →
+              </button>
+            )}
           </div>
         )}
 

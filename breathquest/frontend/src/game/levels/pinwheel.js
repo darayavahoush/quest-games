@@ -86,11 +86,15 @@ export function createPinwheelLevel(difficulty = DEFAULT_DIFFICULTY) {
         ctx.lineCap = 'round'; ctx.stroke()
       }
 
-      // HUD
+      // HUD — pulses the "blow" hint when breath has dropped to near-zero,
+      // the same idle cue balloon.js gives, so kids get a live nudge to
+      // keep going rather than a static line that never reacts to them.
+      const idle = total < GOAL && breath < 0.04
+      const pulse = idle ? 0.6 + 0.4 * Math.sin(t * 5) : 1
       const arrows = '▶'.repeat(clamp(Math.floor(Math.abs(spinSpd) / 144), 0, 5))
       drawText(ctx, total < GOAL ? 'Blow to spin the pinwheel! 💨' : 'Amazing! 🎉',
                W/2, 44, { size: 20, bold: true, shadow: true,
-               color: total < GOAL ? '#fff' : '#FAC775' })
+               color: total < GOAL ? (idle ? `rgba(168,255,111,${pulse})` : '#fff') : '#FAC775' })
       drawText(ctx, `Spin ${arrows}`, W/2, H - 36, { size: 16, color: 'rgba(255,255,255,0.5)' })
 
       // Progress bar

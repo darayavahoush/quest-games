@@ -33,7 +33,6 @@ export default function GamePage() {
 
   const [phase,       setPhase]       = useState('ready')
   const [calProgress, setCalProgress] = useState(0)
-  const [breathVal,   setBreathVal]   = useState(0)
   const [result,      setResult]      = useState(null)
   const [earnedStars, setEarnedStars] = useState(0)
   const [starAnim,    setStarAnim]    = useState(0)
@@ -83,7 +82,6 @@ export default function GamePage() {
     }
 
     engine.onBreath = (v) => {
-      setBreathVal(v)
       breathLog.current.push(v)
       eventBatch.current.push({ event_type: 'breath_sample', breath_value: v })
       setDebug({
@@ -223,7 +221,7 @@ export default function GamePage() {
     cleanup()
     breathLog.current = []; eventBatch.current = []
     metricsRef.current = { timeSeconds:0, mistakes:0, targetHits:0, puffs:0, progress:0 }
-    setPhase('ready'); setResult(null); setBreathVal(0); setStarAnim(0)
+    setPhase('ready'); setResult(null); setStarAnim(0)
   }
 
   useEffect(() => () => cleanup(), [])

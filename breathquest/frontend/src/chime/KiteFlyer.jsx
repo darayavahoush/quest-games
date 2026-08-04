@@ -1,5 +1,6 @@
 import usePhonemeAttempt from './lib/usePhonemeAttempt'
 import PhonemeGameShell from './lib/PhonemeGameShell'
+import { getNextLevelRoute } from './lib/levelProgress'
 
 const LEVEL_ID = 'ee'
 
@@ -16,6 +17,7 @@ export default function KiteFlyer() {
       passLabel="Look at it fly! 🪁"
       tryAgainLabel='Try a long, high "eeee"'
       promptText='Say a long, bright "eeee" to lift the kite'
+      nextLevelPath={getNextLevelRoute(LEVEL_ID)}
       visual={
         <div className="h-40 flex items-end justify-center overflow-hidden">
           <span

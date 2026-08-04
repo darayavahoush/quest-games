@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { dashboardAPI, patientsAPI } from '../../api/client'
-import { Button, Card, Badge, Avatar, StarRating, Spinner, PageLoader } from '../../components/ui'
+import { dashboardAPI } from '../../api/client'
+import { Button, Card, Badge, Avatar, PageLoader } from '../../components/ui'
 import AddPatientModal from '../../components/therapist/AddPatientModal'
 
 export default function TherapistDashboard() {
@@ -113,9 +113,9 @@ export default function TherapistDashboard() {
 }
 
 function PatientCard({ patient, onClick }) {
-  const starsColor = patient.total_stars >= 12 ? 'green'
-                   : patient.total_stars >= 6  ? 'amber'
-                   : 'gray'
+  const starsColor = patient.total_stars >= 12 ? 'text-brand-green'
+                   : patient.total_stars >= 6  ? 'text-yellow-400'
+                   : 'text-white/50'
   return (
     <button onClick={onClick}
       className="card text-left hover:border-brand-green/40 hover:bg-brand-green/5
@@ -137,7 +137,7 @@ function PatientCard({ patient, onClick }) {
           <p className="text-white/30 text-xs">sessions</p>
         </div>
         <div>
-          <p className="text-lg font-bold text-yellow-400">{patient.total_stars}</p>
+          <p className={`text-lg font-bold ${starsColor}`}>{patient.total_stars}</p>
           <p className="text-white/30 text-xs">stars</p>
         </div>
         <div>

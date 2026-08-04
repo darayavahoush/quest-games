@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import { LEVELS, LevelProgress, getLevelProgress } from './levels';
-import { Badge, Card, StarRating, Button } from '../components/ui';
+import { Badge, StarRating, Button } from '../components/ui';
 import GameNavbar from '../components/GameNavbar';
 
 interface LevelSelectionProps {
@@ -98,9 +98,7 @@ export default function LevelSelection({ onSelectLevel, onBack }: LevelSelection
                   <div className="flex items-start justify-between mb-3">
                     <span className="text-5xl">{theme.emoji}</span>
                     <div className="flex flex-col items-end gap-1">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-green/20 text-brand-green border border-brand-green/30">
-                        {level.duration}s Race
-                      </span>
+                      <Badge color="green">{level.duration}s Race</Badge>
                     </div>
                   </div>
 

@@ -40,6 +40,7 @@ export function createDandelionLevel(difficulty = DEFAULT_DIFFICULTY) {
   let spawned    = 0
   let wasBlowing = false
   let puffCd     = 0
+  let puffCount  = 0
   let done       = false
   let doneTimer  = 0
   const dandelions = []
@@ -58,6 +59,7 @@ export function createDandelionLevel(difficulty = DEFAULT_DIFFICULTY) {
       const isBlowing = breath >= PUFF_THRESHOLD // needs a real puff, not a light huff — second-to-last, tougher level
       const puffStart = isBlowing && !wasBlowing && puffCd <= 0
       wasBlowing = isBlowing
+      if (puffStart) puffCount++
 
       for (const d of dandelions) { d.update(dt) }
       dandelions.splice(0, dandelions.length, ...dandelions.filter(d => d.alive))
@@ -86,7 +88,7 @@ export function createDandelionLevel(difficulty = DEFAULT_DIFFICULTY) {
       if (collected >= SEEDS_NEEDED && !done) {
         doneTimer += dt
         if (doneTimer > 0.8) done = true
-        return done ? { stars:3, message:'Seeds everywhere! Magical! 🌼' } : null
+        return done ? { stars:3, message:'Seeds everywhere! Magical! 🌼', puffs: puffCount } : null
       }
       return null
     },
@@ -163,7 +165,13 @@ export function createDandelionLevel(difficulty = DEFAULT_DIFFICULTY) {
       ctx.fillStyle='rgba(255,255,255,0.1)'; ctx.beginPath(); ctx.roundRect(bx,16,bw,12,6); ctx.fill()
       if (prog>0) { ctx.fillStyle='#A8FF6F'; ctx.beginPath(); ctx.roundRect(bx,16,bw*prog,12,6); ctx.fill() }
       drawText(ctx, `🌼 Seeds: ${collected} / ${SEEDS_NEEDED}`, W/2, 38, { size:15, bold:true })
-      drawText(ctx, 'Quick puffs to release seeds! 🌬️', W/2, H-28, { size:15, color:'rgba(255,200,80,0.8)' })
+      // Same idle-pulse pattern as pinwheel/balloon — nudges the kid to
+      // puff again once breath has dropped to near-zero, instead of a
+      // hint line that never reacts to what they're actually doing.
+      const idle = collected < SEEDS_NEEDED && breath < 0.05
+      const hintAlpha = idle ? 0.5 + 0.5 * Math.sin(t * 5) : 0.8
+      drawText(ctx, 'Quick puffs to release seeds! 🌬️', W/2, H-28,
+               { size:15, color:`rgba(255,200,80,${hintAlpha})` })
     }
   }
 }

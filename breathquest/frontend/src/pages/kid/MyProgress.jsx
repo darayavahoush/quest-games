@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Flame, Star, Calendar } from 'lucide-react'
-import { useAuth } from '../../context/AuthContext'
 import { Avatar } from '../../components/ui'
 import { meAPI } from '../../api/client'
 
@@ -12,7 +11,6 @@ import { meAPI } from '../../api/client'
 // per-level breakdown, no clinical language, just numbers a kid can be
 // proud of.
 export default function MyProgress() {
-  const { patient } = useAuth()
   const navigate = useNavigate()
   const [progress, setProgress] = useState(null)
   const [status, setStatus] = useState('loading') // loading | ready | error

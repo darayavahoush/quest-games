@@ -64,7 +64,7 @@ export class BreathEngine {
   }
 
   stop() {
-    this._raf && cancelAnimationFrame(this._raf)
+    if (this._raf) cancelAnimationFrame(this._raf)
     this._stream?.getTracks().forEach(t => t.stop())
     this._ctx?.close()
     this.calibrated  = false

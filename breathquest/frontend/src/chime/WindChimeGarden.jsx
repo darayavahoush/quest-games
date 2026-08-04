@@ -116,10 +116,10 @@ export default function WindChimeGarden() {
   useEffect(() => { mutedRef.current = muted; localStorage.setItem('chime_muted', muted) }, [muted])
 
   useEffect(() => {
+    const state = stateRef.current
     return () => {
       cancelAnimationFrame(rafRef.current)
-      const s = stateRef.current
-      if (s.audioCtx) s.audioCtx.close().catch(() => {})
+      if (state.audioCtx) state.audioCtx.close().catch(() => {})
     }
   }, [])
 
