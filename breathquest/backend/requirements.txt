@@ -11,6 +11,9 @@ python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
 bcrypt==4.0.1
 numpy>=1.26.0
+# Used by agent/env.py to train/evaluate the adaptive-difficulty ladder
+# against the student simulator — imported there but was missing here.
+gymnasium>=0.29.0
 python-multipart>=0.0.9
 python-dotenv>=1.0
 

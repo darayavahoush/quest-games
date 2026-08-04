@@ -14,6 +14,7 @@ import numpy as np
 
 from agent.env import DifficultyEnv
 from agent.baselines import RuleBasedAgent, EpsilonGreedyBanditAgent, TabularQAgent
+from agent.child_q_store import save_prior_from_agent, PRIOR_PATH
 
 
 def run_episode_tabular(env, agent, is_q_learning=False, greedy=False):
@@ -104,6 +105,18 @@ if __name__ == "__main__":
     q_rewards = [run_episode_tabular(env, q_agent, is_q_learning=True, greedy=True) for _ in range(args.eval_episodes)]
     summarize("3. Tabular Q-learning", q_rewards)
 
+    # This is what makes every new child's *first* real decision come from
+    # a genuinely-trained policy instead of an empty Q-table — see
+    # agent/child_q_store.py's load_child_agent(): it already looks for
+    # this file and seeds new children from it, but nothing ever actually
+    # generated it before. Without this, argmax([0,0,0]) on a brand-new
+    # child's untrained table deterministically returns index 0 ("lower")
+    # regardless of how they're actually doing — Claude found this while
+    # sanity-checking the agent extension, see commit history for the
+    # repro.
+    save_prior_from_agent(q_agent)
+    print(f"Saved trained tabular-Q agent as the shared cold-start prior -> {PRIOR_PATH}")
+
     # Rung 4: PPO (if a trained model exists)
     try:
         from stable_baselines3 import PPO
@@ -112,6 +125,8 @@ if __name__ == "__main__":
         summarize("4a. PPO", ppo_rewards)
     except FileNotFoundError:
         print(f"4a. PPO                       skipped, no model at {args.ppo_path} — run train_ppo.py first")
+    except ModuleNotFoundError:
+        print("4a. PPO                       skipped, stable-baselines3 not installed")
 
     # Rung 4b: Recurrent PPO (if a trained model exists)
     try:
@@ -121,5 +136,7 @@ if __name__ == "__main__":
         summarize("4b. Recurrent PPO", rppo_rewards)
     except FileNotFoundError:
         print(f"4b. Recurrent PPO             skipped, no model at {args.recurrent_ppo_path} — run train_ppo.py --recurrent first")
+    except ModuleNotFoundError:
+        print("4b. Recurrent PPO             skipped, sb3-contrib not installed")
 
     print()
