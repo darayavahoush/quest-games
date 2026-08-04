@@ -21,12 +21,13 @@ into chime.py — see breathquest/frontend/src/game/lib/api.js.
 
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
 from models.models import Patient
 from core.deps import get_current_patient
 from retraining import data_store
+from retraining.scheduler import run_retrain_if_due
 from agent.service import AgentService
 
 router = APIRouter(prefix="/breath", tags=["breath-agent"])
@@ -74,16 +75,19 @@ class DifficultyDecision(BaseModel):
 
 class AgentDecisionOut(BaseModel):
     policy: str
+    requested_policy: Optional[str] = None
     action: Literal["raise", "lower", "hold"]
     n_events_considered: int
     message: str
+    downgrade_reason: Optional[str] = None
 
 
 # ============================================================
 # Events
 # ============================================================
 @router.post("/events", response_model=BreathEventOut)
-def log_breath_event(event: BreathEventIn, patient: Patient = Depends(get_current_patient)):
+def log_breath_event(event: BreathEventIn, background_tasks: BackgroundTasks,
+                      patient: Patient = Depends(get_current_patient)):
     data_store.add_event(
         child_id=patient.id,
         level_id=event.level_id,
@@ -98,6 +102,10 @@ def log_breath_event(event: BreathEventIn, patient: Patient = Depends(get_curren
     )
 
     _agent_service.maybe_update_tabular_q_from_new_event(patient.id, event.level_id, event.quit_flag)
+    # BreathQuest's own levels used to log real events without ever
+    # triggering the shared-policy retrain check — only Chime did. This is
+    # the fix: same shared, thread-safe trigger Chime uses.
+    background_tasks.add_task(run_retrain_if_due, DB_PATH)
 
     events = data_store.get_events(child_id=patient.id, db_path=DB_PATH)
     latest = events[-1]

@@ -28,6 +28,12 @@ from retraining import data_store
 ACTION_LABELS = ["lower", "hold", "raise"]
 AGENT_MODELS_DIR = Path(__file__).resolve().parent / "models"
 
+# Data-sufficiency thresholds for the learned rungs of the ladder. Below
+# these, decide() silently downgrades to rule_based rather than letting a
+# barely-seeded model (or a model that's never seen this child at all) drive
+# a real difficulty decision — see decide()'s docstring for the full reasoning.
+TABULAR_MIN_CHILD_EVENTS = 20  # this child's own logged events, any level
+
 
 def action_message(action: str) -> str:
     return {
@@ -147,6 +153,40 @@ class AgentService:
         return self._shared_bandit_agent
 
     # ------------------------------------------------------------------
+    # Data-sufficiency gate — decides whether the *requested* policy is
+    # actually safe to run yet, separately from whether there's enough
+    # recent history to make any decision at all (that's the n_events < 3
+    # check in decide() below, which applies to every policy including
+    # rule_based).
+    # ------------------------------------------------------------------
+    def _downgrade_reason(self, child_id: str, policy: str) -> Optional[str]:
+        """None if `policy` is safe to run as requested; otherwise a
+        human-readable reason it's being downgraded to rule_based instead."""
+        if policy == "tabular_q":
+            from agent.child_q_store import Q_TABLES_DIR
+            child_events = data_store.count_events(child_id=child_id, db_path=self.db_path)
+            has_own_table = (Q_TABLES_DIR / f"{child_id}.json").exists()
+            if child_events < TABULAR_MIN_CHILD_EVENTS or not has_own_table:
+                return (
+                    f"tabular_q needs {TABULAR_MIN_CHILD_EVENTS}+ of this child's own logged "
+                    f"events and their own persisted Q-table before it's trusted over the "
+                    f"simulator-seeded prior (this child has {child_events} events and "
+                    f"{'does' if has_own_table else 'does not'} have their own table yet)"
+                )
+            return None
+
+        if policy in ("ppo", "recurrent_ppo"):
+            checkpoint = data_store.get_checkpoint("global", db_path=self.db_path)
+            if checkpoint is None:
+                return (
+                    f"{policy} has never been retrained against real (calibrated) data — "
+                    "only the initial simulator-only model exists — so it isn't trusted yet"
+                )
+            return None
+
+        return None
+
+    # ------------------------------------------------------------------
     # Main entry point — mirrors chime.py's old agent_decide handler
     # ------------------------------------------------------------------
     def decide(self, child_id: str, level_id: str,
@@ -155,28 +195,53 @@ class AgentService:
 
         if n_events < 3:
             return {
-                "policy": policy, "action": "hold", "n_events_considered": n_events,
+                "policy": "rule_based", "requested_policy": policy, "action": "hold",
+                "n_events_considered": n_events,
                 "message": "Not enough recent attempts yet — holding difficulty steady.",
+                "downgrade_reason": (
+                    None if policy == "rule_based"
+                    else "fewer than 3 recent attempts for this level — holding steady regardless of policy"
+                ),
             }
 
-        if policy == "rule_based":
+        effective_policy = policy
+        downgrade_reason = self._downgrade_reason(child_id, policy) if policy != "rule_based" else None
+        if downgrade_reason is not None:
+            effective_policy = "rule_based"
+
+        if effective_policy == "rule_based":
             from agent.baselines import RuleBasedAgent
             action_idx = RuleBasedAgent().act(obs)
 
-        elif policy == "bandit":
+            if policy == "tabular_q":
+                # Downgraded — but still track this as a tabular_q transition
+                # so the child's own Q-table keeps warming up online from
+                # real events even while decisions are served via
+                # rule_based. Without this, a child with no persisted table
+                # yet could never accumulate one: _downgrade_reason above
+                # requires a persisted table to trust tabular_q, but that
+                # table is only ever written from a pending transition set
+                # in this function — so a strictly-gated branch would lock
+                # every new child out of tabular_q permanently instead of
+                # just until they're warmed up.
+                from agent.child_q_store import load_child_agent
+                tabular_action_idx = load_child_agent(child_id).act(obs)
+                self._pending_transitions[(child_id, level_id)] = {"obs": obs, "action": tabular_action_idx}
+
+        elif effective_policy == "bandit":
             action_idx = self._get_shared_bandit().act(obs)
 
-        elif policy == "tabular_q":
+        elif effective_policy == "tabular_q":
             from agent.child_q_store import load_child_agent
             action_idx = load_child_agent(child_id).act(obs)
             self._pending_transitions[(child_id, level_id)] = {"obs": obs, "action": action_idx}
 
-        elif policy == "ppo":
+        elif effective_policy == "ppo":
             model = self._get_ppo_model()
             action_idx, _ = model.predict(obs, deterministic=True)
             action_idx = int(action_idx)
 
-        elif policy == "recurrent_ppo":
+        elif effective_policy == "recurrent_ppo":
             model = self._get_recurrent_ppo_model()
             lstm_state = self._recurrent_states.get(child_id)
             episode_start = np.array([child_id not in self._recurrent_states])
@@ -191,6 +256,7 @@ class AgentService:
 
         action = ACTION_LABELS[action_idx]
         return {
-            "policy": policy, "action": action, "n_events_considered": n_events,
-            "message": action_message(action),
+            "policy": effective_policy, "requested_policy": policy, "action": action,
+            "n_events_considered": n_events, "message": action_message(action),
+            "downgrade_reason": downgrade_reason,
         }

@@ -14,6 +14,8 @@ straightforward improvement once this pipeline is validated end to end —
 noted here rather than silently assumed.
 """
 
+import threading
+
 from . import data_store
 from simulator.simulator_calibration import calibrate_from_events
 
@@ -53,3 +55,41 @@ def maybe_retrain_shared_policy(db_path=None, timesteps: int = 20000, force: boo
         "calibrated_ranges": ranges,
         "model_path": save_path,
     }
+
+
+# ============================================================
+# Shared auto-retrain trigger — used by every caller that logs real events
+# (Chime, BreathQuest, VaakMirror) so they all check/kick off retraining of
+# the *same* shared PPO/RecurrentPPO checkpoint through one lock, instead of
+# each game keeping its own copy and potentially racing to retrain
+# concurrently when two kids in different games log events close together.
+# Originally lived only in routers/chime.py; promoted here once BreathQuest
+# and VaakMirror also started logging real events but weren't triggering
+# any retrain check at all.
+# ============================================================
+_retrain_lock = threading.Lock()
+_retrain_in_progress = False
+
+
+def run_retrain_if_due(db_path=None):
+    global _retrain_in_progress
+    kwargs = {"db_path": db_path} if db_path else {}
+    checkpoint = data_store.get_checkpoint("global", **kwargs)
+    total = data_store.count_events(**kwargs)
+    since = total - (checkpoint["event_count_at_checkpoint"] if checkpoint else 0)
+    if since < GLOBAL_RETRAIN_THRESHOLD:
+        return
+
+    with _retrain_lock:
+        if _retrain_in_progress:
+            return
+        _retrain_in_progress = True
+
+    try:
+        result = maybe_retrain_shared_policy(**kwargs)
+        if result.get("retrained"):
+            print(f"[retraining] auto-retrain complete — {result.get('n_events_used')} events used")
+    except Exception as exc:
+        print(f"[retraining] auto-retrain failed: {exc}")
+    finally:
+        _retrain_in_progress = False

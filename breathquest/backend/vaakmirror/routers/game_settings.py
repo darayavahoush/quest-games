@@ -71,6 +71,9 @@ async def get_game_settings_suggestion(
         n_events_considered=decision["n_events_considered"],
         current_round_size=current,
         suggested_round_size=suggested,
+        policy_used=decision.get("policy"),
+        requested_policy=decision.get("requested_policy"),
+        downgrade_reason=decision.get("downgrade_reason"),
     )
 
 

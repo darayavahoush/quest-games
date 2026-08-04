@@ -8,7 +8,6 @@ uses patient.id internally instead, matching sessions.py's pattern.
 import asyncio
 import os
 import tempfile
-import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, Optional
@@ -23,7 +22,7 @@ from core.deps import get_current_patient, get_current_therapist
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from retraining import data_store
-from retraining.scheduler import GLOBAL_RETRAIN_THRESHOLD, maybe_retrain_shared_policy
+from retraining.scheduler import run_retrain_if_due
 from word_level.asr_match import score_word_attempt
 from audio_features import EXTRACTORS
 
@@ -31,37 +30,6 @@ router = APIRouter(prefix="/chime", tags=["chime"])
 
 # Module-level so tests can override it without needing a real DB file.
 DB_PATH = data_store.DEFAULT_DB_PATH
-
-# ============================================================
-# Auto-retrain: fires in the background once enough new events
-# have piled up since the last checkpoint. Guarded so two events
-# landing close together don't both kick off a retrain.
-# ============================================================
-_retrain_lock = threading.Lock()
-_retrain_in_progress = False
-
-
-def _run_retrain_if_due():
-    global _retrain_in_progress
-    checkpoint = data_store.get_checkpoint("global", db_path=DB_PATH)
-    total = data_store.count_events(db_path=DB_PATH)
-    since = total - (checkpoint["event_count_at_checkpoint"] if checkpoint else 0)
-    if since < GLOBAL_RETRAIN_THRESHOLD:
-        return
-
-    with _retrain_lock:
-        if _retrain_in_progress:
-            return
-        _retrain_in_progress = True
-
-    try:
-        result = maybe_retrain_shared_policy(db_path=DB_PATH)
-        if result.get("retrained"):
-            print(f"[chime] auto-retrain complete — {result.get('n_events_used')} events used")
-    except Exception as exc:
-        print(f"[chime] auto-retrain failed: {exc}")
-    finally:
-        _retrain_in_progress = False
 
 
 # ============================================================
@@ -123,9 +91,11 @@ class PhonemeScoreOut(BaseModel):
 
 class AgentDecisionOut(BaseModel):
     policy: str
+    requested_policy: Optional[str] = None
     action: Literal["raise", "lower", "hold"]
     n_events_considered: int
     message: str
+    downgrade_reason: Optional[str] = None
 
 
 # ============================================================
@@ -147,7 +117,7 @@ def log_event(event: EventIn, background_tasks: BackgroundTasks, patient: Patien
     )
 
     _maybe_update_tabular_q_from_new_event(patient.id, event.level_id, event.quit_flag)
-    background_tasks.add_task(_run_retrain_if_due)
+    background_tasks.add_task(run_retrain_if_due, DB_PATH)
 
     events = data_store.get_events(child_id=patient.id, db_path=DB_PATH)
     latest = events[-1]

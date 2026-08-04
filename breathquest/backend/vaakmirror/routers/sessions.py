@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import Integer, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +11,7 @@ from vaakmirror import agent_bridge
 from vaakmirror.models import Attempt, AttemptOutcome, GameSession, GameSettings
 from vaakmirror.schemas import AttemptCreate, AttemptOut, SessionCreate, SessionOut, WeakSound
 from retraining import data_store
+from retraining.scheduler import run_retrain_if_due
 
 router = APIRouter(tags=["vaakmirror-sessions"])
 logger = logging.getLogger(__name__)
@@ -91,6 +92,7 @@ async def get_weak_sounds(
 @router.patch("/sessions/{session_id}/end", response_model=SessionOut)
 async def end_session(
     session_id: int,
+    background_tasks: BackgroundTasks,
     patient_id: str = Depends(get_current_patient_id),
     db: AsyncSession = Depends(get_db),
 ):
@@ -102,16 +104,22 @@ async def end_session(
     await db.commit()
     await db.refresh(session)
 
-    await _log_session_to_agent(db, session)
+    await _log_session_to_agent(db, session, background_tasks)
 
     return session
 
 
-async def _log_session_to_agent(db: AsyncSession, session: GameSession):
+async def _log_session_to_agent(db: AsyncSession, session: GameSession, background_tasks: BackgroundTasks):
     """Feed this session's result back to the same adaptive-difficulty agent
     Chime and BreathQuest use (see vaakmirror/agent_bridge.py) — keeps the
     kid's per-child agent learning from every app, not just this one. Never
-    lets agent bookkeeping break the actual game flow for the kid."""
+    lets agent bookkeeping break the actual game flow for the kid.
+
+    Also triggers the same shared, thread-safe retrain check Chime and
+    BreathQuest trigger on every event (retraining/scheduler.py) —
+    previously VaakMirror logged real events here but never checked whether
+    a shared-policy retrain was due, so its sessions never contributed
+    toward a PPO/RecurrentPPO retrain the way Chime's did."""
     try:
         stmt = select(
             func.count(Attempt.id).label("attempts"),
@@ -144,5 +152,6 @@ async def _log_session_to_agent(db: AsyncSession, session: GameSession):
         agent_bridge.agent_service.maybe_update_tabular_q_from_new_event(
             session.patient_id, session.game.value, attempts == 0,
         )
+        background_tasks.add_task(run_retrain_if_due, agent_bridge.DB_PATH)
     except Exception:
         logger.exception("Failed to log VaakMirror session %s to the adaptive-difficulty agent", session.id)

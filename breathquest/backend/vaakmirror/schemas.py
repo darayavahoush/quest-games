@@ -147,3 +147,6 @@ class GameSettingsSuggestion(BaseModel):
     n_events_considered: int
     current_round_size: int
     suggested_round_size: int
+    policy_used: Optional[str] = None
+    requested_policy: Optional[str] = None
+    downgrade_reason: Optional[str] = None
