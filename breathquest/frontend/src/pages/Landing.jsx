@@ -104,7 +104,7 @@ export default function Landing() {
             <div className="flex items-center justify-center -space-x-2 mb-2">
               <Avatar avatar="chick" size="sm" />
               <Avatar avatar="dragon" size="sm" />
-              <Avatar avatar="star" size="sm" />
+              <Avatar avatar="fox" size="sm" />
             </div>
             <span className="inline-flex items-center gap-1 text-xs font-semibold text-ember-glow">
               Let's go <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />

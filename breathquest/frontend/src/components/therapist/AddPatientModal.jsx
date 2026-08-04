@@ -9,8 +9,8 @@ import { Button, Input } from '../ui'
 const CHARACTERS = [
   { id: 'chick',  name: 'Chip',     emoji: '🐥', color: '#FAC775' },
   { id: 'dragon', name: 'Blaze',    emoji: '🐉', color: '#E24B4A' },
-  { id: 'cloud',  name: 'Puff',     emoji: '☁️', color: '#6EC6E8' },
-  { id: 'star',   name: 'Twinkle',  emoji: '⭐', color: '#A8FF6F' },
+  { id: 'bunny',  name: 'Puff',     emoji: '🐰', color: '#F5A3C7' },
+  { id: 'fox',    name: 'Ranger',   emoji: '🦊', color: '#E8791A' },
   { id: 'rocket', name: 'Zoom',     emoji: '🚀', color: '#7850DC' },
   { id: 'fish',   name: 'Bubbles',  emoji: '🐠', color: '#1D9E75' },
 ]

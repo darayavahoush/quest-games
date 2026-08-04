@@ -90,8 +90,8 @@ export function Avatar({ avatar = 'chick', size = 'md', name = '' }) {
   const AVATARS = {
     chick:  { emoji: '🐥', bg: 'from-yellow-400 to-orange-400' },
     dragon: { emoji: '🐉', bg: 'from-green-500 to-teal-500' },
-    cloud:  { emoji: '☁️',  bg: 'from-blue-400 to-indigo-400' },
-    star:   { emoji: '⭐', bg: 'from-yellow-300 to-amber-400' },
+    bunny:  { emoji: '🐰', bg: 'from-pink-300 to-rose-400' },
+    fox:    { emoji: '🦊', bg: 'from-orange-600 to-red-600' },
     rocket: { emoji: '🚀', bg: 'from-purple-500 to-pink-500' },
     fish:   { emoji: '🐠', bg: 'from-cyan-400 to-blue-500' },
   }

@@ -599,7 +599,24 @@ export default function PatientDetail() {
                 <p className="text-white/40 text-sm">Couldn't load the weekly summary.</p>
               ) : (
                 <>
-                  <p className="text-white/80 text-sm leading-relaxed mb-3">{weeklySummary.narrative}</p>
+                  <div className="grid grid-cols-3 gap-x-4 gap-y-3 mb-4">
+                    {[
+                      ['BreathQuest', weeklySummary.stats.bq_sessions],
+                      ['— completed', weeklySummary.stats.bq_completed],
+                      ['Chime attempts', weeklySummary.stats.chime_attempts],
+                      ['Assignments done', weeklySummary.stats.assignments_completed],
+                      ['Assignments overdue', weeklySummary.stats.assignments_overdue],
+                      ['Goals open', weeklySummary.stats.goals_open],
+                      ['Goals achieved', weeklySummary.stats.goals_achieved_total],
+                      ['Practice days', `${weeklySummary.stats.home_practice_days}/7`],
+                      ['Practice minutes', weeklySummary.stats.home_practice_minutes],
+                    ].map(([label, value], i) => (
+                      <div key={i}>
+                        <p className="text-lg font-bold text-white leading-tight">{value}</p>
+                        <p className="text-white/40 text-[11px] leading-tight">{label}</p>
+                      </div>
+                    ))}
+                  </div>
                   {weeklySummary.highlights.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {weeklySummary.highlights.map((h, i) => (

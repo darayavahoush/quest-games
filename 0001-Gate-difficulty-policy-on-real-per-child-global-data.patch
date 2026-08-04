@@ -1,0 +1,490 @@
+From 7d19dc50772ddc608f37c5c4124b38fde04cb484 Mon Sep 17 00:00:00 2001
+From: Claude <claude@anthropic.local>
+Date: Tue, 4 Aug 2026 18:44:28 +0000
+Subject: [PATCH] Gate difficulty policy on real per-child/global data, wire
+ retrain trigger into BreathQuest & VaakMirror
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Two real gaps, confirmed against origin/hf-deploy before writing anything:
+
+1. tabular_q/ppo/recurrent_ppo were selectable with no check that there was
+   ever enough real data behind them. A brand-new child's tabular_q ran on
+   a simulator-seeded prior + 15% exploration from event 3 onward; ppo/
+   recurrent_ppo would run the initial simulator-only checkpoint forever
+   since nothing ever forced a retrain check outside Chime.
+
+   agent/service.py: decide() now resolves an effective policy separately
+   from the requested one. tabular_q downgrades to rule_based until a
+   child has 20+ of their own logged events AND their own persisted
+   Q-table exists. ppo/recurrent_ppo downgrade until a real (non-simulator)
+   global retrain checkpoint exists. Response carries requested_policy +
+   downgrade_reason so a downgrade is never silent.
+
+   Caught and fixed a chicken-and-egg bug in my own first draft: a child's
+   Q-table can only ever get persisted via the pending-transition tracked
+   in the tabular_q execution branch, but a tableless child is always
+   downgraded away from that branch under a strict AND gate — permanently
+   locking every new child out, not just temporarily. Fixed by keeping the
+   online Q-learner warming up in the background even while the response
+   is served via rule_based.
+
+2. breath_agent.py's log_breath_event and VaakMirror's
+   _log_session_to_agent both wrote real events via data_store.add_event
+   but never triggered any retrain check — only Chime's log_event did.
+
+   Promoted chime.py's local _run_retrain_if_due + threading lock into a
+   shared retraining/scheduler.run_retrain_if_due(db_path), exported via
+   retraining/__init__.py, so all three games check/trigger against one
+   lock instead of racing to retrain the same shared checkpoint. Wired it
+   into breath_agent.py (new BackgroundTasks param) and VaakMirror's
+   end_session -> _log_session_to_agent (BackgroundTasks threaded through
+   the async path). chime.py switched to the shared function and dropped
+   its now-dead local lock/threading import.
+
+Also surfaced policy_used/requested_policy/downgrade_reason on VaakMirror's
+therapist-facing GameSettingsSuggestion endpoint, matching the other two
+games' AgentDecisionOut schemas.
+
+Verified: all 8 files py_compile clean; retraining package and vaakmirror
+schema chain import for real; routers/chime.py, routers/breath_agent.py,
+vaakmirror/routers/sessions.py, vaakmirror/routers/game_settings.py all
+import end-to-end against the real dependency chain (installed librosa/
+parselmouth/scipy/asyncpg to get there) with source-level confirmation of
+each new call site. Ran a synthetic test against real SQLite/JSON storage
+(no mocks) walking every gate transition: <3 events, downgraded at 5
+events/no table, table persists via the background-warm-up fix, still
+downgraded at 5 events with a table, gate opens at 20+ events; ppo/
+recurrent_ppo downgraded with no checkpoint, gate opens once one exists
+(confirmed by reaching real model-loading code, which then fails only on
+stable_baselines3/sb3_contrib not being installed in this sandbox).
+---
+ breathquest/backend/agent/service.py          | 82 +++++++++++++++++--
+ breathquest/backend/retraining/__init__.py    |  4 +-
+ breathquest/backend/retraining/scheduler.py   | 40 +++++++++
+ breathquest/backend/routers/breath_agent.py   | 12 ++-
+ breathquest/backend/routers/chime.py          | 38 +--------
+ .../vaakmirror/routers/game_settings.py       |  3 +
+ .../backend/vaakmirror/routers/sessions.py    | 17 +++-
+ breathquest/backend/vaakmirror/schemas.py     |  3 +
+ 8 files changed, 149 insertions(+), 50 deletions(-)
+
+diff --git a/breathquest/backend/agent/service.py b/breathquest/backend/agent/service.py
+index 227aec4..3c94a29 100644
+--- a/breathquest/backend/agent/service.py
++++ b/breathquest/backend/agent/service.py
+@@ -28,6 +28,12 @@ from retraining import data_store
+ ACTION_LABELS = ["lower", "hold", "raise"]
+ AGENT_MODELS_DIR = Path(__file__).resolve().parent / "models"
+ 
++# Data-sufficiency thresholds for the learned rungs of the ladder. Below
++# these, decide() silently downgrades to rule_based rather than letting a
++# barely-seeded model (or a model that's never seen this child at all) drive
++# a real difficulty decision — see decide()'s docstring for the full reasoning.
++TABULAR_MIN_CHILD_EVENTS = 20  # this child's own logged events, any level
++
+ 
+ def action_message(action: str) -> str:
+     return {
+@@ -146,6 +152,40 @@ class AgentService:
+             self._shared_bandit_agent = EpsilonGreedyBanditAgent()
+         return self._shared_bandit_agent
+ 
++    # ------------------------------------------------------------------
++    # Data-sufficiency gate — decides whether the *requested* policy is
++    # actually safe to run yet, separately from whether there's enough
++    # recent history to make any decision at all (that's the n_events < 3
++    # check in decide() below, which applies to every policy including
++    # rule_based).
++    # ------------------------------------------------------------------
++    def _downgrade_reason(self, child_id: str, policy: str) -> Optional[str]:
++        """None if `policy` is safe to run as requested; otherwise a
++        human-readable reason it's being downgraded to rule_based instead."""
++        if policy == "tabular_q":
++            from agent.child_q_store import Q_TABLES_DIR
++            child_events = data_store.count_events(child_id=child_id, db_path=self.db_path)
++            has_own_table = (Q_TABLES_DIR / f"{child_id}.json").exists()
++            if child_events < TABULAR_MIN_CHILD_EVENTS or not has_own_table:
++                return (
++                    f"tabular_q needs {TABULAR_MIN_CHILD_EVENTS}+ of this child's own logged "
++                    f"events and their own persisted Q-table before it's trusted over the "
++                    f"simulator-seeded prior (this child has {child_events} events and "
++                    f"{'does' if has_own_table else 'does not'} have their own table yet)"
++                )
++            return None
++
++        if policy in ("ppo", "recurrent_ppo"):
++            checkpoint = data_store.get_checkpoint("global", db_path=self.db_path)
++            if checkpoint is None:
++                return (
++                    f"{policy} has never been retrained against real (calibrated) data — "
++                    "only the initial simulator-only model exists — so it isn't trusted yet"
++                )
++            return None
++
++        return None
++
+     # ------------------------------------------------------------------
+     # Main entry point — mirrors chime.py's old agent_decide handler
+     # ------------------------------------------------------------------
+@@ -155,28 +195,53 @@ class AgentService:
+ 
+         if n_events < 3:
+             return {
+-                "policy": policy, "action": "hold", "n_events_considered": n_events,
++                "policy": "rule_based", "requested_policy": policy, "action": "hold",
++                "n_events_considered": n_events,
+                 "message": "Not enough recent attempts yet — holding difficulty steady.",
++                "downgrade_reason": (
++                    None if policy == "rule_based"
++                    else "fewer than 3 recent attempts for this level — holding steady regardless of policy"
++                ),
+             }
+ 
+-        if policy == "rule_based":
++        effective_policy = policy
++        downgrade_reason = self._downgrade_reason(child_id, policy) if policy != "rule_based" else None
++        if downgrade_reason is not None:
++            effective_policy = "rule_based"
++
++        if effective_policy == "rule_based":
+             from agent.baselines import RuleBasedAgent
+             action_idx = RuleBasedAgent().act(obs)
+ 
+-        elif policy == "bandit":
++            if policy == "tabular_q":
++                # Downgraded — but still track this as a tabular_q transition
++                # so the child's own Q-table keeps warming up online from
++                # real events even while decisions are served via
++                # rule_based. Without this, a child with no persisted table
++                # yet could never accumulate one: _downgrade_reason above
++                # requires a persisted table to trust tabular_q, but that
++                # table is only ever written from a pending transition set
++                # in this function — so a strictly-gated branch would lock
++                # every new child out of tabular_q permanently instead of
++                # just until they're warmed up.
++                from agent.child_q_store import load_child_agent
++                tabular_action_idx = load_child_agent(child_id).act(obs)
++                self._pending_transitions[(child_id, level_id)] = {"obs": obs, "action": tabular_action_idx}
++
++        elif effective_policy == "bandit":
+             action_idx = self._get_shared_bandit().act(obs)
+ 
+-        elif policy == "tabular_q":
++        elif effective_policy == "tabular_q":
+             from agent.child_q_store import load_child_agent
+             action_idx = load_child_agent(child_id).act(obs)
+             self._pending_transitions[(child_id, level_id)] = {"obs": obs, "action": action_idx}
+ 
+-        elif policy == "ppo":
++        elif effective_policy == "ppo":
+             model = self._get_ppo_model()
+             action_idx, _ = model.predict(obs, deterministic=True)
+             action_idx = int(action_idx)
+ 
+-        elif policy == "recurrent_ppo":
++        elif effective_policy == "recurrent_ppo":
+             model = self._get_recurrent_ppo_model()
+             lstm_state = self._recurrent_states.get(child_id)
+             episode_start = np.array([child_id not in self._recurrent_states])
+@@ -191,6 +256,7 @@ class AgentService:
+ 
+         action = ACTION_LABELS[action_idx]
+         return {
+-            "policy": policy, "action": action, "n_events_considered": n_events,
+-            "message": action_message(action),
++            "policy": effective_policy, "requested_policy": policy, "action": action,
++            "n_events_considered": n_events, "message": action_message(action),
++            "downgrade_reason": downgrade_reason,
+         }
+diff --git a/breathquest/backend/retraining/__init__.py b/breathquest/backend/retraining/__init__.py
+index 8b90ecd..bb283f3 100644
+--- a/breathquest/backend/retraining/__init__.py
++++ b/breathquest/backend/retraining/__init__.py
+@@ -1,7 +1,7 @@
+ from .data_store import add_event, get_events, count_events, get_checkpoint, set_checkpoint
+-from .scheduler import maybe_retrain_shared_policy
++from .scheduler import maybe_retrain_shared_policy, run_retrain_if_due
+ 
+ __all__ = [
+     "add_event", "get_events", "count_events", "get_checkpoint", "set_checkpoint",
+-    "maybe_retrain_shared_policy",
++    "maybe_retrain_shared_policy", "run_retrain_if_due",
+ ]
+diff --git a/breathquest/backend/retraining/scheduler.py b/breathquest/backend/retraining/scheduler.py
+index 5ffdc31..cb7c922 100644
+--- a/breathquest/backend/retraining/scheduler.py
++++ b/breathquest/backend/retraining/scheduler.py
+@@ -14,6 +14,8 @@ straightforward improvement once this pipeline is validated end to end —
+ noted here rather than silently assumed.
+ """
+ 
++import threading
++
+ from . import data_store
+ from simulator.simulator_calibration import calibrate_from_events
+ 
+@@ -53,3 +55,41 @@ def maybe_retrain_shared_policy(db_path=None, timesteps: int = 20000, force: boo
+         "calibrated_ranges": ranges,
+         "model_path": save_path,
+     }
++
++
++# ============================================================
++# Shared auto-retrain trigger — used by every caller that logs real events
++# (Chime, BreathQuest, VaakMirror) so they all check/kick off retraining of
++# the *same* shared PPO/RecurrentPPO checkpoint through one lock, instead of
++# each game keeping its own copy and potentially racing to retrain
++# concurrently when two kids in different games log events close together.
++# Originally lived only in routers/chime.py; promoted here once BreathQuest
++# and VaakMirror also started logging real events but weren't triggering
++# any retrain check at all.
++# ============================================================
++_retrain_lock = threading.Lock()
++_retrain_in_progress = False
++
++
++def run_retrain_if_due(db_path=None):
++    global _retrain_in_progress
++    kwargs = {"db_path": db_path} if db_path else {}
++    checkpoint = data_store.get_checkpoint("global", **kwargs)
++    total = data_store.count_events(**kwargs)
++    since = total - (checkpoint["event_count_at_checkpoint"] if checkpoint else 0)
++    if since < GLOBAL_RETRAIN_THRESHOLD:
++        return
++
++    with _retrain_lock:
++        if _retrain_in_progress:
++            return
++        _retrain_in_progress = True
++
++    try:
++        result = maybe_retrain_shared_policy(**kwargs)
++        if result.get("retrained"):
++            print(f"[retraining] auto-retrain complete — {result.get('n_events_used')} events used")
++    except Exception as exc:
++        print(f"[retraining] auto-retrain failed: {exc}")
++    finally:
++        _retrain_in_progress = False
+diff --git a/breathquest/backend/routers/breath_agent.py b/breathquest/backend/routers/breath_agent.py
+index 78958a9..c900bc4 100644
+--- a/breathquest/backend/routers/breath_agent.py
++++ b/breathquest/backend/routers/breath_agent.py
+@@ -21,12 +21,13 @@ into chime.py — see breathquest/frontend/src/game/lib/api.js.
+ 
+ from typing import Literal, Optional
+ 
+-from fastapi import APIRouter, Depends, HTTPException
++from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+ from pydantic import BaseModel
+ 
+ from models.models import Patient
+ from core.deps import get_current_patient
+ from retraining import data_store
++from retraining.scheduler import run_retrain_if_due
+ from agent.service import AgentService
+ 
+ router = APIRouter(prefix="/breath", tags=["breath-agent"])
+@@ -74,16 +75,19 @@ class DifficultyDecision(BaseModel):
+ 
+ class AgentDecisionOut(BaseModel):
+     policy: str
++    requested_policy: Optional[str] = None
+     action: Literal["raise", "lower", "hold"]
+     n_events_considered: int
+     message: str
++    downgrade_reason: Optional[str] = None
+ 
+ 
+ # ============================================================
+ # Events
+ # ============================================================
+ @router.post("/events", response_model=BreathEventOut)
+-def log_breath_event(event: BreathEventIn, patient: Patient = Depends(get_current_patient)):
++def log_breath_event(event: BreathEventIn, background_tasks: BackgroundTasks,
++                      patient: Patient = Depends(get_current_patient)):
+     data_store.add_event(
+         child_id=patient.id,
+         level_id=event.level_id,
+@@ -98,6 +102,10 @@ def log_breath_event(event: BreathEventIn, patient: Patient = Depends(get_curren
+     )
+ 
+     _agent_service.maybe_update_tabular_q_from_new_event(patient.id, event.level_id, event.quit_flag)
++    # BreathQuest's own levels used to log real events without ever
++    # triggering the shared-policy retrain check — only Chime did. This is
++    # the fix: same shared, thread-safe trigger Chime uses.
++    background_tasks.add_task(run_retrain_if_due, DB_PATH)
+ 
+     events = data_store.get_events(child_id=patient.id, db_path=DB_PATH)
+     latest = events[-1]
+diff --git a/breathquest/backend/routers/chime.py b/breathquest/backend/routers/chime.py
+index 25c4092..f8e3568 100644
+--- a/breathquest/backend/routers/chime.py
++++ b/breathquest/backend/routers/chime.py
+@@ -8,7 +8,6 @@ uses patient.id internally instead, matching sessions.py's pattern.
+ import asyncio
+ import os
+ import tempfile
+-import threading
+ from datetime import datetime, timezone
+ from pathlib import Path
+ from typing import Literal, Optional
+@@ -23,7 +22,7 @@ from core.deps import get_current_patient, get_current_therapist
+ from sqlalchemy import select
+ from sqlalchemy.ext.asyncio import AsyncSession
+ from retraining import data_store
+-from retraining.scheduler import GLOBAL_RETRAIN_THRESHOLD, maybe_retrain_shared_policy
++from retraining.scheduler import run_retrain_if_due
+ from word_level.asr_match import score_word_attempt
+ from audio_features import EXTRACTORS
+ 
+@@ -32,37 +31,6 @@ router = APIRouter(prefix="/chime", tags=["chime"])
+ # Module-level so tests can override it without needing a real DB file.
+ DB_PATH = data_store.DEFAULT_DB_PATH
+ 
+-# ============================================================
+-# Auto-retrain: fires in the background once enough new events
+-# have piled up since the last checkpoint. Guarded so two events
+-# landing close together don't both kick off a retrain.
+-# ============================================================
+-_retrain_lock = threading.Lock()
+-_retrain_in_progress = False
+-
+-
+-def _run_retrain_if_due():
+-    global _retrain_in_progress
+-    checkpoint = data_store.get_checkpoint("global", db_path=DB_PATH)
+-    total = data_store.count_events(db_path=DB_PATH)
+-    since = total - (checkpoint["event_count_at_checkpoint"] if checkpoint else 0)
+-    if since < GLOBAL_RETRAIN_THRESHOLD:
+-        return
+-
+-    with _retrain_lock:
+-        if _retrain_in_progress:
+-            return
+-        _retrain_in_progress = True
+-
+-    try:
+-        result = maybe_retrain_shared_policy(db_path=DB_PATH)
+-        if result.get("retrained"):
+-            print(f"[chime] auto-retrain complete — {result.get('n_events_used')} events used")
+-    except Exception as exc:
+-        print(f"[chime] auto-retrain failed: {exc}")
+-    finally:
+-        _retrain_in_progress = False
+-
+ 
+ # ============================================================
+ # Schemas
+@@ -123,9 +91,11 @@ class PhonemeScoreOut(BaseModel):
+ 
+ class AgentDecisionOut(BaseModel):
+     policy: str
++    requested_policy: Optional[str] = None
+     action: Literal["raise", "lower", "hold"]
+     n_events_considered: int
+     message: str
++    downgrade_reason: Optional[str] = None
+ 
+ 
+ # ============================================================
+@@ -147,7 +117,7 @@ def log_event(event: EventIn, background_tasks: BackgroundTasks, patient: Patien
+     )
+ 
+     _maybe_update_tabular_q_from_new_event(patient.id, event.level_id, event.quit_flag)
+-    background_tasks.add_task(_run_retrain_if_due)
++    background_tasks.add_task(run_retrain_if_due, DB_PATH)
+ 
+     events = data_store.get_events(child_id=patient.id, db_path=DB_PATH)
+     latest = events[-1]
+diff --git a/breathquest/backend/vaakmirror/routers/game_settings.py b/breathquest/backend/vaakmirror/routers/game_settings.py
+index 60e4d78..3ddbf2b 100644
+--- a/breathquest/backend/vaakmirror/routers/game_settings.py
++++ b/breathquest/backend/vaakmirror/routers/game_settings.py
+@@ -71,6 +71,9 @@ async def get_game_settings_suggestion(
+         n_events_considered=decision["n_events_considered"],
+         current_round_size=current,
+         suggested_round_size=suggested,
++        policy_used=decision.get("policy"),
++        requested_policy=decision.get("requested_policy"),
++        downgrade_reason=decision.get("downgrade_reason"),
+     )
+ 
+ 
+diff --git a/breathquest/backend/vaakmirror/routers/sessions.py b/breathquest/backend/vaakmirror/routers/sessions.py
+index 70777e8..c45560b 100644
+--- a/breathquest/backend/vaakmirror/routers/sessions.py
++++ b/breathquest/backend/vaakmirror/routers/sessions.py
+@@ -1,7 +1,7 @@
+ from datetime import datetime, timezone
+ import logging
+ 
+-from fastapi import APIRouter, Depends, HTTPException
++from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+ from sqlalchemy import Integer, cast, func, select
+ from sqlalchemy.ext.asyncio import AsyncSession
+ 
+@@ -11,6 +11,7 @@ from vaakmirror import agent_bridge
+ from vaakmirror.models import Attempt, AttemptOutcome, GameSession, GameSettings
+ from vaakmirror.schemas import AttemptCreate, AttemptOut, SessionCreate, SessionOut, WeakSound
+ from retraining import data_store
++from retraining.scheduler import run_retrain_if_due
+ 
+ router = APIRouter(tags=["vaakmirror-sessions"])
+ logger = logging.getLogger(__name__)
+@@ -91,6 +92,7 @@ async def get_weak_sounds(
+ @router.patch("/sessions/{session_id}/end", response_model=SessionOut)
+ async def end_session(
+     session_id: int,
++    background_tasks: BackgroundTasks,
+     patient_id: str = Depends(get_current_patient_id),
+     db: AsyncSession = Depends(get_db),
+ ):
+@@ -102,16 +104,22 @@ async def end_session(
+     await db.commit()
+     await db.refresh(session)
+ 
+-    await _log_session_to_agent(db, session)
++    await _log_session_to_agent(db, session, background_tasks)
+ 
+     return session
+ 
+ 
+-async def _log_session_to_agent(db: AsyncSession, session: GameSession):
++async def _log_session_to_agent(db: AsyncSession, session: GameSession, background_tasks: BackgroundTasks):
+     """Feed this session's result back to the same adaptive-difficulty agent
+     Chime and BreathQuest use (see vaakmirror/agent_bridge.py) — keeps the
+     kid's per-child agent learning from every app, not just this one. Never
+-    lets agent bookkeeping break the actual game flow for the kid."""
++    lets agent bookkeeping break the actual game flow for the kid.
++
++    Also triggers the same shared, thread-safe retrain check Chime and
++    BreathQuest trigger on every event (retraining/scheduler.py) —
++    previously VaakMirror logged real events here but never checked whether
++    a shared-policy retrain was due, so its sessions never contributed
++    toward a PPO/RecurrentPPO retrain the way Chime's did."""
+     try:
+         stmt = select(
+             func.count(Attempt.id).label("attempts"),
+@@ -144,5 +152,6 @@ async def _log_session_to_agent(db: AsyncSession, session: GameSession):
+         agent_bridge.agent_service.maybe_update_tabular_q_from_new_event(
+             session.patient_id, session.game.value, attempts == 0,
+         )
++        background_tasks.add_task(run_retrain_if_due, agent_bridge.DB_PATH)
+     except Exception:
+         logger.exception("Failed to log VaakMirror session %s to the adaptive-difficulty agent", session.id)
+diff --git a/breathquest/backend/vaakmirror/schemas.py b/breathquest/backend/vaakmirror/schemas.py
+index e108f39..9e65c56 100644
+--- a/breathquest/backend/vaakmirror/schemas.py
++++ b/breathquest/backend/vaakmirror/schemas.py
+@@ -147,3 +147,6 @@ class GameSettingsSuggestion(BaseModel):
+     n_events_considered: int
+     current_round_size: int
+     suggested_round_size: int
++    policy_used: Optional[str] = None
++    requested_policy: Optional[str] = None
++    downgrade_reason: Optional[str] = None
+-- 
+2.43.0
+

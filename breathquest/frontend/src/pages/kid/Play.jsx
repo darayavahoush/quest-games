@@ -4,8 +4,8 @@ import { useAuth } from '../../context/AuthContext'
 import { getErrorMessage } from '../../api/client'
 import { Button, Card, Avatar } from '../../components/ui'
 
-const AVATARS = ['chick', 'dragon', 'cloud', 'star', 'rocket', 'fish']
-const AVATAR_NAMES = { chick: 'Chicky', dragon: 'Dino', cloud: 'Cloudy', star: 'Starry', rocket: 'Zoom', fish: 'Finley' }
+const AVATARS = ['chick', 'dragon', 'bunny', 'fox', 'rocket', 'fish']
+const AVATAR_NAMES = { chick: 'Chicky', dragon: 'Dino', bunny: 'Hoppy', fox: 'Foxy', rocket: 'Zoom', fish: 'Finley' }
 
 // Same dusk gradient used across the rest of the kid flow (GamePicker,
 // MyProgress, Landing) — this page previously used two one-off purple/green

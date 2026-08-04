@@ -33,11 +33,21 @@ export default function TherapistDashboard() {
   )
 
   return (
-    <div className="min-h-screen bg-brand-dark">
+    <div className="min-h-screen bg-brand-dark relative">
+      {/* Soft glow accents behind the header — same idea as the login screen's
+          radial panel, so landing here right after signing in doesn't feel
+          like a completely different, flatter app. */}
+      <div className="absolute top-0 left-0 w-full h-72 overflow-hidden pointer-events-none">
+        <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-brand-teal/10 blur-3xl" />
+        <div className="absolute -top-32 right-0 w-96 h-96 rounded-full bg-brand-green/5 blur-3xl" />
+      </div>
+
       {/* Top nav */}
-      <nav className="border-b border-white/10 px-6 py-4 flex items-center justify-between sticky top-0 bg-brand-dark/95 backdrop-blur z-10">
+      <nav className="relative border-b border-white/10 px-6 py-4 flex items-center justify-between sticky top-0 bg-brand-dark/90 backdrop-blur z-10">
         <div className="flex items-center gap-3">
-          <span className="text-2xl">💨</span>
+          <div className="w-9 h-9 rounded-xl bg-brand-teal/15 border border-brand-teal/25 flex items-center justify-center">
+            <span className="text-lg">💨</span>
+          </div>
           <span className="font-display text-xl font-bold text-white">
             Breath<span className="text-brand-green">Quest</span>
           </span>
@@ -48,7 +58,7 @@ export default function TherapistDashboard() {
         </div>
       </nav>
 
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="relative max-w-6xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>

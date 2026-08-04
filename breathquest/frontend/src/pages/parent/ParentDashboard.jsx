@@ -63,12 +63,29 @@ export default function ParentDashboard() {
 
         {status === 'ready' && data && (
           <>
-            {/* Weekly summary -- the one prose element on this page, everything
-                else is numbers/chips. This is the rule-based (no LLM) narrative
-                dashboard.py already generates for therapists too. */}
+            {/* Weekly summary — dense numbers/chips only, no narrative prose.
+                stats/highlights both come from the rule-based (no LLM)
+                generator dashboard.py already builds for therapists too. */}
             <div className="rounded-2xl border border-mint/20 bg-mint/5 p-6 mb-6">
-              <p className="font-mono text-xs uppercase tracking-widest text-mint mb-2">This week</p>
-              <p className="text-paper text-[15px] leading-relaxed mb-4">{data.weekly_summary.narrative}</p>
+              <p className="font-mono text-xs uppercase tracking-widest text-mint mb-3">This week</p>
+              <div className="grid grid-cols-3 gap-x-4 gap-y-3 mb-4">
+                {[
+                  ['BreathQuest', data.weekly_summary.stats.bq_sessions],
+                  ['— completed', data.weekly_summary.stats.bq_completed],
+                  ['Chime attempts', data.weekly_summary.stats.chime_attempts],
+                  ['Assignments done', data.weekly_summary.stats.assignments_completed],
+                  ['Assignments overdue', data.weekly_summary.stats.assignments_overdue],
+                  ['Goals open', data.weekly_summary.stats.goals_open],
+                  ['Goals achieved', data.weekly_summary.stats.goals_achieved_total],
+                  ['Practice days', `${data.weekly_summary.stats.home_practice_days}/7`],
+                  ['Practice minutes', data.weekly_summary.stats.home_practice_minutes],
+                ].map(([label, value], i) => (
+                  <div key={i}>
+                    <p className="font-display text-lg font-bold text-paper leading-tight">{value}</p>
+                    <p className="text-paper/40 text-[11px] leading-tight">{label}</p>
+                  </div>
+                ))}
+              </div>
               {data.weekly_summary.highlights?.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {data.weekly_summary.highlights.map((h, i) => (
