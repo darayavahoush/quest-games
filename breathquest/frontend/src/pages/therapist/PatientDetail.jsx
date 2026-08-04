@@ -11,6 +11,11 @@ const LEVEL_EMOJIS = {
   balloon: '🎈', dandelion: '🌼', dragon: '🐉'
 }
 
+const VM_GAMES = ['mirror_mirror', 'tongue_tamer', 'lip_sync_hero']
+const VM_GAME_LABELS = {
+  mirror_mirror: 'Mirror Mirror', tongue_tamer: 'Tongue Tamer', lip_sync_hero: 'Lip Sync Hero',
+}
+
 export default function PatientDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -28,6 +33,10 @@ export default function PatientDetail() {
   const [vmDashboard, setVmDashboard] = useState(null)
   const [vmLoading, setVmLoading] = useState(true)
   const [vmError, setVmError] = useState(false)
+  const [agentSuggestions, setAgentSuggestions] = useState({})
+  const [agentLoading, setAgentLoading] = useState(true)
+  const [dismissedSuggestions, setDismissedSuggestions] = useState({})
+  const [applyingSuggestion, setApplyingSuggestion] = useState(null)
 
   // Care tab — Assignments / Goals / Messages / Home Practice / Weekly Summary
   const [assignments, setAssignments] = useState([])
@@ -73,6 +82,20 @@ export default function PatientDetail() {
       .catch(err => { console.error('Failed to load VaakMirror dashboard:', err); setVmError(true) })
       .finally(() => setVmLoading(false))
 
+    // The same adaptive-difficulty agent Chime and BreathQuest use, applied
+    // to VaakMirror's round_size knob (see backend vaakmirror/agent_bridge.py).
+    // Read-only here — a therapist has to accept a suggestion before it
+    // changes anything.
+    Promise.all(
+      VM_GAMES.map(g =>
+        vaakmirrorAPI.getGameSettingsSuggestion(id, g)
+          .then(({ data }) => [g, data])
+          .catch(() => [g, null])
+      )
+    ).then(entries => {
+      setAgentSuggestions(Object.fromEntries(entries.filter(([, v]) => v)))
+    }).finally(() => setAgentLoading(false))
+
     loadCareData()
   }, [id])
 
@@ -83,6 +106,28 @@ export default function PatientDetail() {
       .catch(err => console.error('Failed to load weekly summary:', err))
       .finally(() => setSummaryLoading(false))
   }, [id, weekOffset])
+
+  // Accepting a suggestion goes through the normal update endpoint — same
+  // as if the therapist had typed the number in themselves — so it's always
+  // a human decision on record, never the agent silently changing things.
+  const acceptAgentSuggestion = (game) => {
+    const suggestion = agentSuggestions[game]
+    if (!suggestion) return
+    setApplyingSuggestion(game)
+    vaakmirrorAPI.updateGameSettings(id, game, { round_size: suggestion.suggested_round_size })
+      .then(() => {
+        setAgentSuggestions(prev => ({
+          ...prev,
+          [game]: { ...prev[game], current_round_size: suggestion.suggested_round_size, action: 'hold' },
+        }))
+      })
+      .catch(err => console.error('Failed to apply agent suggestion:', err))
+      .finally(() => setApplyingSuggestion(null))
+  }
+
+  const dismissAgentSuggestion = (game) => {
+    setDismissedSuggestions(prev => ({ ...prev, [game]: true }))
+  }
 
   const loadCareData = () => {
     setCareLoading(true)
@@ -431,6 +476,44 @@ export default function PatientDetail() {
             endpoint directly rather than re-deriving stats client-side. */}
         {tab === 'vaakmirror' && (
           <div className="flex flex-col gap-4">
+            {/* Agent suggestions — the same adaptive-difficulty agent behind
+                Chime and BreathQuest, applied here to round_size. Purely
+                advisory: nothing changes until the therapist hits Accept. */}
+            {!agentLoading && VM_GAMES.some(g => agentSuggestions[g] && agentSuggestions[g].action !== 'hold' && !dismissedSuggestions[g]) && (
+              <div className="flex flex-col gap-2">
+                {VM_GAMES.filter(g => agentSuggestions[g] && agentSuggestions[g].action !== 'hold' && !dismissedSuggestions[g]).map(g => {
+                  const s = agentSuggestions[g]
+                  return (
+                    <Card key={g} className="border border-brand-teal/30 bg-brand-teal/5">
+                      <div className="flex items-start gap-3">
+                        <span className="text-lg leading-none mt-0.5" title="Adaptive agent">🧠</span>
+                        <div className="flex-1">
+                          <p className="text-white text-sm font-medium">{VM_GAME_LABELS[g]}</p>
+                          <p className="text-white/50 text-xs mt-0.5">{s.message}</p>
+                          <p className="text-white/30 text-xs mt-1">
+                            Suggests round size {s.current_round_size} → {s.suggested_round_size}
+                            {' '}(based on {s.n_events_considered} recent sessions)
+                          </p>
+                        </div>
+                        <div className="flex gap-2 shrink-0">
+                          <Button
+                            size="sm"
+                            onClick={() => acceptAgentSuggestion(g)}
+                            disabled={applyingSuggestion === g}
+                          >
+                            {applyingSuggestion === g ? '…' : 'Accept'}
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => dismissAgentSuggestion(g)}>
+                            Dismiss
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  )
+                })}
+              </div>
+            )}
+
             {vmLoading ? (
               <Card className="text-center py-12"><Spinner /></Card>
             ) : vmError ? (

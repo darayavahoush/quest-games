@@ -135,3 +135,15 @@ class GameSettingsOut(BaseModel):
 
 class GameSettingsUpdate(BaseModel):
     round_size: int = Field(ge=1, le=50)
+
+
+class GameSettingsSuggestion(BaseModel):
+    """A read-only recommendation from the shared adaptive-difficulty agent
+    (see agent_bridge.py) — never applied automatically. A therapist accepts
+    it via the normal GameSettingsUpdate/PATCH flow."""
+    game: str
+    action: str  # 'raise' | 'hold' | 'lower'
+    message: str
+    n_events_considered: int
+    current_round_size: int
+    suggested_round_size: int

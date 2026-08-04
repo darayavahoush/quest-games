@@ -146,6 +146,10 @@ export const chimeAPI = {
 
 export const vaakmirrorAPI = {
   getPatientDashboard: (patientId) => api.get(`/vaakmirror/patients/${patientId}/dashboard`),
+  getGameSettingsSuggestion: (patientId, game) =>
+    api.get(`/vaakmirror/patients/${patientId}/game-settings/${game}/suggestion`),
+  updateGameSettings: (patientId, game, payload) =>
+    api.patch(`/vaakmirror/patients/${patientId}/game-settings/${game}`, payload),
 }
 
 // ------------------------------------------------------------------ //
