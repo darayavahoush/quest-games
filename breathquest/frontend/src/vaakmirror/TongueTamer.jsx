@@ -4,7 +4,7 @@ import { ArrowLeft, CameraOff, RefreshCw, ArrowUpCircle, Volume2 } from 'lucide-
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision'
 import { TONGUE_MOVES } from './data/tongueMoves.js'
 import { computeMouthMetrics } from './lib/mouthMetrics.js'
-import { computeTongueMetrics, scoreTongueMove, computeElevationOffset, computeLateralOffset } from './lib/tongueTracking.js'
+import { computeTongueMetrics, scoreTongueMove, computeElevationOffset, computeLateralOffset, computeCavityDarknessOffset } from './lib/tongueTracking.js'
 import { drawMouthOutline, drawFaceFilter, drawTongueArrow } from './lib/faceOverlay.js'
 import { emaUpdate, emaUpdateObject, createTierStabilizer } from './lib/signalSmoothing.js'
 import { playChime, playFanfare, speakSound } from './lib/sound.js'
@@ -61,8 +61,10 @@ export default function TongueTamer() {
   const sessionIdRef = useRef(null)
   const elevationOffsetRef = useRef(0)
   const lateralOffsetRef = useRef(0)
+  const cavityOffsetRef = useRef(0)
   const calibSamplesRef = useRef([])
   const calibLateralSamplesRef = useRef([])
+  const calibCavitySamplesRef = useRef([])
   const calibStartRef = useRef(null)
   const moveStartRef = useRef(null)
 
@@ -195,6 +197,7 @@ export default function TongueTamer() {
             if (!calibStartRef.current) calibStartRef.current = performance.now()
             calibSamplesRef.current.push(calibMetrics.elevation)
             if (calibMetrics.lateral != null) calibLateralSamplesRef.current.push(calibMetrics.lateral)
+            calibCavitySamplesRef.current.push(calibMetrics.cavityDarkness)
             const elapsed = performance.now() - calibStartRef.current
             setCalibProgress(Math.min(1, elapsed / CALIB_MS))
             if (elapsed >= CALIB_MS && calibSamplesRef.current.length >= MIN_CALIB_SAMPLES) {
@@ -203,6 +206,10 @@ export default function TongueTamer() {
               if (calibLateralSamplesRef.current.length >= MIN_CALIB_SAMPLES) {
                 const sortedLat = [...calibLateralSamplesRef.current].sort((a, b) => a - b)
                 lateralOffsetRef.current = computeLateralOffset(sortedLat[Math.floor(sortedLat.length / 2)])
+              }
+              if (calibCavitySamplesRef.current.length >= MIN_CALIB_SAMPLES) {
+                const sortedCav = [...calibCavitySamplesRef.current].sort((a, b) => a - b)
+                cavityOffsetRef.current = computeCavityDarknessOffset(sortedCav[Math.floor(sortedCav.length / 2)])
               }
               setCalibrated(true)
             }
@@ -220,10 +227,10 @@ export default function TongueTamer() {
             smoothedTongueRef.current = emaUpdateObject(
               smoothedTongueRef.current,
               tongueMetrics,
-              ['visibility', 'elevation', 'lateral'],
+              ['visibility', 'elevation', 'lateral', 'cavityDarkness'],
               0.3,
             )
-            const { score, tier: rawTier } = scoreTongueMove(smoothedTongueRef.current, current.target, elevationOffsetRef.current, lateralOffsetRef.current)
+            const { score, tier: rawTier } = scoreTongueMove(smoothedTongueRef.current, current.target, elevationOffsetRef.current, lateralOffsetRef.current, cavityOffsetRef.current)
             const t = tierStabilizerRef.current.update(rawTier)
             frameTier = t
             setTier(t)
@@ -292,9 +299,11 @@ export default function TongueTamer() {
     setCalibProgress(0)
     calibSamplesRef.current = []
     calibLateralSamplesRef.current = []
+    calibCavitySamplesRef.current = []
     calibStartRef.current = null
     elevationOffsetRef.current = 0
     lateralOffsetRef.current = 0
+    cavityOffsetRef.current = 0
     setRound(pickRound())
     setRoundIndex(0)
     setStars(0)

@@ -6,6 +6,13 @@
 // computeTongueMetrics in lib/tongueTracking.js), not a finer slice of the
 // same vertical measurement.
 //
+// 'tongue-back' had the same problem in a subtler form: it was originally
+// scored on low elevation only, which is really just "any low, visible
+// tongue" — not genuinely distinct from a tongue that's simply resting,
+// unpulled. It now also requires cavityDarkness (a proxy for retraction —
+// see lib/tongueTracking.js), a third, independent axis, the same fix
+// lateral was for left/right.
+//
 // IMPORTANT — verify before trusting clinically: 'left'/'right' below are
 // defined in raw camera-space (landmark 61 = left corner, landmark 291 =
 // right corner, same convention as mouthMetrics.js), and the on-screen
@@ -13,7 +20,8 @@
 // target can't drift apart from each other. But whether that lines up with
 // the child's own left/right on the mirrored (scaleX(-1)) display has not
 // been confirmed with a real camera — check this with an actual child
-// before relying on it for real feedback.
+// before relying on it for real feedback. Same goes for the cavityDarkness
+// range on tongue-back below — untested against real kids.
 export const TONGUE_MOVES = [
   {
     id: 'tongue-up',
@@ -28,7 +36,15 @@ export const TONGUE_MOVES = [
     label: 'Tongue tip back',
     instruction: 'Pull your tongue tip back and let it rest low, away from your teeth.',
     arrow: 'back',
-    target: { visibility: [0.04, 1], elevation: [0, 0.42] },
+    // Elevation range only used to require "low" (not raised toward the
+    // roof, which would instead score well on tongue-up). cavityDarkness
+    // is what actually distinguishes a retracted tongue from one that's
+    // just resting low near the teeth — see the cavityDarkness comment in
+    // lib/tongueTracking.js. Before this axis existed, tongue-back was
+    // scored on elevation alone and was indistinguishable from "any low,
+    // visible tongue" — this range needs checking against real kids
+    // before it's trusted, same caveat as every other target here.
+    target: { visibility: [0.04, 1], elevation: [0, 0.42], cavityDarkness: [0.28, 1] },
     place: 'Velar',
   },
   {

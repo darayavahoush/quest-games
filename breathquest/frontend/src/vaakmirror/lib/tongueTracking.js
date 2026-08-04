@@ -2,12 +2,16 @@
 // itself — there's no landmark for it. This is a lightweight, honestly
 // approximate substitute: while the mouth is open, sample pixels inside the
 // mouth region and look for tongue-colored (pink/red) ones. From that we
-// estimate two things:
-//   - visibility: how much of the open-mouth area is tongue-colored
-//   - elevation:  how high up in that area the tongue-colored pixels sit
+// estimate three things:
+//   - visibility:     how much of the open-mouth area is tongue-colored
+//   - elevation:       how high up in that area the tongue-colored pixels sit
+//   - cavityDarkness:  how much of the REST of the area (non-tongue-colored)
+//                       is dark open cavity rather than bright teeth/lips —
+//                       a rough proxy for retraction, since a pulled-back
+//                       tongue doesn't present a lit surface to the camera
 // Lighting, skin tone, and camera quality all affect accuracy — this is
-// meant to give directional feedback (higher/lower, more/less visible),
-// not a precise measurement.
+// meant to give directional feedback (higher/lower, more/less visible,
+// pulled back or not), not a precise measurement.
 
 const SAMPLE_W = 48
 const SAMPLE_H = 32
@@ -39,6 +43,16 @@ function isTongueColor(r, g, b) {
   const [h, s, v] = rgbToHsv(r, g, b)
   const hueMatch = h >= 330 || h <= 30
   return hueMatch && s > 0.22 && v > 0.18 && v < 0.98
+}
+
+// Dark, low-saturation pixels — the open oral cavity behind a retracted
+// tongue reads this way (no tongue surface facing the camera to catch
+// light, and not bright enough to be teeth). Deliberately excludes
+// anything already classified as tongue-colored above, even if it happens
+// to be dim, so the two categories can't double-count the same pixel.
+function isDarkCavity(r, g, b) {
+  const [, s, v] = rgbToHsv(r, g, b)
+  return v < 0.22 && s < 0.4
 }
 
 function px(landmarks, i, w, h) {
@@ -89,6 +103,7 @@ export function computeTongueMetrics(video, landmarks, scratchCanvas, w, h) {
   let xSum = 0
   let ySum = 0
   let brightnessSum = 0
+  let darkCavityCount = 0
   const total = SAMPLE_W * SAMPLE_H
 
   for (let py = 0; py < SAMPLE_H; py++) {
@@ -102,6 +117,8 @@ export function computeTongueMetrics(video, landmarks, scratchCanvas, w, h) {
         count++
         xSum += pxi
         ySum += py
+      } else if (isDarkCavity(r, g, b)) {
+        darkCavityCount++
       }
     }
   }
@@ -118,7 +135,22 @@ export function computeTongueMetrics(video, landmarks, scratchCanvas, w, h) {
   const lateral = enoughPixels ? xSum / count / SAMPLE_W : null
   const brightness = brightnessSum / total // 0-255, useful for a lighting warning
 
-  return { visibility, elevation, lateral, brightness }
+  // Retraction proxy: with a single 2D camera there's no real depth signal,
+  // so "tongue pulled back" is approximated as "the visible mouth opening
+  // reads as dark open cavity rather than tongue surface or teeth" — a
+  // retracted tongue doesn't present a lit surface toward the camera the
+  // way a protruded or raised one does. This is independent of elevation
+  // (which measures WHERE tongue-colored pixels sit, when there are any)
+  // and independent of visibility (how MUCH of the sample is tongue-
+  // colored) — cavityDarkness measures a third thing: how much of the
+  // non-tongue-colored remainder is dark cavity versus bright teeth/lips.
+  // Same honesty caveat as the rest of this file: approximate, lighting-
+  // and skin-tone-sensitive, meant for directional feedback only — needs
+  // checking against real kids before the ranges in tongueMoves.js are
+  // trusted.
+  const cavityDarkness = darkCavityCount / total
+
+  return { visibility, elevation, lateral, brightness, cavityDarkness }
 }
 
 function inRangeDist(value, [lo, hi]) {
@@ -138,6 +170,12 @@ const ASSUMED_DEFAULT_BASELINE_ELEVATION = 0.45
 // sample — unlike elevation, 0.5 is the natural "no offset" assumption.
 const ASSUMED_DEFAULT_BASELINE_LATERAL = 0.5
 
+// A relaxed, resting mouth (tongue neither strongly protruded nor visibly
+// retracted) should show a modest amount of cavity shadow — same
+// per-kid-offset philosophy as elevation/lateral above: a calibrated
+// child's own resting cavityDarkness is compared against this assumption.
+const ASSUMED_DEFAULT_BASELINE_CAVITY_DARKNESS = 0.15
+
 export function computeElevationOffset(baselineElevation) {
   if (baselineElevation == null) return 0
   return baselineElevation - ASSUMED_DEFAULT_BASELINE_ELEVATION
@@ -148,10 +186,15 @@ export function computeLateralOffset(baselineLateral) {
   return baselineLateral - ASSUMED_DEFAULT_BASELINE_LATERAL
 }
 
+export function computeCavityDarknessOffset(baselineCavityDarkness) {
+  if (baselineCavityDarkness == null) return 0
+  return baselineCavityDarkness - ASSUMED_DEFAULT_BASELINE_CAVITY_DARKNESS
+}
+
 // target.lateral is optional — omitting it (as tongue-up/tongue-back do)
 // means lateral position isn't scored at all, so those existing moves are
 // completely unaffected by this parameter.
-export function scoreTongueMove(metrics, target, elevationOffset = 0, lateralOffset = 0) {
+export function scoreTongueMove(metrics, target, elevationOffset = 0, lateralOffset = 0, cavityOffset = 0) {
   if (!metrics) return { score: 0, tier: 'red' }
 
   const visDist = inRangeDist(metrics.visibility, target.visibility)
@@ -174,7 +217,20 @@ export function scoreTongueMove(metrics, target, elevationOffset = 0, lateralOff
     lateralDist = metrics.lateral == null ? 0.3 : inRangeDist(metrics.lateral, adjustedLateral)
   }
 
-  const distance = visDist + elevDist + lateralDist
+  // target.cavityDarkness is optional, same pattern as target.lateral —
+  // omitting it means retraction isn't scored at all, so every existing
+  // move (which doesn't set it) is completely unaffected by this axis.
+  let cavityDist = 0
+  if (target.cavityDarkness) {
+    const adjustedCavity = [
+      Math.max(0, Math.min(1, target.cavityDarkness[0] + cavityOffset)),
+      Math.max(0, Math.min(1, target.cavityDarkness[1] + cavityOffset)),
+    ]
+    cavityDist =
+      metrics.cavityDarkness == null ? 0.3 : inRangeDist(metrics.cavityDarkness, adjustedCavity)
+  }
+
+  const distance = visDist + elevDist + lateralDist + cavityDist
   const score = Math.max(0, 1 - distance * 1.5)
 
   let tier = 'red'
