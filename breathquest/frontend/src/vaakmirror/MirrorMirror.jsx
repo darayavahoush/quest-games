@@ -15,7 +15,7 @@ import CharacterFilterPicker, { FILTERS } from './components/CharacterFilterPick
 import ProgressRing from './components/ProgressRing.jsx'
 import MouthShapeGuide from './components/MouthShapeGuide.jsx'
 
-const DEFAULT_ROUND_SIZE = 12
+const DEFAULT_ROUND_SIZE = 8
 const HOLD_MS = 3000
 const CALIB_MS = 1100
 // How long a kid can sit outside the green tier on one sound before we
