@@ -4,19 +4,25 @@ import { useAuth } from '../../context/AuthContext'
 import { dashboardAPI } from '../../api/client'
 import { Button, Card, Badge, Avatar, PageLoader } from '../../components/ui'
 import AddPatientModal from '../../components/therapist/AddPatientModal'
+import { AlertTriangle, Clock } from 'lucide-react'
 
 export default function TherapistDashboard() {
   const { therapist, logout } = useAuth()
   const navigate = useNavigate()
   const [summary, setSummary]       = useState(null)
+  const [alerts,  setAlerts]        = useState([])
   const [loading, setLoading]       = useState(true)
   const [showAdd, setShowAdd]       = useState(false)
   const [search,  setSearch]        = useState('')
 
   const load = async () => {
     try {
-      const { data } = await dashboardAPI.summary()
-      setSummary(data)
+      const [{ data: summaryData }, { data: alertsData }] = await Promise.all([
+        dashboardAPI.summary(),
+        dashboardAPI.listAlerts(),
+      ])
+      setSummary(summaryData)
+      setAlerts(alertsData.filter(a => a.flag !== 'ok'))
     } catch (e) {
       console.error(e)
     } finally {
@@ -28,6 +34,7 @@ export default function TherapistDashboard() {
 
   if (loading) return <PageLoader />
 
+  const alertsByPatient = Object.fromEntries(alerts.map(a => [a.patient_id, a]))
   const patients = (summary?.patients || []).filter(p =>
     p.first_name.toLowerCase().includes(search.toLowerCase())
   )
@@ -68,6 +75,33 @@ export default function TherapistDashboard() {
           <Button onClick={() => setShowAdd(true)}>+ Add Patient</Button>
         </div>
 
+        {/* Needs attention — multi-child alerts, previously computed by the
+            backend but never surfaced anywhere in this dashboard. */}
+        {alerts.length > 0 && (
+          <div className="rounded-2xl border border-brand-amber/30 bg-brand-amber/5 p-4 mb-8">
+            <div className="flex items-center gap-2 mb-3">
+              <AlertTriangle size={16} className="text-brand-amber" />
+              <p className="text-brand-amber text-sm font-semibold">
+                {alerts.length} patient{alerts.length !== 1 ? 's' : ''} need{alerts.length === 1 ? 's' : ''} attention
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {alerts.map(a => (
+                <button key={a.patient_id} onClick={() => navigate(`/therapist/patients/${a.patient_id}`)}
+                  className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full
+                             bg-brand-amber/10 text-brand-amber/90 border border-brand-amber/20
+                             hover:bg-brand-amber/20 transition-colors">
+                  {a.flag === 'inactive' ? <Clock size={12} /> : <AlertTriangle size={12} />}
+                  {a.first_name}
+                  {a.flag === 'inactive'
+                    ? ` — ${a.days_since_last_session == null ? 'never played' : `${a.days_since_last_session}d inactive`}`
+                    : ` — ${a.overdue_assignments} overdue`}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Stats row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[
@@ -105,7 +139,7 @@ export default function TherapistDashboard() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {patients.map(p => (
-              <PatientCard key={p.id} patient={p}
+              <PatientCard key={p.id} patient={p} alert={alertsByPatient[p.id]}
                            onClick={() => navigate(`/therapist/patients/${p.id}`)} />
             ))}
           </div>
@@ -122,23 +156,30 @@ export default function TherapistDashboard() {
   )
 }
 
-function PatientCard({ patient, onClick }) {
+function PatientCard({ patient, alert, onClick }) {
   const starsColor = patient.total_stars >= 12 ? 'text-brand-green'
                    : patient.total_stars >= 6  ? 'text-yellow-400'
                    : 'text-white/50'
   return (
     <button onClick={onClick}
-      className="card text-left hover:border-brand-green/40 hover:bg-brand-green/5
-                 transition-all duration-200 hover:scale-[1.02] group w-full">
+      className={`card text-left transition-all duration-200 hover:scale-[1.02] group w-full
+                 ${alert ? 'border-brand-amber/30 hover:border-brand-amber/50 hover:bg-brand-amber/5'
+                         : 'hover:border-brand-green/40 hover:bg-brand-green/5'}`}>
       <div className="flex items-center gap-3 mb-4">
         <Avatar avatar={patient.avatar} size="md" />
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-white truncate">{patient.first_name}</p>
           {patient.age && <p className="text-white/40 text-xs">Age {patient.age}</p>}
         </div>
-        <Badge color={patient.is_active ? 'green' : 'gray'}>
-          {patient.is_active ? 'Active' : 'Inactive'}
-        </Badge>
+        {alert ? (
+          <Badge color="amber">
+            {alert.flag === 'inactive' ? 'Inactive' : 'Overdue'}
+          </Badge>
+        ) : (
+          <Badge color={patient.is_active ? 'green' : 'gray'}>
+            {patient.is_active ? 'Active' : 'Inactive'}
+          </Badge>
+        )}
       </div>
 
       <div className="grid grid-cols-3 gap-3 text-center">

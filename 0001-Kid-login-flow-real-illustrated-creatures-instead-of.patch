@@ -1,0 +1,581 @@
+From 829444b5e8413fc7db8511b2aec91ab7af37d4fe Mon Sep 17 00:00:00 2001
+From: Ananya Sridhar <ananyasridhar108@gmail.com>
+Date: Wed, 5 Aug 2026 04:03:51 +0000
+Subject: [PATCH] Kid login flow: real illustrated creatures instead of emoji,
+ warm up the sterile card UI
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The page a kid lands on right after tapping 'I'm a Kid!' on Landing, before
+they ever reach the game list, was the coldest screen in the whole app: a
+flat two-stop navy gradient, a single generic controller emoji floating in
+a blurred circle, and a plain bg-brand-card square for the actual
+register/login form — visually disconnected from Landing's illustrated
+dusk-and-ember world one screen earlier, and from GamePicker one screen
+later.
+
+- components/ui/Creatures.jsx (new): six hand-drawn-style SVG creatures
+  (Chicky, Dino, Cloudy, Starry, Zoom, Finley) replacing the flat
+  emoji-in-a-gradient-circle Avatar, in the same gradient-body/dot-eyes/
+  blush-cheeks language as Landing.jsx's existing BreathBuddy illustration.
+  Gradient ids are namespaced per-instance via useId() — GamePicker renders
+  the same avatar twice on one page (header + hero), which would otherwise
+  silently collide on a shared linearGradient id.
+
+- components/ui/index.jsx: Avatar now renders a Creature instead of an
+  emoji span. This is the shared component used by Landing, GamePicker,
+  GameNavbar, both dashboards, MyProgress, and PatientDetail, so the fix
+  cascades everywhere avatars appear, not just this one page.
+
+- pages/kid/Play.jsx: carried Landing's dusk-into-ember gradient and ember
+  particles through instead of dropping into a flat navy square; replaced
+  the lone floating game-controller emoji with a small floating "welcome
+  crew" of three creatures; replaced the flat card with a gradient-bordered
+  glass panel matching Landing's existing button treatment; swapped every
+  remaining decorative emoji for lucide icons or the creatures themselves.
+
+Caught and fixed a real bug before committing: GlassPanel's border color
+was originally written using a CSS custom property the app's Tailwind v3
+setup never generates, so it would have silently fallen through to
+currentColor on every panel, matching no accent color at all. Replaced
+with an explicit accent-to-hex map.
+
+Verified: npm run build succeeds clean (643 modules, no errors) both
+before and after the GlassPanel fix; oxlint clean across the whole
+frontend (0 errors, only 2 pre-existing-style fast-refresh warnings on
+Creatures.jsx's data exports — the only warnings in the repo, both mine,
+both harmless/dev-only); scripted a Unicode-range scan of Play.jsx
+confirming zero emoji characters remain (the backspace-key glyph on the
+PIN pad is a keyboard symbol, U+232B, deliberately left as-is, not an
+emoji); diffed the shared Avatar change line by line. Could not get a
+real rendered screenshot — this sandbox can't keep a backgrounded vite
+dev server alive across tool calls — so this is verified by build/lint/
+diff, not by eye; worth a visual pass in a real browser before
+considering it fully done.
+---
+ .../frontend/src/components/ui/Creatures.jsx  | 197 ++++++++++++++++++
+ .../frontend/src/components/ui/index.jsx      |  29 ++-
+ breathquest/frontend/src/pages/kid/Play.jsx   | 172 +++++++++++----
+ 3 files changed, 339 insertions(+), 59 deletions(-)
+ create mode 100644 breathquest/frontend/src/components/ui/Creatures.jsx
+
+diff --git a/breathquest/frontend/src/components/ui/Creatures.jsx b/breathquest/frontend/src/components/ui/Creatures.jsx
+new file mode 100644
+index 0000000..fb9968d
+--- /dev/null
++++ b/breathquest/frontend/src/components/ui/Creatures.jsx
+@@ -0,0 +1,197 @@
++// Illustrated creature avatars — replaces the old emoji-in-a-gradient-circle
++// Avatar with real drawn characters, in the same style language as Landing.jsx's
++// BreathBuddy (soft gradient body, dot eyes, blush cheeks, warm dark linework).
++//
++// Each creature is a self-contained <svg viewBox="0 0 100 100">. Gradient ids
++// are namespaced with a per-instance `uid` (from useId()) so two copies of the
++// same creature on one page — e.g. GamePicker's header avatar + hero avatar —
++// don't silently share (and fight over) the same <linearGradient> definition.
++
++import { useId } from 'react'
++
++// Shared cute-face kit — dot eyes, blush cheeks, a simple smile — so every
++// creature reads as the same friendly cast rather than six unrelated styles.
++function Face({ cx, cy, ink, blush, eyeGap = 10.5, eyeDy = 0, smileWidth = 7, smileDrop = 9 }) {
++  return (
++    <g>
++      <circle cx={cx - eyeGap * 1.55} cy={cy + eyeDy} r={11.5} fill={blush} opacity="0.4" />
++      <circle cx={cx + eyeGap * 1.55} cy={cy + eyeDy} r={11.5} fill={blush} opacity="0.4" />
++      <circle cx={cx - eyeGap} cy={cy + eyeDy - 1.5} r={3.2} fill={ink} />
++      <circle cx={cx + eyeGap} cy={cy + eyeDy - 1.5} r={3.2} fill={ink} />
++      <circle cx={cx - eyeGap + 1} cy={cy + eyeDy - 2.5} r={1} fill="white" opacity="0.9" />
++      <circle cx={cx + eyeGap + 1} cy={cy + eyeDy - 2.5} r={1} fill="white" opacity="0.9" />
++      <path
++        d={`M ${cx - smileWidth} ${cy + eyeDy + smileDrop} q ${smileWidth} 6.5 ${smileWidth * 2} 0`}
++        stroke={ink} strokeWidth="2.8" strokeLinecap="round" fill="none"
++      />
++    </g>
++  )
++}
++
++function Chick({ uid }) {
++  const g = `chick-${uid}`
++  return (
++    <svg viewBox="0 0 100 100" className="w-full h-full">
++      <defs>
++        <linearGradient id={g} x1="0" y1="0" x2="0" y2="1">
++          <stop offset="0%" stopColor="#FFEE9C" />
++          <stop offset="100%" stopColor="#FFB84D" />
++        </linearGradient>
++      </defs>
++      <ellipse cx="34" cy="70" rx="9" ry="4" fill="#E68A2E" opacity="0.5" />
++      <ellipse cx="66" cy="70" rx="9" ry="4" fill="#E68A2E" opacity="0.5" />
++      <path d="M28 82 L34 74 L40 82 Z" fill="#E68A2E" />
++      <path d="M60 82 L66 74 L72 82 Z" fill="#E68A2E" />
++      <ellipse cx="50" cy="58" rx="34" ry="30" fill={`url(#${g})`} />
++      <path d="M18 48 Q10 46 14 38 Q22 40 24 48 Z" fill={`url(#${g})`} />
++      <path d="M82 48 Q90 46 86 38 Q78 40 76 48 Z" fill={`url(#${g})`} />
++      <path d="M42 22 Q46 12 52 18 Q56 10 58 20" stroke="#E68A2E" strokeWidth="3.5"
++            strokeLinecap="round" fill="none" />
++      <path d="M43 62 L50 68 L57 62 Z" fill="#F0793B" />
++      <Face cx={50} cy={54} ink="#7A4A1E" blush="#FF9B6B" eyeGap={11} />
++    </svg>
++  )
++}
++
++function Dino({ uid }) {
++  const g = `dino-${uid}`
++  return (
++    <svg viewBox="0 0 100 100" className="w-full h-full">
++      <defs>
++        <linearGradient id={g} x1="0" y1="0" x2="0" y2="1">
++          <stop offset="0%" stopColor="#B6F5B0" />
++          <stop offset="100%" stopColor="#2FB86F" />
++        </linearGradient>
++      </defs>
++      <path d="M20 78 Q14 88 24 88 Q28 82 30 76 Z" fill="#1E8C56" />
++      <path d="M80 78 Q86 88 76 88 Q72 82 70 76 Z" fill="#1E8C56" />
++      <path d="M16 66 Q4 70 10 78 Q18 76 22 68 Z" fill={`url(#${g})`} />
++      <ellipse cx="50" cy="58" rx="33" ry="29" fill={`url(#${g})`} />
++      <path d="M36 26 L40 14 L45 27 M48 24 L52 12 L57 25 M60 27 L64 16 L68 28"
++            fill={`url(#${g})`} stroke="none" />
++      <path d="M40 20 Q42 16 45 20" fill="#1E8C56" opacity="0" />
++      <ellipse cx="30" cy="50" rx="4.5" ry="6" fill="#1E8C56" opacity="0.55" />
++      <Face cx={51} cy={56} ink="#1E5C38" blush="#FF9B6B" eyeGap={11} />
++      <path d="M40 68 q10 8 20 0" stroke="#1E5C38" strokeWidth="0" fill="none" />
++    </svg>
++  )
++}
++
++function Rocket({ uid }) {
++  const g = `rocket-${uid}`
++  return (
++    <svg viewBox="0 0 100 100" className="w-full h-full">
++      <defs>
++        <linearGradient id={g} x1="0" y1="0" x2="0" y2="1">
++          <stop offset="0%" stopColor="#E6D4FF" />
++          <stop offset="100%" stopColor="#9B6BF0" />
++        </linearGradient>
++        <linearGradient id={`${g}-flame`} x1="0" y1="0" x2="0" y2="1">
++          <stop offset="0%" stopColor="#FFD08A" />
++          <stop offset="100%" stopColor="#FF6B4A" />
++        </linearGradient>
++      </defs>
++      <path d="M50 84 Q42 96 40 82 Q50 78 50 78 Q50 78 60 82 Q58 96 50 84 Z" fill={`url(#${g}-flame)`} />
++      <path d="M30 66 L14 78 L26 56 Z" fill="#7C4FD1" />
++      <path d="M70 66 L86 78 L74 56 Z" fill="#7C4FD1" />
++      <path d="M50 10 C68 24 72 46 66 68 Q50 78 34 68 C28 46 32 24 50 10 Z" fill={`url(#${g})`} />
++      <circle cx="50" cy="46" r="15" fill="#FBF7EE" opacity="0.9" />
++      <Face cx={50} cy={47} ink="#5A3A9E" blush="#FF9B6B" eyeGap={8.5} smileWidth={5.5} smileDrop={7} />
++    </svg>
++  )
++}
++
++function Fish({ uid }) {
++  const g = `fish-${uid}`
++  return (
++    <svg viewBox="0 0 100 100" className="w-full h-full">
++      <defs>
++        <linearGradient id={g} x1="0" y1="0" x2="1" y2="1">
++          <stop offset="0%" stopColor="#B3EFFF" />
++          <stop offset="100%" stopColor="#2FA9E0" />
++        </linearGradient>
++      </defs>
++      <path d="M14 50 L30 38 L30 62 Z" fill="#1E7CB0" />
++      <path d="M60 22 Q70 16 66 28 Q74 30 66 36 Z" fill={`url(#${g})`} />
++      <ellipse cx="56" cy="52" rx="32" ry="27" fill={`url(#${g})`} />
++      <path d="M40 60 Q46 66 52 60" stroke="#1E7CB0" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.6" />
++      <Face cx={60} cy={50} ink="#0F5A82" blush="#FFB3C6" eyeGap={9} smileWidth={5.5} smileDrop={7} />
++    </svg>
++  )
++}
++
++function Bunny({ uid }) {
++  const g = `bunny-${uid}`
++  return (
++    <svg viewBox="0 0 100 100" className="w-full h-full">
++      <defs>
++        <linearGradient id={g} x1="0" y1="0" x2="0" y2="1">
++          <stop offset="0%" stopColor="#FDE2EE" />
++          <stop offset="100%" stopColor="#F5A3C7" />
++        </linearGradient>
++        <linearGradient id={`${g}-inner`} x1="0" y1="0" x2="0" y2="1">
++          <stop offset="0%" stopColor="#FFF" />
++          <stop offset="100%" stopColor="#FBC7DC" />
++        </linearGradient>
++      </defs>
++      <ellipse cx="34" cy="82" rx="10" ry="4" fill="#E8709E" opacity="0.4" />
++      <ellipse cx="66" cy="82" rx="10" ry="4" fill="#E8709E" opacity="0.4" />
++      <path d="M30 30 C24 8 34 2 38 20 C40 30 38 38 34 40 Z" fill={`url(#${g})`} />
++      <path d="M70 30 C76 8 66 2 62 20 C60 30 62 38 66 40 Z" fill={`url(#${g})`} />
++      <path d="M33 24 C30 12 35 10 37 21" fill={`url(#${g}-inner)`} />
++      <path d="M67 24 C70 12 65 10 63 21" fill={`url(#${g}-inner)`} />
++      <ellipse cx="50" cy="60" rx="32" ry="28" fill={`url(#${g})`} />
++      <Face cx={50} cy={58} ink="#B0507E" blush="#FF9B6B" eyeGap={11} />
++    </svg>
++  )
++}
++
++function Fox({ uid }) {
++  const g = `fox-${uid}`
++  return (
++    <svg viewBox="0 0 100 100" className="w-full h-full">
++      <defs>
++        <linearGradient id={g} x1="0" y1="0" x2="0" y2="1">
++          <stop offset="0%" stopColor="#FFB870" />
++          <stop offset="100%" stopColor="#E8791A" />
++        </linearGradient>
++      </defs>
++      <path d="M22 20 L38 38 L18 42 Z" fill={`url(#${g})`} />
++      <path d="M78 20 L62 38 L82 42 Z" fill={`url(#${g})`} />
++      <path d="M25 24 L35 36 L23 38 Z" fill="#FBF7EE" opacity="0.8" />
++      <path d="M75 24 L65 36 L77 38 Z" fill="#FBF7EE" opacity="0.8" />
++      <ellipse cx="50" cy="60" rx="33" ry="28" fill={`url(#${g})`} />
++      <path d="M38 66 Q50 78 62 66 Q56 72 50 72 Q44 72 38 66 Z" fill="#FBF7EE" opacity="0.85" />
++      <path d="M50 62 L44 70 L56 70 Z" fill="#B0500E" />
++      <Face cx={50} cy={54} ink="#8A4A0E" blush="#FF9B6B" eyeGap={11.5} smileDrop={11} />
++    </svg>
++  )
++}
++
++export const CREATURES = {
++  chick:  Chick,
++  dragon: Dino,
++  bunny:  Bunny,
++  fox:    Fox,
++  rocket: Rocket,
++  fish:   Fish,
++}
++
++export const CREATURE_ACCENTS = {
++  chick:  { from: '#FFEE9C', to: '#FFB84D', ring: '#FFB84D' },
++  dragon: { from: '#B6F5B0', to: '#2FB86F', ring: '#2FB86F' },
++  bunny:  { from: '#FDE2EE', to: '#F5A3C7', ring: '#F5A3C7' },
++  fox:    { from: '#FFB870', to: '#E8791A', ring: '#E8791A' },
++  rocket: { from: '#E6D4FF', to: '#9B6BF0', ring: '#9B6BF0' },
++  fish:   { from: '#B3EFFF', to: '#2FA9E0', ring: '#2FA9E0' },
++}
++
++export function Creature({ species = 'chick', className = '' }) {
++  const uid = useId()
++  const C = CREATURES[species] || CREATURES.chick
++  return (
++    <div className={className}>
++      <C uid={uid} />
++    </div>
++  )
++}
+diff --git a/breathquest/frontend/src/components/ui/index.jsx b/breathquest/frontend/src/components/ui/index.jsx
+index b0996ab..1d23626 100644
+--- a/breathquest/frontend/src/components/ui/index.jsx
++++ b/breathquest/frontend/src/components/ui/index.jsx
+@@ -1,4 +1,5 @@
+ // Shared UI primitives
++import { Creature, CREATURE_ACCENTS } from './Creatures'
+ 
+ export function Button({ children, variant = 'primary', size = 'md', className = '', ...props }) {
+   const base = 'inline-flex items-center justify-center gap-2 font-semibold rounded-xl transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed'
+@@ -87,26 +88,20 @@ export function StarRating({ stars = 0, max = 3, size = 'md' }) {
+ }
+ 
+ export function Avatar({ avatar = 'chick', size = 'md', name = '' }) {
+-  const AVATARS = {
+-    chick:  { emoji: '🐥', bg: 'from-yellow-400 to-orange-400' },
+-    dragon: { emoji: '🐉', bg: 'from-green-500 to-teal-500' },
+-    bunny:  { emoji: '🐰', bg: 'from-pink-300 to-rose-400' },
+-    fox:    { emoji: '🦊', bg: 'from-orange-600 to-red-600' },
+-    rocket: { emoji: '🚀', bg: 'from-purple-500 to-pink-500' },
+-    fish:   { emoji: '🐠', bg: 'from-cyan-400 to-blue-500' },
+-  }
+   const sizes = {
+-    sm:  'w-8 h-8 text-base',
+-    md:  'w-12 h-12 text-2xl',
+-    lg:  'w-16 h-16 text-3xl',
+-    xl:  'w-24 h-24 text-5xl',
++    sm:  'w-8 h-8',
++    md:  'w-12 h-12',
++    lg:  'w-16 h-16',
++    xl:  'w-24 h-24',
+   }
+-  const av = AVATARS[avatar] || AVATARS.chick
++  const accent = CREATURE_ACCENTS[avatar] || CREATURE_ACCENTS.chick
+   return (
+-    <div className={`${sizes[size]} rounded-full bg-gradient-to-br ${av.bg}
+-      flex items-center justify-center flex-shrink-0`}
+-      title={name}>
+-      {av.emoji}
++    <div
++      className={`${sizes[size]} rounded-full flex items-center justify-center flex-shrink-0 p-1`}
++      style={{ background: `linear-gradient(160deg, ${accent.from}33, ${accent.to}22)` }}
++      title={name}
++    >
++      <Creature species={avatar} className="w-full h-full" />
+     </div>
+   )
+ }
+diff --git a/breathquest/frontend/src/pages/kid/Play.jsx b/breathquest/frontend/src/pages/kid/Play.jsx
+index 81c5018..897d9c6 100644
+--- a/breathquest/frontend/src/pages/kid/Play.jsx
++++ b/breathquest/frontend/src/pages/kid/Play.jsx
+@@ -1,16 +1,72 @@
+ import { useEffect, useState } from 'react'
+ import { useNavigate, Link } from 'react-router-dom'
++import { KeyRound, PartyPopper, Sparkles, ArrowRight, ArrowLeft } from 'lucide-react'
+ import { useAuth } from '../../context/AuthContext'
+ import { getErrorMessage } from '../../api/client'
+-import { Button, Card, Avatar } from '../../components/ui'
++import { Button, Avatar } from '../../components/ui'
++import { Creature } from '../../components/ui/Creatures'
+ 
+ const AVATARS = ['chick', 'dragon', 'bunny', 'fox', 'rocket', 'fish']
+ const AVATAR_NAMES = { chick: 'Chicky', dragon: 'Dino', bunny: 'Hoppy', fox: 'Foxy', rocket: 'Zoom', fish: 'Finley' }
+ 
+-// Same dusk gradient used across the rest of the kid flow (GamePicker,
+-// MyProgress, Landing) — this page previously used two one-off purple/green
+-// radial gradients that didn't match anywhere else in the app.
+-const BG = { background: 'linear-gradient(180deg, #12142E 0%, #1E1E3F 100%)' }
++// Same dusk-into-ember gradient Landing.jsx uses one screen back — this page
++// used to drop straight from that illustrated world into a flat navy square,
++// which is most of why it read as cold. Carrying the gradient (and a little
++// of the ember glow) through makes the whole kid flow feel like one place.
++const BG = {
++  background: 'linear-gradient(180deg, #12142E 0%, #241F49 45%, #3A2C5C 100%)',
++}
++
++const EMBERS = [
++  { left: '15%', delay: '0s',   duration: '12s', size: 4 },
++  { left: '82%', delay: '3s',   duration: '14s', size: 3 },
++  { left: '50%', delay: '6s',   duration: '11s', size: 4 },
++]
++
++// A little welcome crew instead of a lone floating game-controller emoji —
++// this is the first thing a kid sees after tapping "I'm a Kid!" on Landing,
++// so it's the moment to introduce the cast, not a generic icon.
++function WelcomeCrew() {
++  return (
++    <div className="relative w-40 h-24 mx-auto mb-2">
++      <div className="absolute inset-x-6 inset-y-2 rounded-full bg-ember/20 blur-2xl motion-safe:animate-pulse-slow" />
++      <div className="absolute left-0 bottom-0 w-14 h-14 motion-safe:animate-float"
++           style={{ animationDelay: '0.4s', animationDuration: '3.4s' }}>
++        <Creature species="fish" className="w-full h-full drop-shadow-lg" />
++      </div>
++      <div className="absolute right-0 bottom-0 w-14 h-14 motion-safe:animate-float"
++           style={{ animationDelay: '0.9s', animationDuration: '3.8s' }}>
++        <Creature species="dragon" className="w-full h-full drop-shadow-lg" />
++      </div>
++      <div className="absolute left-1/2 -translate-x-1/2 -top-1 w-24 h-24 motion-safe:animate-float"
++           style={{ animationDelay: '0s', animationDuration: '3s' }}>
++        <Creature species="chick" className="w-full h-full drop-shadow-xl" />
++      </div>
++    </div>
++  )
++}
++
++// The gradient-bordered glass panel Landing.jsx's three big buttons use,
++// pulled out so register/login get the same warm treatment instead of a
++// flat bg-brand-card square that looks pasted in from a different app.
++const GLASS_ACCENTS = {
++  'brand-green': { border: 'rgba(168,255,111,0.35)', glow: 'rgba(168,255,111,0.12)' },
++  'brand-amber': { border: 'rgba(250,199,117,0.35)', glow: 'rgba(250,199,117,0.12)' },
++}
++
++function GlassPanel({ children, accent = 'brand-green', className = '' }) {
++  const a = GLASS_ACCENTS[accent] || GLASS_ACCENTS['brand-green']
++  return (
++    <div
++      className={`relative overflow-hidden rounded-[2rem] p-7 border-2 backdrop-blur-sm
++                  bg-gradient-to-br from-white/[0.06] to-transparent ${className}`}
++      style={{ borderColor: a.border }}
++    >
++      <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full blur-3xl" style={{ backgroundColor: a.glow }} />
++      <div className="relative">{children}</div>
++    </div>
++  )
++}
+ 
+ function PinDots({ length }) {
+   return (
+@@ -93,16 +149,25 @@ export default function KidPlay() {
+   // ---- Show player code after register ----
+   if (registered) {
+     return (
+-      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center" style={BG}>
+-        <div className="relative mb-5 motion-safe:animate-float">
++      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center relative overflow-hidden" style={BG}>
++        <div className="absolute inset-0 pointer-events-none motion-reduce:hidden" aria-hidden="true">
++          {EMBERS.map((e, i) => (
++            <span key={i}
++              className="absolute bottom-[35%] rounded-full bg-ember-glow animate-drift-ember"
++              style={{ left: e.left, width: e.size, height: e.size, animationDelay: e.delay, animationDuration: e.duration,
++                       boxShadow: '0 0 6px 2px rgba(255,208,138,0.5)' }} />
++          ))}
++        </div>
++
++        <div className="relative mb-5 motion-safe:animate-float w-28 h-28">
+           <div className="absolute inset-0 rounded-full bg-brand-green/20 blur-2xl motion-safe:animate-pulse-slow" />
+-          <Avatar avatar={avatar} size="xl" />
++          <Creature species={avatar} className="relative w-full h-full drop-shadow-xl" />
+         </div>
+-        <h1 className="font-vm-display text-4xl font-bold text-white mb-2">
+-          You're in, {AVATAR_NAMES[avatar]}! 🎉
++        <h1 className="font-vm-display text-4xl font-bold text-white mb-2 flex items-center justify-center gap-2">
++          You're in, {AVATAR_NAMES[avatar]}! <PartyPopper className="w-8 h-8 text-brand-amber" />
+         </h1>
+-        <p className="text-white/50 mb-8">Write this down so you can log back in:</p>
+-        <Card className="border-2 border-brand-green p-8 mb-6 w-full max-w-xs">
++        <p className="text-white/50 mb-8 relative z-10">Write this down so you can log back in:</p>
++        <GlassPanel className="mb-6 w-full max-w-xs" accent="brand-green">
+           <p className="text-white/40 text-sm mb-1">Your Player Code</p>
+           <p className="font-vm-display text-4xl font-bold text-brand-green tracking-widest mb-4">
+             {registered.player_code}
+@@ -111,26 +176,36 @@ export default function KidPlay() {
+           <p className="font-vm-display text-3xl font-bold text-brand-amber tracking-widest">
+             {'•'.repeat(pin.length)}
+           </p>
+-        </Card>
+-        <p className="text-white/30 text-xs mb-8">Show this to your teacher too!</p>
+-        <Button size="lg" onClick={() => navigate('/play/levels')}>Let's Play! 🚀</Button>
++        </GlassPanel>
++        <p className="text-white/30 text-xs mb-8 relative z-10">Show this to your teacher too!</p>
++        <Button size="lg" onClick={() => navigate('/play/levels')} className="relative z-10 gap-2">
++          Let's Play! <ArrowRight className="w-4 h-4" />
++        </Button>
+       </div>
+     )
+   }
+ 
+   return (
+-    <div className="min-h-screen flex flex-col items-center justify-center p-6" style={BG}>
++    <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden" style={BG}>
++      <div className="absolute inset-0 pointer-events-none motion-reduce:hidden" aria-hidden="true">
++        {EMBERS.map((e, i) => (
++          <span key={i}
++            className="absolute bottom-[30%] rounded-full bg-ember-glow animate-drift-ember"
++            style={{ left: e.left, width: e.size, height: e.size, animationDelay: e.delay, animationDuration: e.duration,
++                     boxShadow: '0 0 6px 2px rgba(255,208,138,0.5)' }} />
++        ))}
++      </div>
++
+       {mode === 'choose' && (
+-        <Link to="/" className="absolute top-6 left-6 text-white/30 hover:text-white/60 text-sm">← Back</Link>
++        <Link to="/" className="absolute top-6 left-6 text-white/30 hover:text-white/60 text-sm z-10 flex items-center gap-1">
++          <ArrowLeft className="w-3.5 h-3.5" /> Back
++        </Link>
+       )}
+ 
+       {/* Mode chooser */}
+       {mode === 'choose' && (
+-        <div className="text-center w-full max-w-sm">
+-          <div className="relative w-20 h-20 mx-auto mb-4">
+-            <div className="absolute inset-0 rounded-full bg-ember/20 blur-2xl motion-safe:animate-pulse-slow" />
+-            <div className="relative w-full h-full flex items-center justify-center text-6xl motion-safe:animate-float">🎮</div>
+-          </div>
++        <div className="text-center w-full max-w-sm relative z-10">
++          <WelcomeCrew />
+           <h1 className="font-vm-display text-4xl font-bold text-white mb-2">BreathQuest</h1>
+           <p className="text-white/40 mb-10">Ready to play?</p>
+           <div className="flex flex-col gap-4">
+@@ -142,10 +217,15 @@ export default function KidPlay() {
+               style={{ transitionDelay: mounted ? '0ms' : '0ms' }}>
+               <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full bg-brand-amber/10 blur-2xl
+                               group-hover:bg-brand-amber/20 transition-colors duration-300" />
+-              <div className="relative">
+-                <div className="text-3xl mb-2 group-hover:scale-110 transition-transform duration-300 inline-block">✨</div>
+-                <p className="font-vm-display text-xl font-bold text-white">New Player</p>
+-                <p className="text-white/40 text-sm">Create your account</p>
++              <div className="relative flex items-center gap-4">
++                <div className="w-12 h-12 rounded-2xl bg-brand-amber/15 border border-brand-amber/25 flex items-center
++                                justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
++                  <Sparkles className="w-6 h-6 text-brand-amber" />
++                </div>
++                <div>
++                  <p className="font-vm-display text-xl font-bold text-white">New Player</p>
++                  <p className="text-white/40 text-sm">Create your account</p>
++                </div>
+               </div>
+             </button>
+             <button onClick={() => setMode('login')}
+@@ -156,10 +236,15 @@ export default function KidPlay() {
+               style={{ transitionDelay: mounted ? '90ms' : '0ms' }}>
+               <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full bg-brand-green/10 blur-2xl
+                               group-hover:bg-brand-green/20 transition-colors duration-300" />
+-              <div className="relative">
+-                <div className="text-3xl mb-2 group-hover:scale-110 transition-transform duration-300 inline-block">🔑</div>
+-                <p className="font-vm-display text-xl font-bold text-white">I have a code</p>
+-                <p className="text-white/40 text-sm">Log back in</p>
++              <div className="relative flex items-center gap-4">
++                <div className="w-12 h-12 rounded-2xl bg-brand-green/15 border border-brand-green/25 flex items-center
++                                justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
++                  <KeyRound className="w-6 h-6 text-brand-green" />
++                </div>
++                <div>
++                  <p className="font-vm-display text-xl font-bold text-white">I have a code</p>
++                  <p className="text-white/40 text-sm">Log back in</p>
++                </div>
+               </div>
+             </button>
+           </div>
+@@ -168,9 +253,11 @@ export default function KidPlay() {
+ 
+       {/* Register */}
+       {mode === 'register' && (
+-        <Card className="w-full max-w-sm border border-white/10">
++        <GlassPanel accent="brand-amber" className="w-full max-w-sm relative z-10">
+           <button onClick={() => { setMode('choose'); setPin(''); setError('') }}
+-                  className="text-white/30 hover:text-white/60 text-sm mb-6 transition-colors">← Back</button>
++                  className="text-white/30 hover:text-white/60 text-sm mb-6 transition-colors flex items-center gap-1">
++            <ArrowLeft className="w-3.5 h-3.5" /> Back
++          </button>
+           <h1 className="font-vm-display text-3xl font-bold text-white mb-6 text-center">Create Account</h1>
+ 
+           {/* Name */}
+@@ -180,8 +267,7 @@ export default function KidPlay() {
+                    value={firstName} onChange={e => setFirstName(e.target.value)} />
+           </div>
+ 
+-          {/* Avatar — real character badges, matching the rest of the app,
+-              instead of bare emoji in plain boxes */}
++          {/* Avatar — real illustrated creatures now, not bare emoji */}
+           <label className="text-sm text-white/50 block mb-3">Pick your character</label>
+           <div className="grid grid-cols-3 gap-3 mb-6">
+             {AVATARS.map(av => (
+@@ -205,17 +291,19 @@ export default function KidPlay() {
+           <PinPad onDigit={handlePin} onDelete={deletePin} />
+ 
+           {error && <p className="text-brand-coral text-sm text-center mb-3">{error}</p>}
+-          <Button className="w-full" size="lg" onClick={handleRegister} disabled={loading}>
+-            {loading ? 'Creating…' : 'Create Account! 🎉'}
++          <Button className="w-full gap-2" size="lg" onClick={handleRegister} disabled={loading}>
++            {loading ? 'Creating…' : <>Create Account! <PartyPopper className="w-4 h-4" /></>}
+           </Button>
+-        </Card>
++        </GlassPanel>
+       )}
+ 
+       {/* Login */}
+       {mode === 'login' && (
+-        <Card className="w-full max-w-sm border border-white/10">
++        <GlassPanel accent="brand-green" className="w-full max-w-sm relative z-10">
+           <button onClick={() => { setMode('choose'); setPin(''); setError('') }}
+-                  className="text-white/30 hover:text-white/60 text-sm mb-6 transition-colors">← Back</button>
++                  className="text-white/30 hover:text-white/60 text-sm mb-6 transition-colors flex items-center gap-1">
++            <ArrowLeft className="w-3.5 h-3.5" /> Back
++          </button>
+           <h1 className="font-vm-display text-3xl font-bold text-white mb-6 text-center">Welcome Back!</h1>
+ 
+           <div className="mb-5">
+@@ -230,10 +318,10 @@ export default function KidPlay() {
+           <PinPad onDigit={handlePin} onDelete={deletePin} />
+ 
+           {error && <p className="text-brand-coral text-sm text-center mb-3">{error}</p>}
+-          <Button className="w-full" size="lg" onClick={handleLogin} disabled={loading}>
+-            {loading ? 'Checking…' : "Let's Play! 🚀"}
++          <Button className="w-full gap-2" size="lg" onClick={handleLogin} disabled={loading}>
++            {loading ? 'Checking…' : <>Let's Play! <ArrowRight className="w-4 h-4" /></>}
+           </Button>
+-        </Card>
++        </GlassPanel>
+       )}
+     </div>
+   )
+-- 
+2.43.0
+

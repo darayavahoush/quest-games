@@ -4,7 +4,8 @@ import { dashboardAPI, chimeAPI, vaakmirrorAPI } from '../../api/client'
 import { voiceHurdleRaceApi } from '../../api/voiceHurdleRaceApi'
 import { Card, Badge, Avatar, StarRating, Button, Spinner, PageLoader } from '../../components/ui'
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer,
-         BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts'
+         BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line, Legend } from 'recharts'
+import { Download } from 'lucide-react'
 
 const LEVEL_EMOJIS = {
   pinwheel: '🌀', float_rider: '🐥', candle: '🕯️',
@@ -22,6 +23,10 @@ export default function PatientDetail() {
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab]         = useState('progress')   // progress | sessions | voicehurdlerace | chime | vaakmirror | care | notes
+  const [downloadingReport, setDownloadingReport] = useState(false)
+  const [reportError, setReportError] = useState('')
+  const [soundProgress, setSoundProgress] = useState(null)
+  const [soundProgressLoading, setSoundProgressLoading] = useState(true)
   const [noteText, setNoteText] = useState('')
   const [notes, setNotes]       = useState([])
   const [savingNote, setSavingNote] = useState(false)
@@ -51,6 +56,10 @@ export default function PatientDetail() {
 
   const [newAssignment, setNewAssignment] = useState({ game: 'chime', level_id: '', title: '', instructions: '', due_at: '' })
   const [savingAssignment, setSavingAssignment] = useState(false)
+  const [ideaCondition, setIdeaCondition] = useState('')
+  const [ideas, setIdeas] = useState([])
+  const [ideasLoading, setIdeasLoading] = useState(false)
+  const [ideasOpen, setIdeasOpen] = useState(false)
   const [newGoal, setNewGoal] = useState({ target_metric: 'breath_consistency', target_value: '', target_date: '' })
   const [savingGoal, setSavingGoal] = useState(false)
   const [newMessage, setNewMessage] = useState('')
@@ -98,6 +107,11 @@ export default function PatientDetail() {
       .catch(err => { console.error('Failed to load VaakMirror dashboard:', err); setVmError(true) })
       .finally(() => setVmLoading(false))
 
+    dashboardAPI.getSoundProgress(id)
+      .then(({ data }) => setSoundProgress(data))
+      .catch(err => console.error('Failed to load sound progress:', err))
+      .finally(() => setSoundProgressLoading(false))
+
     // The same adaptive-difficulty agent Chime and BreathQuest use, applied
     // to VaakMirror's round_size knob (see backend vaakmirror/agent_bridge.py).
     // Read-only here — a therapist has to accept a suggestion before it
@@ -123,6 +137,15 @@ export default function PatientDetail() {
       .finally(() => setSummaryLoading(false))
   }, [id, weekOffset])
 
+  useEffect(() => {
+    if (!ideasOpen) return
+    setIdeasLoading(true)
+    dashboardAPI.listHomePracticeIdeas(ideaCondition || undefined)
+      .then(({ data }) => setIdeas(data))
+      .catch(err => console.error('Failed to load home practice ideas:', err))
+      .finally(() => setIdeasLoading(false))
+  }, [ideasOpen, ideaCondition])
+
   // Accepting a suggestion goes through the normal update endpoint — same
   // as if the therapist had typed the number in themselves — so it's always
   // a human decision on record, never the agent silently changing things.
@@ -143,6 +166,41 @@ export default function PatientDetail() {
 
   const dismissAgentSuggestion = (game) => {
     setDismissedSuggestions(prev => ({ ...prev, [game]: true }))
+  }
+
+  const handleDownloadReport = async () => {
+    setReportError('')
+    setDownloadingReport(true)
+    try {
+      const response = await dashboardAPI.getReport(id)
+      const url = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${data.first_name}_progress_report.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      // responseType: 'blob' means axios hands back a Blob even for error
+      // responses — has to be read as text and re-parsed to get the real
+      // `detail` message rather than showing "[object Blob]".
+      let message = 'Could not generate the report — please try again.'
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text()
+          message = JSON.parse(text).detail || message
+        } catch { /* fall back to the generic message above */ }
+      }
+      setReportError(message)
+    } finally {
+      setDownloadingReport(false)
+    }
+  }
+
+  const applyIdeaToAssignment = (idea) => {
+    setNewAssignment(n => ({ ...n, title: idea.title, instructions: idea.description }))
+    setIdeasOpen(false)
   }
 
   const saveAssignment = async () => {
@@ -266,7 +324,19 @@ export default function PatientDetail() {
                 className="text-white/40 hover:text-white text-sm transition-colors">← Dashboard</button>
         <span className="text-white/20">/</span>
         <span className="text-white font-semibold">{data.first_name}</span>
+        <div className="flex-1" />
+        <Button variant="ghost" size="sm" onClick={handleDownloadReport} disabled={downloadingReport}>
+          <Download size={14} className="mr-1.5 inline" />
+          {downloadingReport ? 'Generating…' : 'Download Report'}
+        </Button>
       </nav>
+      {reportError && (
+        <div className="max-w-5xl mx-auto px-6 pt-4">
+          <div className="bg-brand-coral/10 border border-brand-coral/30 rounded-xl px-4 py-3 text-brand-coral text-sm">
+            {reportError}
+          </div>
+        </div>
+      )}
 
       <div className="max-w-5xl mx-auto px-6 py-8">
         {/* Profile header */}
@@ -352,6 +422,57 @@ export default function PatientDetail() {
                 </ResponsiveContainer>
               </Card>
             )}
+
+            {/* Sound accuracy over time — real data from VaakMirror Attempts +
+                Chime session_events. No vocabulary-size or fluency-rate chart
+                here since neither is tracked anywhere in this app; showing
+                only what's actually measured rather than approximating. */}
+            <Card className="md:col-span-2">
+              <h3 className="font-semibold text-white mb-1">Sound Accuracy Over Time</h3>
+              <p className="text-white/30 text-xs mb-4">
+                Weekly accuracy per sound, from VaakMirror + Chime attempts (last 8 weeks)
+              </p>
+              {soundProgressLoading ? (
+                <div className="h-40 flex items-center justify-center"><Spinner /></div>
+              ) : !soundProgress || Object.keys(soundProgress.sounds).length === 0 ? (
+                <p className="text-white/30 text-sm py-8 text-center">
+                  Not enough sound-level practice data yet — this fills in as {data.first_name} plays
+                  VaakMirror or Chime.
+                </p>
+              ) : (() => {
+                const COLORS = ['#A8FF6F', '#FAC775', '#6EC6E8', '#E24B4A', '#B08CE0']
+                const topSounds = Object.entries(soundProgress.sounds)
+                  .sort((a, b) => b[1].reduce((s, p) => s + p.attempts, 0) - a[1].reduce((s, p) => s + p.attempts, 0))
+                  .slice(0, 5)
+                  .map(([sound]) => sound)
+                const weekSet = new Set()
+                topSounds.forEach(s => soundProgress.sounds[s].forEach(p => weekSet.add(p.week)))
+                const weeks = [...weekSet].sort()
+                const chartData = weeks.map(week => {
+                  const row = { week: week.split('-W')[1] ? `W${week.split('-W')[1]}` : week }
+                  topSounds.forEach(sound => {
+                    const point = soundProgress.sounds[sound].find(p => p.week === week)
+                    row[sound] = point ? Math.round(point.accuracy * 100) : null
+                  })
+                  return row
+                })
+                return (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <LineChart data={chartData}>
+                      <XAxis dataKey="week" tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                      <YAxis domain={[0, 100]} tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                      <Tooltip contentStyle={{ background: '#1E1E3F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }}
+                               labelStyle={{ color: 'rgba(255,255,255,0.5)' }} formatter={(v) => v == null ? 'no data' : `${v}%`} />
+                      <Legend wrapperStyle={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }} />
+                      {topSounds.map((sound, i) => (
+                        <Line key={sound} type="monotone" dataKey={sound} stroke={COLORS[i % COLORS.length]}
+                              strokeWidth={2} dot={{ r: 3 }} connectNulls />
+                      ))}
+                    </LineChart>
+                  </ResponsiveContainer>
+                )
+              })()}
+            </Card>
           </div>
         )}
 
@@ -670,6 +791,47 @@ export default function PatientDetail() {
                   </div>
                 </Card>
 
+                {/* Home practice ideas library — 50 items, filterable by
+                    condition/goal. "Use for assignment" pre-fills the
+                    Assignments form below. */}
+                <Card>
+                  <button onClick={() => setIdeasOpen(o => !o)}
+                          className="w-full flex items-center justify-between">
+                    <h3 className="font-semibold text-white">Home Practice Ideas</h3>
+                    <span className="text-white/40 text-sm">{ideasOpen ? '− Hide' : '+ Browse 50 ideas'}</span>
+                  </button>
+                  {ideasOpen && (
+                    <div className="mt-4">
+                      <select className="input text-sm mb-3" value={ideaCondition}
+                              onChange={e => setIdeaCondition(e.target.value)}>
+                        <option value="">All conditions</option>
+                        <option value="articulation">Articulation</option>
+                        <option value="phonological">Phonological</option>
+                        <option value="language">Language</option>
+                        <option value="fluency">Fluency</option>
+                        <option value="voice">Voice</option>
+                        <option value="oral-motor">Oral motor</option>
+                      </select>
+                      {ideasLoading ? (
+                        <div className="py-6 text-center"><Spinner /></div>
+                      ) : (
+                        <div className="flex flex-col gap-2 max-h-80 overflow-y-auto">
+                          {ideas.map(idea => (
+                            <div key={idea.id} className="border-b border-white/5 pb-2 last:border-0">
+                              <p className="text-white text-sm font-medium">{idea.title}</p>
+                              <p className="text-white/40 text-xs mt-0.5 mb-1.5">{idea.description}</p>
+                              <button onClick={() => applyIdeaToAssignment(idea)}
+                                      className="text-brand-green text-xs hover:underline">
+                                Use for assignment →
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </Card>
+
                 {/* Assignments */}
                 <Card>
                   <h3 className="font-semibold text-white mb-3">Assignments</h3>
@@ -698,6 +860,9 @@ export default function PatientDetail() {
                     <input className="input text-sm" placeholder="Title"
                            value={newAssignment.title}
                            onChange={e => setNewAssignment(n => ({ ...n, title: e.target.value }))} />
+                    <textarea className="input text-sm resize-none" rows={2} placeholder="Instructions (optional)"
+                           value={newAssignment.instructions}
+                           onChange={e => setNewAssignment(n => ({ ...n, instructions: e.target.value }))} />
                     <div className="flex gap-2">
                       <select className="input text-sm" value={newAssignment.game}
                               onChange={e => setNewAssignment(n => ({ ...n, game: e.target.value }))}>

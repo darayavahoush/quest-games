@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { TrendingUp, TrendingDown, Calendar, Star, Sparkles } from 'lucide-react'
+import { TrendingUp, TrendingDown, Calendar, Star, Sparkles, Heart } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { Avatar } from '../../components/ui'
 import { parentAPI } from '../../api/client'
@@ -21,12 +21,16 @@ export default function ParentDashboard() {
   const { parent, logout } = useAuth()
   const [data, setData] = useState(null)
   const [status, setStatus] = useState('loading') // loading | ready | error
+  const [activity, setActivity] = useState(null)
 
   useEffect(() => {
     let cancelled = false
     parentAPI.progress()
       .then(({ data }) => { if (!cancelled) { setData(data); setStatus('ready') } })
       .catch(() => { if (!cancelled) setStatus('error') })
+    parentAPI.guidedActivity()
+      .then(({ data }) => { if (!cancelled) setActivity(data) })
+      .catch(err => console.error('Failed to load guided activity:', err))
     return () => { cancelled = true }
   }, [])
 
@@ -96,6 +100,23 @@ export default function ParentDashboard() {
                 </div>
               )}
             </div>
+
+            {/* Try this with your child — guided activity from the 50-idea
+                library, targeted at their weakest recent sound if we have
+                enough data (GET /parent/guided-activity). */}
+            {activity && (
+              <div className="rounded-2xl border border-coral/25 bg-coral/5 p-6 mb-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <Heart size={16} className="text-coral-light" />
+                  <p className="font-mono text-xs uppercase tracking-widest text-coral-light">
+                    Try this with your child today
+                  </p>
+                </div>
+                <p className="font-display text-lg font-bold text-paper mb-1">{activity.idea.title}</p>
+                <p className="text-paper/60 text-sm leading-relaxed mb-2">{activity.idea.description}</p>
+                <p className="text-paper/35 text-xs italic">{activity.reason}</p>
+              </div>
+            )}
 
             {/* Top stats row */}
             <div className="grid grid-cols-3 gap-4 mb-6">

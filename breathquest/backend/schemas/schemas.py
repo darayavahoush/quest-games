@@ -31,6 +31,36 @@ class WeeklySummaryOut(BaseModel):
     stats: dict[str, Any]     # raw numbers backing the narrative, for charts
 
 
+class SoundWeekPoint(BaseModel):
+    week: str          # ISO week label, e.g. "2026-W28"
+    week_start: datetime
+    accuracy: float     # 0-1
+    attempts: int
+
+
+class SoundProgressOut(BaseModel):
+    patient_id: str
+    # Real accuracy-over-time per sound, pulled from VaakMirror Attempts +
+    # Chime session_events. There is no vocabulary-size or fluency-rate data
+    # anywhere in this app, so this endpoint only reports what's actually
+    # measured — sound-level accuracy — rather than fabricating the other two.
+    sounds: dict[str, list[SoundWeekPoint]]
+    practiced_sound_count: int   # distinct sounds attempted at least once, all-time
+
+
+class HomePracticeIdeaOut(BaseModel):
+    id: int
+    title: str
+    description: str
+    conditions: list[str]
+    goals: list[str]
+
+
+class GuidedActivityOut(BaseModel):
+    idea: HomePracticeIdeaOut
+    reason: str   # plain-language "why this one" for the parent
+
+
 class TherapistRegister(BaseModel):
     email: EmailStr
     password: str

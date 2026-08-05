@@ -128,6 +128,17 @@ export const dashboardAPI = {
   // Weekly summary (rule-based, no LLM calls)
   weeklySummary: (patientId, weekOffset) =>
     api.get(`/dashboard/patients/${patientId}/weekly-summary`, { params: weekOffset ? { week_offset: weekOffset } : {} }),
+
+  // ICF-style PDF report export
+  getReport: (patientId) => api.get(`/dashboard/patients/${patientId}/report`, { responseType: 'blob' }),
+
+  // Sound-accuracy-over-time (real data only — no vocab/fluency tracking exists in this app)
+  getSoundProgress: (patientId, weeks) =>
+    api.get(`/dashboard/patients/${patientId}/sound-progress`, { params: weeks ? { weeks } : {} }),
+
+  // 50-item home practice ideas library, filterable by condition/goal
+  listHomePracticeIdeas: (condition, goal) =>
+    api.get('/dashboard/home-practice-ideas', { params: { ...(condition && { condition }), ...(goal && { goal }) } }),
 }
 
 // ------------------------------------------------------------------ //
@@ -166,6 +177,7 @@ export const meAPI = {
 
 export const parentAPI = {
   progress: () => api.get('/parent/progress'),
+  guidedActivity: () => api.get('/parent/guided-activity'),
 }
 
 // FastAPI's `detail` field is a plain string for most HTTPExceptions (e.g.

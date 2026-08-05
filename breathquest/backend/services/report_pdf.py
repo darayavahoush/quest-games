@@ -40,6 +40,24 @@ def _fmt_date(d):
     return d.strftime("%b %d, %Y")
 
 
+# ICF-style qualifier scale (0 = no difficulty ... 4 = complete difficulty),
+# collapsed to 4 rule-based bands driven by in-app performance data. This is
+# NOT a clinical severity diagnosis — it's a practice-performance indicator a
+# therapist reads alongside their own assessment, and the report says so
+# explicitly wherever it appears.
+def _severity_band(rate):
+    """rate: 0..1 or None. Returns (label, ICF-style qualifier)."""
+    if rate is None:
+        return ("Not yet assessed", "—")
+    if rate >= 0.80:
+        return ("No/mild difficulty", "0–1")
+    if rate >= 0.60:
+        return ("Mild difficulty", "1")
+    if rate >= 0.40:
+        return ("Moderate difficulty", "2")
+    return ("Severe difficulty", "3")
+
+
 def build_patient_report_pdf(
     *, patient, progress, weekly_summary, goals, assignments, therapist, output_path: str,
 ) -> str:
@@ -112,6 +130,42 @@ def build_patient_report_pdf(
         ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
         ("LINEBELOW", (0, 0), (-1, -1), 0.4, colors.lightgrey),
+    ]))
+    story.append(t)
+
+    # --- Severity indicators (ICF: body function qualifiers) ---
+    story.append(Paragraph("Practice Performance Severity Indicators", _h2))
+    story.append(Paragraph(
+        "Rule-based, derived from in-app practice data only — not a clinical "
+        "severity diagnosis. Use alongside your own standardized assessment.",
+        _small,
+    ))
+    story.append(Spacer(1, 4))
+
+    goal_rate = (
+        sum(1 for g in goals if g.achieved) / len(goals) if goals else None
+    )
+    severity_rows = [
+        ["Domain", "Performance", "Severity band", "ICF qualifier"],
+    ]
+    for domain, rate in [
+        ("BreathQuest (completion rate)", progress.completion_rate),
+        ("Goals (achievement rate)", goal_rate),
+    ]:
+        label, qualifier = _severity_band(rate)
+        severity_rows.append([
+            domain,
+            f"{rate * 100:.0f}%" if rate is not None else "No data",
+            label,
+            qualifier,
+        ])
+    t = Table(severity_rows, colWidths=[2.3 * inch, 1.3 * inch, 1.6 * inch, 1.3 * inch])
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#EEF2FF")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.lightgrey),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
     ]))
     story.append(t)
 

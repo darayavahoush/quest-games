@@ -13,7 +13,7 @@ from models.models import (
     Assignment, AssignmentStatus, Goal, Message, SenderRole, HomePracticeLog,
 )
 from models.voicehurdlerace_models import VoiceHurdleRaceSession
-from vaakmirror.models import GameSession as VaakMirrorSession
+from vaakmirror.models import GameSession as VaakMirrorSession, Attempt
 from retraining import data_store as chime_data_store
 from schemas.schemas import (
     PatientProgress, LevelProgress, DashboardSummary,
@@ -23,7 +23,8 @@ from schemas.schemas import (
     GoalCreate, GoalUpdate, GoalOut,
     MessageCreate, MessageOut,
     HomePracticeLogCreate, HomePracticeLogOut,
-    PatientAlert, WeeklySummaryOut,
+    PatientAlert, WeeklySummaryOut, SoundProgressOut, SoundWeekPoint,
+    HomePracticeIdeaOut,
 )
 from core.deps import get_current_therapist
 from services.weekly_summary import generate_weekly_summary
@@ -755,6 +756,97 @@ async def get_weekly_summary(
 
     result = await generate_weekly_summary(db, patient, week_start, chime_data_store.DEFAULT_DB_PATH)
     return WeeklySummaryOut(**result)
+
+
+def _iso_week_bucket(dt: datetime) -> tuple[str, datetime]:
+    """Returns ("2026-W28", monday_of_that_week) for a given datetime."""
+    iso_year, iso_week, _ = dt.isocalendar()
+    monday = dt - timedelta(days=dt.weekday())
+    monday = monday.replace(hour=0, minute=0, second=0, microsecond=0)
+    return (f"{iso_year}-W{iso_week:02d}", monday)
+
+
+@router.get("/patients/{patient_id}/sound-progress", response_model=SoundProgressOut)
+async def get_sound_progress(
+    patient_id: str,
+    weeks: int = 8,
+    therapist: Therapist = Depends(get_current_therapist),
+    db: AsyncSession = Depends(get_db),
+):
+    """Real accuracy-over-time per sound, from VaakMirror Attempts + Chime
+    session_events — the only two places this app actually records a
+    sound-level correct/incorrect outcome with a timestamp. There is no
+    vocabulary-size or fluency-rate tracking anywhere in the codebase, so
+    unlike the ICF report's other sections, this one doesn't try to
+    approximate those — it reports what's real and nothing else."""
+    await _get_owned_patient(patient_id, therapist, db)
+    since = datetime.now(timezone.utc) - timedelta(weeks=weeks)
+
+    # sound_id -> week_label -> [correct_count, total_count, week_start]
+    buckets: dict[str, dict[str, list]] = {}
+
+    vm_result = await db.execute(
+        select(Attempt.sound_id, Attempt.outcome, Attempt.created_at)
+        .join(VaakMirrorSession, Attempt.session_id == VaakMirrorSession.id)
+        .where(
+            VaakMirrorSession.patient_id == patient_id,
+            Attempt.created_at >= since,
+            Attempt.sound_id.isnot(None),
+        )
+    )
+    for sound_id, outcome, created_at in vm_result.all():
+        week_label, week_start_dt = _iso_week_bucket(created_at)
+        wk = buckets.setdefault(sound_id, {}).setdefault(week_label, [0, 0, week_start_dt])
+        wk[1] += 1
+        if outcome in ("passed", "caught"):
+            wk[0] += 1
+
+    chime_events = chime_data_store.get_events(child_id=patient_id, db_path=CHIME_DB_PATH)
+    for ev in chime_events:
+        try:
+            ts = datetime.fromisoformat(ev["timestamp"])
+        except (KeyError, ValueError, TypeError):
+            continue
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        if ts < since or not ev.get("level_id"):
+            continue
+        week_label, week_start_dt = _iso_week_bucket(ts)
+        wk = buckets.setdefault(ev["level_id"], {}).setdefault(week_label, [0, 0, week_start_dt])
+        wk[1] += 1
+        if ev.get("is_valid_attempt"):
+            wk[0] += 1
+
+    sounds_out: dict[str, list[SoundWeekPoint]] = {}
+    for sound_id, week_map in buckets.items():
+        points = [
+            SoundWeekPoint(
+                week=week_label, week_start=data[2],
+                accuracy=(data[0] / data[1]) if data[1] else 0.0,
+                attempts=data[1],
+            )
+            for week_label, data in week_map.items()
+        ]
+        points.sort(key=lambda p: p.week_start)
+        sounds_out[sound_id] = points
+
+    return SoundProgressOut(
+        patient_id=patient_id,
+        sounds=sounds_out,
+        practiced_sound_count=len(sounds_out),
+    )
+
+
+@router.get("/home-practice-ideas", response_model=list[HomePracticeIdeaOut])
+async def list_home_practice_ideas(
+    condition: str | None = None,
+    goal: str | None = None,
+    therapist: Therapist = Depends(get_current_therapist),
+):
+    """Static library (services/home_practice_ideas.py) — not per-patient
+    data, just filterable by condition/goal tag as the spec asks for."""
+    from services.home_practice_ideas import filter_ideas
+    return filter_ideas(condition=condition, goal=goal)
 
 
 # ------------------------------------------------------------------ #
