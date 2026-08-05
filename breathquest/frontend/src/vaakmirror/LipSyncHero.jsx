@@ -447,9 +447,13 @@ export default function LipSyncHero() {
                   <div className="w-36 h-36 shrink-0 rounded-2xl bg-ink border border-white/10 flex items-center justify-center p-4">
                     <MouthShapeGuide shape={current.shape} manner={current.manner} tier={tier} className="w-full h-full" />
                   </div>
-                  <div className="w-16 h-16 shrink-0 rounded-2xl bg-coral/15 border border-coral/30 flex items-center justify-center">
+                  <button
+                    onClick={() => speakSound(current.label)}
+                    className="w-16 h-16 shrink-0 rounded-2xl bg-coral/15 border border-coral/30 flex items-center justify-center hover:bg-coral/25 transition-colors"
+                    aria-label="Hear this sound again"
+                  >
                     <span className="font-display text-2xl font-bold text-coral">{current.label}</span>
-                  </div>
+                  </button>
                 </div>
                 <p className="text-paper text-lg font-medium mb-2">{target.label}</p>
                 <p className="text-paper/45 text-sm mb-6">

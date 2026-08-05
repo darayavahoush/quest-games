@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
-import { Mic, Square, ArrowLeft } from 'lucide-react'
+import { Mic, Square, ArrowLeft, Volume2 } from 'lucide-react'
+import { useSpokenInstruction } from '../../lib/speech'
 
 // Common chrome shared by all 5 phoneme mini-games. `visual` is the
 // bespoke centerpiece each game renders (rocket, submarine, drum, etc);
@@ -11,6 +12,11 @@ export default function PhonemeGameShell({
   passed, visual, promptText, nextLevelPath,
 }) {
   const navigate = useNavigate()
+  // Auto-speak the prompt once when a level's promptText shows up (matches
+  // the auto-speak-once pattern VaakMirror's games already use), plus a
+  // small replay button next to it — held off while the mic is mid-attempt
+  // so it doesn't talk over a recording.
+  const replay = useSpokenInstruction(promptText, { enabled: status === 'idle' })
 
   return (
     <div className="min-h-screen bg-ink flex flex-col items-center px-6 py-10">
@@ -27,7 +33,16 @@ export default function PhonemeGameShell({
             {gameName}
           </p>
           {visual}
-          <p className="text-paper/50 text-sm mt-4">{promptText}</p>
+          <p className="text-paper/50 text-sm mt-4 flex items-center justify-center gap-1.5">
+            {promptText}
+            <button
+              onClick={replay}
+              className="text-paper/30 hover:text-paper/60 transition-colors"
+              aria-label="Hear the instructions again"
+            >
+              <Volume2 size={15} />
+            </button>
+          </p>
         </div>
 
         <div className="flex justify-center mb-6">

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { Volume2 } from 'lucide-react'
 import { sessionsAPI } from '../../api/client'
 import { BreathEngine } from '../../game/engine/BreathEngine.js'
 import { LEVEL_FACTORIES, LEVEL_META } from '../../game/index.js'
@@ -9,6 +10,7 @@ import {
   DEFAULT_DIFFICULTY, applyAction, loadStoredDifficulty, saveStoredDifficulty,
   loadAttemptNumber, saveAttemptNumber,
 } from '../../game/lib/difficulty.js'
+import { useSpokenInstruction } from '../../lib/speech'
 
 const W = 800, H = 580
 
@@ -42,6 +44,18 @@ export default function GamePage() {
   const scores   = loadScores()
   const unlocked = isUnlocked(levelId, scores)
   const bestStars = scores[levelId]?.stars || 0
+
+  // Verbal instructions: speak the level's tagline once each time the
+  // "ready" screen is (re-)entered (only once it's actually unlocked — no
+  // point narrating a level the kid can't play yet), and the breathe-in
+  // cue once each time that phase comes up — it recurs every attempt, and
+  // useSpokenInstruction correctly re-speaks on every re-entry into an
+  // enabled state, not just the first time ever (see its doc comment).
+  const replayReady = useSpokenInstruction(meta?.tagline, { enabled: phase === 'ready' && unlocked })
+  const replayBreathe = useSpokenInstruction(
+    'Take a big breath in! Fill up your belly like a balloon, then get ready to blow.',
+    { enabled: phase === 'breathe' },
+  )
 
   const startGame = async () => {
     if (!unlocked) return
@@ -265,7 +279,12 @@ export default function GamePage() {
                 {meta.emoji}
               </div>
               <h2 className="font-display text-4xl font-black text-white mb-1">{meta.name}</h2>
-              <p className="text-white/40 mb-2">{meta.tagline}</p>
+              <p className="text-white/40 mb-2 flex items-center justify-center gap-1.5">
+                {meta.tagline}
+                <button onClick={replayReady} className="text-white/25 hover:text-white/50 transition-colors" aria-label="Hear this again">
+                  <Volume2 size={14} />
+                </button>
+              </p>
 
               {!unlocked ? (
                 <div className="mt-6 text-center">
@@ -325,7 +344,12 @@ export default function GamePage() {
               <h2 className="font-display text-3xl font-black text-white mb-2">
                 Take a big breath in!
               </h2>
-              <p className="text-white/40">Fill up your belly like a balloon… then get ready to blow 💨</p>
+              <p className="text-white/40 flex items-center justify-center gap-1.5">
+                Fill up your belly like a balloon… then get ready to blow 💨
+                <button onClick={replayBreathe} className="text-white/25 hover:text-white/50 transition-colors" aria-label="Hear this again">
+                  <Volume2 size={14} />
+                </button>
+              </p>
             </div>
           )}
 

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { KeyRound, PartyPopper, Sparkles, ArrowRight, ArrowLeft } from 'lucide-react'
+import { KeyRound, PartyPopper, Sparkles, ArrowRight, ArrowLeft, Volume2 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { getErrorMessage } from '../../api/client'
 import { Button, Avatar } from '../../components/ui'
 import { Creature } from '../../components/ui/Creatures'
+import { useSpokenInstruction } from '../../lib/speech'
 
 const AVATARS = ['chick', 'dragon', 'bunny', 'fox', 'rocket', 'fish']
 const AVATAR_NAMES = { chick: 'Chicky', dragon: 'Dino', bunny: 'Hoppy', fox: 'Foxy', rocket: 'Zoom', fish: 'Finley' }
@@ -22,6 +23,16 @@ const EMBERS = [
   { left: '82%', delay: '3s',   duration: '14s', size: 3 },
   { left: '50%', delay: '6s',   duration: '11s', size: 4 },
 ]
+
+// Small inline "hear it again" affordance, reused across every spoken
+// screen in this file so the tap target and icon are consistent.
+function SpeakButton({ onClick, className = 'text-white/25 hover:text-white/50' }) {
+  return (
+    <button onClick={onClick} className={`inline-flex transition-colors ${className}`} aria-label="Hear this again">
+      <Volume2 className="w-3.5 h-3.5" />
+    </button>
+  )
+}
 
 // A little welcome crew instead of a lone floating game-controller emoji —
 // this is the first thing a kid sees after tapping "I'm a Kid!" on Landing,
@@ -114,6 +125,26 @@ export default function KidPlay() {
     return () => clearTimeout(t)
   }, [])
 
+  // Verbal instructions per screen — each fires once on entering that mode
+  // (and again if the kid navigates back into it later) via
+  // useSpokenInstruction, plus a manual replay button next to the text.
+  const replayChoose = useSpokenInstruction(
+    'Ready to play? Tap New Player to create an account, or I have a code to log back in.',
+    { enabled: mode === 'choose' && !registered },
+  )
+  const replayRegister = useSpokenInstruction(
+    'Create your account. Type your name, pick your character, and choose a 4 digit PIN.',
+    { enabled: mode === 'register' },
+  )
+  const replayLogin = useSpokenInstruction(
+    'Welcome back! Enter your player code and your PIN.',
+    { enabled: mode === 'login' },
+  )
+  const replayRegistered = useSpokenInstruction(
+    registered ? `You're in, ${AVATAR_NAMES[avatar]}! Write down your player code and your PIN so you can log back in.` : null,
+    { enabled: !!registered },
+  )
+
   const handlePin = (digit) => { if (pin.length < 4) setPin(p => p + digit) }
   const deletePin = () => setPin(p => p.slice(0, -1))
 
@@ -166,7 +197,9 @@ export default function KidPlay() {
         <h1 className="font-vm-display text-4xl font-bold text-white mb-2 flex items-center justify-center gap-2">
           You're in, {AVATAR_NAMES[avatar]}! <PartyPopper className="w-8 h-8 text-brand-amber" />
         </h1>
-        <p className="text-white/50 mb-8 relative z-10">Write this down so you can log back in:</p>
+        <p className="text-white/50 mb-8 relative z-10 flex items-center justify-center gap-1.5">
+          Write this down so you can log back in: <SpeakButton onClick={replayRegistered} />
+        </p>
         <GlassPanel className="mb-6 w-full max-w-xs" accent="brand-green">
           <p className="text-white/40 text-sm mb-1">Your Player Code</p>
           <p className="font-vm-display text-4xl font-bold text-brand-green tracking-widest mb-4">
@@ -207,7 +240,9 @@ export default function KidPlay() {
         <div className="text-center w-full max-w-sm relative z-10">
           <WelcomeCrew />
           <h1 className="font-vm-display text-4xl font-bold text-white mb-2">BreathQuest</h1>
-          <p className="text-white/40 mb-10">Ready to play?</p>
+          <p className="text-white/40 mb-10 flex items-center justify-center gap-1.5">
+            Ready to play? <SpeakButton onClick={replayChoose} />
+          </p>
           <div className="flex flex-col gap-4">
             <button onClick={() => setMode('register')}
               className={`group relative overflow-hidden rounded-[2rem] p-6 text-left
@@ -258,7 +293,9 @@ export default function KidPlay() {
                   className="text-white/30 hover:text-white/60 text-sm mb-6 transition-colors flex items-center gap-1">
             <ArrowLeft className="w-3.5 h-3.5" /> Back
           </button>
-          <h1 className="font-vm-display text-3xl font-bold text-white mb-6 text-center">Create Account</h1>
+          <h1 className="font-vm-display text-3xl font-bold text-white mb-6 text-center flex items-center justify-center gap-2">
+            Create Account <SpeakButton onClick={replayRegister} className="text-white/25 hover:text-white/50" />
+          </h1>
 
           {/* Name */}
           <div className="mb-5">
@@ -304,7 +341,9 @@ export default function KidPlay() {
                   className="text-white/30 hover:text-white/60 text-sm mb-6 transition-colors flex items-center gap-1">
             <ArrowLeft className="w-3.5 h-3.5" /> Back
           </button>
-          <h1 className="font-vm-display text-3xl font-bold text-white mb-6 text-center">Welcome Back!</h1>
+          <h1 className="font-vm-display text-3xl font-bold text-white mb-6 text-center flex items-center justify-center gap-2">
+            Welcome Back! <SpeakButton onClick={replayLogin} className="text-white/25 hover:text-white/50" />
+          </h1>
 
           <div className="mb-5">
             <label className="text-sm text-white/50 block mb-1">Your Player Code</label>

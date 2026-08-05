@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
-import { Stethoscope, Heart, Sparkles, ArrowRight } from 'lucide-react'
+import { Stethoscope, Heart, Sparkles, ArrowRight, Volume2 } from 'lucide-react'
 import { Avatar } from '../components/ui'
+import { useSpokenInstruction } from '../lib/speech'
 
 const EMBERS = [
   { left: '22%', delay: '0s',    duration: '11s', size: 5 },
@@ -38,6 +39,9 @@ function BreathBuddy() {
 
 export default function Landing() {
   const navigate = useNavigate()
+  const replayTagline = useSpokenInstruction(
+    'Blow, speak, and watch the world move. Are you a kid ready to play, a therapist, or a parent?',
+  )
 
   return (
     <div
@@ -69,9 +73,12 @@ export default function Landing() {
         <h1 className="font-vm-display text-4xl sm:text-5xl font-bold text-paper leading-tight text-balance">
           Blow, speak, and watch the world move.
         </h1>
-        <p className="text-paper/60 text-lg mt-4 max-w-md mx-auto">
-          Three small worlds built around one big idea — a real breath, a real word,
-          moving something real on screen.
+        <p className="text-paper/60 text-lg mt-4 max-w-md mx-auto flex items-center justify-center gap-2 flex-wrap">
+          <span>Three small worlds built around one big idea — a real breath, a real word,
+          moving something real on screen.</span>
+          <button onClick={replayTagline} className="text-paper/30 hover:text-paper/60 transition-colors" aria-label="Hear this again">
+            <Volume2 className="w-4 h-4" />
+          </button>
         </p>
       </div>
 

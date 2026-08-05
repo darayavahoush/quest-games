@@ -5,6 +5,8 @@
 // gesture has happened somewhere on the page, and if that hasn't occurred
 // yet the visual celebration still carries the feedback on its own.
 
+import { speak } from '../../lib/speech'
+
 let audioCtx = null
 
 function getCtx() {
@@ -79,15 +81,10 @@ export function playMiss() {
 // this is an audio cue tied to the target, not an accurate phoneme
 // recording. Digraphs like "sh"/"ch"/"th" tend to come out closer to the
 // real sound. Fails silently if speech synthesis isn't available.
+//
+// Now backed by the shared src/lib/speech.js implementation (same rate/
+// pitch this file always used) so every part of the app shares one speech
+// utility instead of two copies of the same try/catch wrapper.
 export function speakSound(text) {
-  try {
-    if (!window.speechSynthesis) return
-    window.speechSynthesis.cancel()
-    const utter = new SpeechSynthesisUtterance(text)
-    utter.rate = 0.85
-    utter.pitch = 1.05
-    window.speechSynthesis.speak(utter)
-  } catch {
-    // Ignore.
-  }
+  speak(text, { rate: 0.85, pitch: 1.05 })
 }

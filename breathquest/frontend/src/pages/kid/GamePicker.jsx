@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { TrendingUp } from 'lucide-react'
+import { TrendingUp, Volume2 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { Avatar } from '../../components/ui'
+import { useSpokenInstruction } from '../../lib/speech'
 
 const APPS = [
   {
@@ -93,6 +94,11 @@ export default function GamePicker() {
     return () => clearTimeout(t)
   }, [])
 
+  const spokenGreeting = patient
+    ? `${greeting()}, ${patient.first_name || 'friend'}! Pick a world to play in — each one starts the same way, take a breath.`
+    : null
+  const replayGreeting = useSpokenInstruction(spokenGreeting, { enabled: !!patient })
+
   return (
     <div className="min-h-screen" style={{ background: 'linear-gradient(180deg, #12142E 0%, #1E1E3F 100%)' }}>
       <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
@@ -119,7 +125,12 @@ export default function GamePicker() {
           <h1 className="font-vm-display text-4xl font-bold text-white mt-5">
             {greeting()}, {patient?.first_name || 'friend'}!
           </h1>
-          <p className="text-white/40 mt-3">Pick a world to play in — each one starts the same way, take a breath 🌬️</p>
+          <p className="text-white/40 mt-3 flex items-center justify-center gap-1.5">
+            Pick a world to play in — each one starts the same way, take a breath 🌬️
+            <button onClick={replayGreeting} className="text-white/25 hover:text-white/50 transition-colors" aria-label="Hear this again">
+              <Volume2 className="w-3.5 h-3.5" />
+            </button>
+          </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
