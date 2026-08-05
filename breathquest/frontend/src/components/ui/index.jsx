@@ -1,4 +1,5 @@
 // Shared UI primitives
+import { Creature, CREATURE_ACCENTS } from './Creatures'
 
 export function Button({ children, variant = 'primary', size = 'md', className = '', ...props }) {
   const base = 'inline-flex items-center justify-center gap-2 font-semibold rounded-xl transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed'
@@ -87,26 +88,20 @@ export function StarRating({ stars = 0, max = 3, size = 'md' }) {
 }
 
 export function Avatar({ avatar = 'chick', size = 'md', name = '' }) {
-  const AVATARS = {
-    chick:  { emoji: '🐥', bg: 'from-yellow-400 to-orange-400' },
-    dragon: { emoji: '🐉', bg: 'from-green-500 to-teal-500' },
-    bunny:  { emoji: '🐰', bg: 'from-pink-300 to-rose-400' },
-    fox:    { emoji: '🦊', bg: 'from-orange-600 to-red-600' },
-    rocket: { emoji: '🚀', bg: 'from-purple-500 to-pink-500' },
-    fish:   { emoji: '🐠', bg: 'from-cyan-400 to-blue-500' },
-  }
   const sizes = {
-    sm:  'w-8 h-8 text-base',
-    md:  'w-12 h-12 text-2xl',
-    lg:  'w-16 h-16 text-3xl',
-    xl:  'w-24 h-24 text-5xl',
+    sm:  'w-8 h-8',
+    md:  'w-12 h-12',
+    lg:  'w-16 h-16',
+    xl:  'w-24 h-24',
   }
-  const av = AVATARS[avatar] || AVATARS.chick
+  const accent = CREATURE_ACCENTS[avatar] || CREATURE_ACCENTS.chick
   return (
-    <div className={`${sizes[size]} rounded-full bg-gradient-to-br ${av.bg}
-      flex items-center justify-center flex-shrink-0`}
-      title={name}>
-      {av.emoji}
+    <div
+      className={`${sizes[size]} rounded-full flex items-center justify-center flex-shrink-0 p-1`}
+      style={{ background: `linear-gradient(160deg, ${accent.from}33, ${accent.to}22)` }}
+      title={name}
+    >
+      <Creature species={avatar} className="w-full h-full" />
     </div>
   )
 }
