@@ -619,12 +619,6 @@ export default function BubbleWrapPop() {
               <button className="bwp-btn" onClick={() => navigate(getNextLevelRoute(LEVEL_ID))}>Next Level →</button>
             )}
             <button className="bwp-btn" onClick={handlePlayAgain}>New Sheet!</button>
-            <button
-              className="bwp-btn"
-              onClick={() => navigate('/play/chime/village-builder')}
-            >
-              Next Level →
-            </button>
           </div>
         </div>
       )}

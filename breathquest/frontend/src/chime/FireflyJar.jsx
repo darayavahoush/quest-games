@@ -677,7 +677,6 @@ export default function FireflyJar() {
               <button className="fjar-btn" onClick={() => navigate(getNextLevelRoute(LEVEL_ID))}>Next Level →</button>
             )}
             <button className="fjar-btn" onClick={handlePlayAgain}>Play Again!</button>
-            <button onClick={() => navigate('/play/chime/wind-chime-garden')} className="mt-3 ml-3 fjar-btn">Next Level →</button>
           </div>
         </div>
       )}
