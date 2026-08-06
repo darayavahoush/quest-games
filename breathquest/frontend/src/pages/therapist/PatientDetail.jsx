@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 import { dashboardAPI, chimeAPI, vaakmirrorAPI } from '../../api/client'
 import { voiceHurdleRaceApi } from '../../api/voiceHurdleRaceApi'
-import { Card, Badge, Avatar, StarRating, Button, Spinner, PageLoader } from '../../components/ui'
+import { Card, Badge, Avatar, StarRating, Button, Spinner, PageLoader, Sidebar } from '../../components/ui'
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer,
          BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line, Legend } from 'recharts'
-import { Download, BarChart3, Gamepad2, Dog, Bell, Waves, HeartPulse, FileText } from 'lucide-react'
+import { Download, BarChart3, Gamepad2, Dog, Bell, Waves, HeartPulse, FileText, LayoutDashboard } from 'lucide-react'
 
 const LEVEL_EMOJIS = {
   pinwheel: '🌀', float_rider: '🐥', candle: '🕯️',
@@ -20,6 +21,7 @@ const VM_GAME_LABELS = {
 export default function PatientDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { therapist, logout } = useAuth()
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab]         = useState('progress')   // progress | sessions | voicehurdlerace | chime | vaakmirror | care | notes
@@ -327,7 +329,7 @@ export default function PatientDetail() {
   ]
 
   return (
-    <div className="min-h-screen bg-brand-dark relative">
+    <div className="min-h-screen bg-brand-dark relative flex">
       {/* Same ambient glow as the therapist dashboard, so landing on a
           specific patient doesn't feel like a flatter, less-considered
           page than the dashboard just navigated from. */}
@@ -336,6 +338,17 @@ export default function PatientDetail() {
         <div className="absolute -top-40 right-0 w-[26rem] h-[26rem] rounded-full bg-brand-green/[0.05] blur-[100px]" />
       </div>
 
+      <Sidebar
+        role="therapist"
+        items={[
+          { label: 'Dashboard', icon: LayoutDashboard, to: '/therapist/dashboard' },
+        ]}
+        name={therapist?.full_name}
+        subtitle={therapist?.clinic_name}
+        onLogout={logout}
+      />
+
+      <div className="relative flex-1 min-w-0">
       {/* Nav */}
       <nav className="relative border-b border-white/[0.08] px-6 py-4 flex items-center gap-4
                        sticky top-0 bg-brand-dark/85 backdrop-blur-xl z-10">
@@ -1002,6 +1015,7 @@ export default function PatientDetail() {
             )}
           </div>
         )}
+      </div>
       </div>
     </div>
   )

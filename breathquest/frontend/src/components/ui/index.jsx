@@ -141,3 +141,4 @@ export function StatCard({ icon: Icon, value, label, accent = '#2FB8A6' }) {
     </Card>
   )
 }
+export { default as Sidebar } from './Sidebar'

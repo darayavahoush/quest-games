@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { TrendingUp, TrendingDown, Calendar, Star, Sparkles, Heart, LogOut } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import { Avatar, Card, StatCard } from '../../components/ui'
+import { Avatar, Card, StatCard, Sidebar } from '../../components/ui'
 import { parentAPI } from '../../api/client'
 
 function formatDate(iso) {
@@ -38,7 +38,7 @@ export default function ParentDashboard() {
   const trend = data?.improvement_trend
 
   return (
-    <div className="min-h-screen bg-ink relative">
+    <div className="min-h-screen bg-ink relative flex">
       {/* Ambient glow header — same elevated-dashboard language as the
           therapist side, in the parent flow's own coral/mint accent pair
           instead of teal/green. */}
@@ -47,20 +47,16 @@ export default function ParentDashboard() {
         <div className="absolute -top-40 right-0 w-[26rem] h-[26rem] rounded-full bg-mint/[0.06] blur-[100px]" />
       </div>
 
-      <div className="relative flex items-center justify-between px-6 py-4 border-b border-white/[0.08]
-                       sticky top-0 bg-ink/85 backdrop-blur-xl z-10">
-        <div className="flex items-center gap-3">
-          <Avatar avatar={data?.avatar} size="sm" />
-          <span className="font-display font-bold text-paper">
-            {data?.child_first_name || parent?.child_first_name}'s Progress
-          </span>
-        </div>
-        <button onClick={logout} className="flex items-center gap-1.5 text-paper/40 hover:text-paper/70 text-sm transition-colors">
-          <LogOut size={14} /> Log out
-        </button>
-      </div>
+      <Sidebar
+        role="parent"
+        items={[
+          { label: 'Progress', icon: TrendingUp, to: '/parent/dashboard' },
+        ]}
+        name={(data?.child_first_name || parent?.child_first_name) ? `${data?.child_first_name || parent?.child_first_name}'s Progress` : undefined}
+        onLogout={logout}
+      />
 
-      <div className="relative max-w-3xl mx-auto px-6 py-10">
+      <div className="relative flex-1 min-w-0 max-w-3xl mx-auto px-6 py-10">
         {status === 'loading' && (
           <div className="text-center py-20 text-paper/40">Loading progress…</div>
         )}

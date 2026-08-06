@@ -2,11 +2,11 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { dashboardAPI } from '../../api/client'
-import { Button, Card, Badge, Avatar, StatCard, PageLoader } from '../../components/ui'
+import { Button, Card, Badge, Avatar, StatCard, PageLoader, Sidebar } from '../../components/ui'
 import AddPatientModal from '../../components/therapist/AddPatientModal'
 import {
-  Wind, Users, UserCheck, Gamepad2, Star, AlertTriangle, Clock,
-  Search, ArrowUpDown, Sparkles, UserPlus, ChevronRight,
+  Users, UserCheck, Gamepad2, Star, AlertTriangle, Clock,
+  Search, ArrowUpDown, Sparkles, UserPlus, ChevronRight, LayoutDashboard,
 } from 'lucide-react'
 
 function relativeDate(iso) {
@@ -73,36 +73,24 @@ export default function TherapistDashboard() {
   const today = new Date().toLocaleDateString('en', { weekday: 'long', month: 'long', day: 'numeric' })
 
   return (
-    <div className="min-h-screen relative"
+    <div className="min-h-screen relative flex"
          style={{ background: 'radial-gradient(ellipse 1400px 800px at 15% -10%, #1D9E75 0%, #16332D 35%, #12122A 70%)' }}>
       {/* A real gradient now, not just a couple of faint blur blobs on a flat
           fill — same idea as the login screen's radial panel, in the
           brand.teal/brand.dark this page (and PatientDetail) already use. */}
       <div className="absolute -top-32 right-0 w-96 h-96 rounded-full bg-brand-green/10 blur-3xl pointer-events-none" />
 
-      {/* Top nav */}
-      <nav className="relative border-b border-white/10 px-6 py-4 flex items-center justify-between sticky top-0 bg-brand-dark/90 backdrop-blur z-10">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-brand-teal/15 border border-brand-teal/25 flex items-center justify-center">
-            <Wind size={18} className="text-brand-teal" />
-          </div>
-          <span className="font-display text-xl font-bold text-white">
-            Breath<span className="text-brand-green">Quest</span>
-          </span>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="text-right">
-            <p className="text-white text-sm font-medium leading-tight">{therapist?.full_name}</p>
-            {therapist?.clinic_name && (
-              <p className="text-white/35 text-xs leading-tight">{therapist.clinic_name}</p>
-            )}
-          </div>
-          <div className="w-px h-8 bg-white/10" />
-          <Button variant="ghost" size="sm" onClick={logout}>Sign out</Button>
-        </div>
-      </nav>
+      <Sidebar
+        role="therapist"
+        items={[
+          { label: 'Dashboard', icon: LayoutDashboard, to: '/therapist/dashboard' },
+        ]}
+        name={therapist?.full_name}
+        subtitle={therapist?.clinic_name}
+        onLogout={logout}
+      />
 
-      <div className="relative max-w-6xl mx-auto px-6 py-8">
+      <div className="relative flex-1 min-w-0 max-w-6xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
