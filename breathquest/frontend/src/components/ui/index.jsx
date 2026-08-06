@@ -21,11 +21,16 @@ export function Button({ children, variant = 'primary', size = 'md', className =
   )
 }
 
-export function Card({ children, className = '', ...props }) {
+export function Card({ children, className = '', as: Tag = 'div', ...props }) {
   return (
-    <div className={`bg-brand-card border border-white/10 rounded-2xl p-6 ${className}`} {...props}>
+    <Tag
+      className={`bg-gradient-to-b from-white/[0.045] to-white/[0.015] border border-white/[0.08]
+        rounded-2xl p-6 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_4px_20px_-6px_rgba(0,0,0,0.4)]
+        ${className}`}
+      {...props}
+    >
       {children}
-    </div>
+    </Tag>
   )
 }
 
@@ -56,14 +61,14 @@ export function Input({ label, error, icon: Icon, rightElement, className = '', 
 
 export function Badge({ children, color = 'green' }) {
   const colors = {
-    green:  'bg-brand-green/20 text-brand-green',
-    amber:  'bg-brand-amber/20 text-brand-amber',
-    coral:  'bg-brand-coral/20 text-brand-coral',
-    purple: 'bg-brand-purple/20 text-purple-300',
-    gray:   'bg-white/10 text-white/60',
+    green:  'bg-brand-green/15 text-brand-green border-brand-green/25',
+    amber:  'bg-brand-amber/15 text-brand-amber border-brand-amber/25',
+    coral:  'bg-brand-coral/15 text-brand-coral border-brand-coral/25',
+    purple: 'bg-brand-purple/15 text-purple-300 border-brand-purple/25',
+    gray:   'bg-white/[0.06] text-white/60 border-white/10',
   }
   return (
-    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${colors[color]}`}>
+    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${colors[color]}`}>
       {children}
     </span>
   )
@@ -114,5 +119,25 @@ export function PageLoader() {
         <p className="text-white/50 text-sm">Loading…</p>
       </div>
     </div>
+  )
+}
+
+// Real lucide icon in a colored badge + a big, tight-tracked number —
+// replaces the bare Card+emoji+number pattern dashboards otherwise
+// reach for independently.
+export function StatCard({ icon: Icon, value, label, accent = '#2FB8A6' }) {
+  return (
+    <Card className="flex flex-col gap-3">
+      <div
+        className="w-10 h-10 rounded-xl flex items-center justify-center"
+        style={{ backgroundColor: `${accent}1f`, border: `1px solid ${accent}33` }}
+      >
+        <Icon size={18} style={{ color: accent }} />
+      </div>
+      <div>
+        <p className="font-display text-2xl font-bold text-white tracking-tight leading-none">{value}</p>
+        <p className="text-white/40 text-xs mt-1.5">{label}</p>
+      </div>
+    </Card>
   )
 }
