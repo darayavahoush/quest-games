@@ -13,15 +13,20 @@
 // see lib/tongueTracking.js), a third, independent axis, the same fix
 // lateral was for left/right.
 //
-// IMPORTANT — verify before trusting clinically: 'left'/'right' below are
-// defined in raw camera-space (landmark 61 = left corner, landmark 291 =
-// right corner, same convention as mouthMetrics.js), and the on-screen
-// arrow points at that same landmark, so the visual cue and the scoring
-// target can't drift apart from each other. But whether that lines up with
-// the child's own left/right on the mirrored (scaleX(-1)) display has not
-// been confirmed with a real camera — check this with an actual child
-// before relying on it for real feedback. Same goes for the cavityDarkness
-// range on tongue-back below — untested against real kids.
+// 'left'/'right' below were previously swapped: the lateral scoring range
+// and the arrow direction both pointed at the anatomically-wrong cheek.
+// Landmark names (61/291) are always subject-relative, not image-relative
+// (Google's own Landmark docs are explicit about this), and a front-facing
+// camera puts the subject's own left side on the RIGHT half of the raw
+// frame — so landmark 61 ("subject's left corner") sits at the larger raw
+// x, not the smaller one the old code assumed. That's now corrected here
+// and in lib/tongueTracking.js and lib/faceOverlay.js's drawTongueArrow, so
+// the visual cue and the scoring target still can't drift apart from each
+// other, and both now point at the correct side once the mirrored
+// (scaleX(-1)) display is accounted for. Still worth a real-camera sanity
+// check (e.g. a colored sticker on one cheek) before trusting it fully —
+// same as the cavityDarkness range on tongue-back below, which is a
+// separate, still-unverified approximation.
 export const TONGUE_MOVES = [
   {
     id: 'tongue-up',
@@ -54,7 +59,11 @@ export const TONGUE_MOVES = [
     arrow: 'left',
     // Elevation left unconstrained ([0, 1]) — laterality is the only thing
     // this move is actually scored on.
-    target: { visibility: [0.04, 1], elevation: [0, 1], lateral: [0, 0.38] },
+    // lateral high (near 1) = toward landmark 61 = the subject's own LEFT
+    // corner (see the lateral-scale explanation in lib/tongueTracking.js —
+    // this was previously [0, 0.38], which actually scored the RIGHT
+    // cheek, swapped with tongue-right below).
+    target: { visibility: [0.04, 1], elevation: [0, 1], lateral: [0.62, 1] },
     // Lateral tongue mobility, not tied to one phoneme the way up/back are —
     // supports /l/ production and general oral-motor control.
     place: 'Alveolar',
@@ -64,7 +73,9 @@ export const TONGUE_MOVES = [
     label: 'Tongue tip to the right',
     instruction: 'Push your tongue tip toward your right cheek.',
     arrow: 'right',
-    target: { visibility: [0.04, 1], elevation: [0, 1], lateral: [0.62, 1] },
+    // lateral low (near 0) = toward landmark 291 = the subject's own RIGHT
+    // corner (previously [0.62, 1], swapped with tongue-left above).
+    target: { visibility: [0.04, 1], elevation: [0, 1], lateral: [0, 0.38] },
     place: 'Alveolar',
   },
 ]

@@ -126,12 +126,33 @@ export function computeTongueMetrics(video, landmarks, scratchCanvas, w, h) {
   const visibility = count / total
   const enoughPixels = count > total * MIN_TONGUE_PIXELS_RATIO
   const elevation = enoughPixels ? 1 - ySum / count / SAMPLE_H : null
-  // Lateral: horizontal centroid of tongue-colored pixels, 0 = toward
-  // LEFT_MOUTH_CORNER (landmark 61), 1 = toward RIGHT_MOUTH_CORNER (landmark
-  // 291) — same left/right convention mouthMetrics.js already uses, reused
-  // rather than inventing a new one. This is raw camera-space left/right;
-  // whether it matches the child's own left/right on the mirrored display
-  // needs a real-camera check (see tongueMoves.js).
+  // Lateral: horizontal centroid of tongue-colored pixels within the crop,
+  // which spans [min(61.x, 291.x), max(61.x, 291.x)] in raw (un-mirrored)
+  // camera-space pixels.
+  //
+  // IMPORTANT — this used to be commented (and scored, in tongueMoves.js) as
+  // "0 = toward landmark 61, 1 = toward landmark 291", i.e. 0 = subject's-
+  // left. That was backwards. Google's face-landmark naming convention
+  // ("left"/"right" are always relative to the SUBJECT, not the image —
+  // see e.g. the ML Kit Landmark docs) means landmark 61 is the subject's
+  // OWN left mouth corner. But a front-facing camera captures a subject's
+  // left side on the RIGHT half of the raw frame (stand facing the camera
+  // and raise your left hand — it lands on the raw frame's right side,
+  // same reason old non-mirrored webcam apps feel "backwards"). So in raw
+  // pixel terms landmark 61 (subject's-left) sits at the LARGER x, and
+  // landmark 291 (subject's-right) sits at the SMALLER x — the opposite of
+  // what the old comment assumed. That means, in this 0..1 crop-relative
+  // scale:
+  //   0 = toward the crop's raw-left edge = toward landmark 291 = the
+  //       subject's own RIGHT mouth corner
+  //   1 = toward the crop's raw-right edge = toward landmark 61 = the
+  //       subject's own LEFT mouth corner
+  // tongueMoves.js and faceOverlay.js's drawTongueArrow have been updated
+  // to match this. This resolves the direction from the documented landmark
+  // convention + camera geometry rather than guessing — but a real-camera
+  // sanity check (e.g. a colored sticker on one cheek) before trusting it
+  // clinically is still worthwhile, the same as any of this file's other
+  // approximations.
   const lateral = enoughPixels ? xSum / count / SAMPLE_W : null
   const brightness = brightnessSum / total // 0-255, useful for a lighting warning
 

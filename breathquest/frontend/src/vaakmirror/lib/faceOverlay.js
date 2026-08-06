@@ -237,11 +237,14 @@ export function drawTongueArrow(ctx, landmarks, w, h, direction, color) {
     ctx.lineTo(x1, cy)
     ctx.lineTo(x1 - size * 0.35, cy + size * 0.3)
   } else if (direction === 'left' || direction === 'right') {
-    // Points toward the same landmark (61 = left corner, 291 = right
-    // corner) the scoring target is defined against, and drawn at a
-    // different height than 'back' so the two don't visually overlap.
+    // Points toward the same landmark the scoring target in tongueMoves.js
+    // is defined against, and drawn at a different height than 'back' so
+    // the two don't visually overlap. dirSign follows raw camera-space x:
+    // landmark 61 (subject's own LEFT corner) sits at the LARGER raw x
+    // (see the lateral-scale note in lib/tongueTracking.js), so 'left'
+    // points toward +x here, not -x — this was previously inverted.
     const cy = upper.y + size * 0.15
-    const dirSign = direction === 'left' ? -1 : 1
+    const dirSign = direction === 'left' ? 1 : -1
     const x0 = cx
     const x1 = cx + dirSign * size * 0.55
     ctx.moveTo(x0, cy)
