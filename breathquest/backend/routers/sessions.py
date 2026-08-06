@@ -89,6 +89,13 @@ async def end_session(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
+    if session.ended_at is not None:
+        # Already ended — e.g. the natural completion path racing a
+        # pagehide beacon sent a beat earlier when the tab started closing.
+        # Safe no-op rather than overwriting the real result with a blank
+        # abandoned one.
+        return session
+
     now = datetime.now(timezone.utc)
     session.ended_at = now
     session.duration_seconds = (now - session.started_at).total_seconds()

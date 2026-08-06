@@ -2,6 +2,30 @@ import axios from 'axios'
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
 
+// A pagehide-safe way to fire a final request when the kid actually closes
+// the tab or navigates off-site — regular axios/fetch calls can get
+// cancelled mid-flight the instant the page unloads, silently dropping
+// session-end and agent-quit events. `keepalive: true` is a browser
+// guarantee that the request still gets sent even after the page is gone.
+// No response is read (the page may already be gone by the time it would
+// arrive) — this is fire-and-forget by design.
+export function beaconPost(path, body, method = 'POST') {
+  const token = localStorage.getItem('bq_token')
+  try {
+    fetch(`${BASE_URL}${path}`, {
+      method,
+      keepalive: true,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    })
+  } catch {
+    // best-effort — nothing to do if even starting the request throws
+  }
+}
+
 const api = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },

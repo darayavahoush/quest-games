@@ -30,6 +30,13 @@ import {
 import LevelSelection from './LevelSelection';
 import { voiceHurdleRaceApi } from '../api/voiceHurdleRaceApi';
 import { useAuth } from '../context/AuthContext';
+import {
+  DEFAULT_DIFFICULTY,
+  applyAction,
+  scaleByDifficulty,
+  loadStoredDifficulty,
+  saveStoredDifficulty,
+} from './difficulty';
 
 import {
   RaceTheme,
@@ -130,6 +137,8 @@ export default function VoiceHurdleRace() {
       null
     );
 
+  const difficultyRef = useRef<number>(DEFAULT_DIFFICULTY);
+
 
   /* ============================================================
      START RACE
@@ -209,7 +218,7 @@ export default function VoiceHurdleRace() {
      START GAME
   ============================================================ */
 
-  const startGame = () => {
+  const startGame = async () => {
     const canvas =
       canvasRef.current;
 
@@ -220,6 +229,23 @@ export default function VoiceHurdleRace() {
 
       return;
     }
+
+    // Ask the same adaptive-difficulty agent Chime/BreathQuest/VaakMirror
+    // use whether to raise/hold/lower this level's difficulty, then nudge
+    // our locally stored value accordingly — same pattern as
+    // GamePage.jsx's startGame for BreathQuest. Falls back to last-known
+    // difficulty if the backend call fails.
+    const levelIdForAgent = selectedLevel?.id ?? 1;
+    const priorDifficulty = loadStoredDifficulty(levelIdForAgent);
+    let nextDifficulty = priorDifficulty;
+    try {
+      const decision = await voiceHurdleRaceApi.getAgentDecision(levelIdForAgent);
+      nextDifficulty = applyAction(priorDifficulty, decision.action);
+    } catch {
+      // keep priorDifficulty
+    }
+    difficultyRef.current = nextDifficulty;
+    saveStoredDifficulty(levelIdForAgent, nextDifficulty);
 
     /*
      * Cancel an old loop if one exists.
@@ -244,8 +270,26 @@ export default function VoiceHurdleRace() {
       );
 
     if (selectedLevel) {
+      // Narrower tolerance = harder. A shallow copy so the original
+      // LEVELS[] config (still used for display, e.g. selectedLevel.name)
+      // is never mutated.
+      const scaled: LevelConfig = {
+        ...selectedLevel,
+        pitchTolerance: scaleByDifficulty(
+          nextDifficulty,
+          selectedLevel.pitchTolerance * 1.4,
+          selectedLevel.pitchTolerance,
+          selectedLevel.pitchTolerance * 0.6
+        ),
+        loudnessTolerance: scaleByDifficulty(
+          nextDifficulty,
+          selectedLevel.loudnessTolerance * 1.4,
+          selectedLevel.loudnessTolerance,
+          selectedLevel.loudnessTolerance * 0.6
+        ),
+      };
       engine.setLevelConfig(
-        selectedLevel
+        scaled
       );
     }
 
@@ -392,6 +436,7 @@ export default function VoiceHurdleRace() {
             pitch_accuracy: state.pitchAccuracy,
             loudness_accuracy: state.loudnessAccuracy,
             stars: stars,
+            difficulty: difficultyRef.current,
           }).catch(err => {
             console.error('Failed to save session:', err);
           });

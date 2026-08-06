@@ -11,6 +11,10 @@ class VoiceHurdleRaceSessionCreate(BaseModel):
     pitch_accuracy: float
     loudness_accuracy: float
     stars: int
+    # 0..1, what the adaptive-difficulty agent's decision was scaled into
+    # for this race (see voiceHurdleRace/difficulty.ts) — logged back as
+    # threshold_at_time so the agent can see its own past decisions.
+    difficulty: float = 0.5
 
 
 class VoiceHurdleRaceSessionOut(BaseModel):

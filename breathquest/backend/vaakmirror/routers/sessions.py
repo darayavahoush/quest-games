@@ -100,6 +100,14 @@ async def end_session(
     if not session or session.patient_id != patient_id:
         raise HTTPException(status_code=404, detail="Session not found")
 
+    if session.ended_at is not None:
+        # Already ended — e.g. natural completion racing a pagehide beacon
+        # sent when the kid closed the tab a beat later. Safe no-op rather
+        # than overwriting ended_at and double-logging to the agent (this
+        # also protects _log_session_to_agent's retrain-trigger below from
+        # double-firing on the same race).
+        return session
+
     session.ended_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(session)

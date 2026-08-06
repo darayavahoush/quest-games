@@ -19,6 +19,14 @@ export interface VoiceHurdleRaceSessionCreate {
   pitch_accuracy: number;
   loudness_accuracy: number;
   stars: number;
+  difficulty?: number;
+}
+
+export interface AgentDecision {
+  policy: string;
+  action: 'raise' | 'hold' | 'lower';
+  n_events_considered: number;
+  message: string;
 }
 
 export interface VoiceHurdleRaceSession extends VoiceHurdleRaceSessionCreate {
@@ -47,4 +55,7 @@ export const voiceHurdleRaceApi = {
 
   getVoiceHurdleRaceLeaderboard: () =>
     api.get<LeaderboardEntry[]>('/voicehurdlerace/leaderboard').then((r) => r.data),
+
+  getAgentDecision: (levelId: number, policy: string = 'tabular_q') =>
+    api.get<AgentDecision>(`/voicehurdlerace/agent/decide/${levelId}`, { params: { policy } }).then((r) => r.data),
 };

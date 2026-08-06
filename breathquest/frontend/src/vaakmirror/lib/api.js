@@ -7,7 +7,7 @@
 // so duplicating that logic here would just be a second place for the
 // auth-header behavior to drift out of sync.
 
-import api from '../../api/client'
+import api, { beaconPost } from '../../api/client'
 
 const VM = '/vaakmirror'
 
@@ -48,6 +48,15 @@ export function logAttempt(sessionId, attempt) {
 
 export function endGameSession(sessionId) {
   return api.patch(`${VM}/sessions/${sessionId}/end`).then(r => r.data)
+}
+
+// Real tab-close/navigation-away needs `keepalive`, not a regular axios
+// call — the browser can cancel a normal request mid-flight the instant
+// the page actually unloads. The backend's end_session is idempotent (a
+// second call after a natural completion is a safe no-op), so this can
+// always fire without worrying about a race with the normal completion path.
+export function endGameSessionBeacon(sessionId) {
+  beaconPost(`${VM}/sessions/${sessionId}/end`, {}, 'PATCH')
 }
 
 export function getWeakSounds() {

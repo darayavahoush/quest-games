@@ -14,7 +14,11 @@ identical stats, read differently instead of feeling copy-pasted.
 Density: each sentence tries to pack more than one number into itself
 (count + average + trend, not three separate sentences) so a therapist
 scanning a dashboard gets the whole week in 4-7 sentences instead of a
-bulleted stat dump.
+bulleted stat dump. Covers all four games now (BreathQuest, Chime,
+VaakMirror, VoiceHurdleRace), not just BreathQuest+Chime, and closes with
+a forward-looking "focus next week" line naming whichever tracked signal
+(a game's success rate, or home-practice consistency) is currently
+weakest — not just a retrospective of what already happened.
 """
 
 import hashlib
@@ -30,7 +34,11 @@ from models.models import (
     Assignment, AssignmentStatus,
     Goal, HomePracticeLog,
 )
+from vaakmirror.models import GameSession as VMSession, Attempt as VMAttempt, AttemptOutcome as VMOutcome
+from models.voicehurdlerace_models import VoiceHurdleRaceSession
 from retraining import data_store as chime_data_store
+
+_VM_SUCCESS_OUTCOMES = (VMOutcome.passed, VMOutcome.caught)
 
 
 # ------------------------------------------------------------------ #
@@ -134,6 +142,40 @@ CHIME_TEMPLATES = [
 QUIET_CHIME_WEEK = [
     "no Chime attempts were logged this week",
     "Chime activity was flat this week — zero attempts recorded",
+]
+
+VAAKMIRROR_TEMPLATES = [
+    "In VaakMirror, {name} made {vm_n} sound {attempt_word3} across {vm_games} {game_word}, passing {vm_pass_rate} of them",
+    "VaakMirror logged {vm_n} sound {attempt_word3} this week across {vm_games} {game_word}, a {vm_pass_rate} pass rate",
+    "On the mirror-practice side, {vm_n} {attempt_word3} came in across {vm_games} {game_word}, with {vm_pass_rate} landing successfully",
+]
+
+QUIET_VM_WEEK = [
+    "no VaakMirror attempts were logged this week",
+    "VaakMirror activity was flat this week — zero attempts recorded",
+]
+
+VHR_TEMPLATES = [
+    "In VoiceHurdleRace, {name} ran {vhr_n} {race_word}, averaging {vhr_stars} stars and {vhr_pitch}% pitch accuracy",
+    "VoiceHurdleRace saw {vhr_n} {race_word} this week, averaging {vhr_stars} stars per run",
+    "On the race track, {vhr_n} {race_word} came in with {vhr_pitch}% average pitch accuracy",
+]
+
+QUIET_VHR_WEEK = [
+    "no VoiceHurdleRace runs were logged this week",
+    "VoiceHurdleRace was quiet this week — no races recorded",
+]
+
+# Forward-looking, not just retrospective: picks the single weakest signal
+# across BreathQuest/Chime/VaakMirror/VoiceHurdleRace/home-practice (min
+# success rate, only when there's enough data to trust it — see
+# signal_rates below) and names it directly, rather than leaving "what
+# should we do next week" unanswered.
+FOCUS_TEMPLATES = [
+    "Looking ahead, {focus_area} looks like the best place to spend extra time next week",
+    "For next week, leaning into {focus_area} would likely have the biggest impact",
+    "The clearest opportunity for next week is {focus_area}",
+    "If picking one thing to prioritize next week, make it {focus_area}",
 ]
 
 ASSIGNMENT_TEMPLATES = [
@@ -279,6 +321,36 @@ def _week_chime_events(patient_id: str, start: datetime, end: datetime, db_path)
     return out
 
 
+async def _week_vaakmirror_attempts(db: AsyncSession, patient_id: str, start: datetime, end: datetime):
+    """Returns (Attempt, GameName) row tuples — selecting the game alongside
+    the attempt avoids a lazy-load on the `.session` relationship, which
+    doesn't work cleanly against an AsyncSession without extra eager-load
+    wiring."""
+    result = await db.execute(
+        select(VMAttempt, VMSession.game)
+        .join(VMSession, VMAttempt.session_id == VMSession.id)
+        .where(
+            VMSession.patient_id == patient_id,
+            VMAttempt.created_at >= start,
+            VMAttempt.created_at < end,
+        )
+    )
+    return result.all()
+
+
+async def _week_voicehurdlerace_sessions(db: AsyncSession, patient_id: str, start: datetime, end: datetime):
+    """VoiceHurdleRace logs one row per completed race, not a start/end
+    pair — no separate abandonment case to account for here."""
+    result = await db.execute(
+        select(VoiceHurdleRaceSession).where(
+            VoiceHurdleRaceSession.patient_id == patient_id,
+            VoiceHurdleRaceSession.created_at >= start,
+            VoiceHurdleRaceSession.created_at < end,
+        )
+    )
+    return result.scalars().all()
+
+
 # ------------------------------------------------------------------ #
 #  Main entry point                                                    #
 # ------------------------------------------------------------------ #
@@ -310,10 +382,13 @@ async def generate_weekly_summary(
         patient.id, week_start, week_end,
         chime_db_path or chime_data_store.DEFAULT_DB_PATH,
     )
+    vm_rows = await _week_vaakmirror_attempts(db, patient.id, week_start, week_end)
+    vhr_sessions = await _week_voicehurdlerace_sessions(db, patient.id, week_start, week_end)
 
     sentences: list[str] = []
     highlights: list[str] = []
     mood_score = 0  # nudged up/down by each category, drives the closing tone word
+    signal_rates: dict[str, float] = {}  # human label -> success rate, feeds the focus suggestion
 
     # ---- BreathQuest sessions -------------------------------------
     if sessions:
@@ -365,6 +440,8 @@ async def generate_weekly_summary(
             sentences.append(rng.choice(BREATH_TEMPLATES).format(**breath_ctx))
 
         mood_score += 1 if len(completed) >= n / 2 else 0
+        if n >= 2:
+            signal_rates["breathing exercises in BreathQuest"] = len(completed) / n
     else:
         sentences.append(rng.choice(QUIET_BQ_WEEK).format(name=name))
         mood_score -= 1
@@ -384,8 +461,52 @@ async def generate_weekly_summary(
         sentences.append(rng.choice(CHIME_TEMPLATES).format(**chime_ctx))
         highlights.append(f"🔔 {n} Chime {chime_ctx['attempt_word']} ({chime_ctx['chime_valid_rate']} valid)")
         mood_score += 1 if len(valid) >= n / 2 else 0
+        if n >= 2:
+            signal_rates["phoneme practice in Chime"] = len(valid) / n
     else:
         sentences.append(rng.choice(QUIET_CHIME_WEEK))
+
+    # ---- VaakMirror ------------------------------------------------
+    if vm_rows:
+        n = len(vm_rows)
+        vm_passed = [a for a, g in vm_rows if a.outcome in _VM_SUCCESS_OUTCOMES]
+        games_played = sorted({g.value.replace("_", " ") for a, g in vm_rows})
+        vm_ctx = {
+            "name": name,
+            "vm_n": n,
+            "attempt_word3": _plural(n, "attempt"),
+            "vm_games": len(games_played),
+            "game_word": _plural(len(games_played), "game"),
+            "vm_pass_rate": f"{_pct(len(vm_passed), n)}%",
+        }
+        sentences.append(rng.choice(VAAKMIRROR_TEMPLATES).format(**vm_ctx))
+        highlights.append(f"🪞 {n} VaakMirror {vm_ctx['attempt_word3']} ({vm_ctx['vm_pass_rate']} passed)")
+        mood_score += 1 if len(vm_passed) >= n / 2 else 0
+        if n >= 2:
+            signal_rates["sound drills in VaakMirror"] = len(vm_passed) / n
+    else:
+        sentences.append(rng.choice(QUIET_VM_WEEK))
+
+    # ---- VoiceHurdleRace --------------------------------------------
+    if vhr_sessions:
+        n = len(vhr_sessions)
+        strong = [s for s in vhr_sessions if s.stars >= 2]
+        avg_stars = sum(s.stars for s in vhr_sessions) / n
+        avg_pitch = sum(s.pitch_accuracy for s in vhr_sessions) / n
+        vhr_ctx = {
+            "name": name,
+            "vhr_n": n,
+            "race_word": _plural(n, "race"),
+            "vhr_stars": f"{avg_stars:.1f}",
+            "vhr_pitch": f"{avg_pitch:.0f}",
+        }
+        sentences.append(rng.choice(VHR_TEMPLATES).format(**vhr_ctx))
+        highlights.append(f"🏁 {n} VoiceHurdleRace {vhr_ctx['race_word']} (avg {vhr_ctx['vhr_stars']}⭐)")
+        mood_score += 1 if len(strong) >= n / 2 else 0
+        if n >= 2:
+            signal_rates["VoiceHurdleRace pitch/loudness control"] = len(strong) / n
+    else:
+        sentences.append(rng.choice(QUIET_VHR_WEEK))
 
     # ---- Assignments ---------------------------------------------
     if completed_assignments or overdue_assignments:
@@ -460,9 +581,21 @@ async def generate_weekly_summary(
         sentences.append(rng.choice(PRACTICE_TEMPLATES).format(**practice_ctx))
         highlights.append(f"🏠 {days}/7 days practiced at home ({minutes} min)")
         mood_score += 1 if days >= 4 else 0
+        signal_rates["more consistent home practice"] = days / 7
     else:
         sentences.append(rng.choice(NO_PRACTICE))
         mood_score -= 1
+        signal_rates["more consistent home practice"] = 0.0
+
+    # ---- Focus suggestion ------------------------------------------
+    # The weakest signal this week, named directly — only when there's
+    # enough data to trust it (see the n>=2 guards above) and only when it's
+    # actually weak (<60%), so a good week never gets a manufactured nitpick.
+    if signal_rates:
+        focus_area, focus_rate = min(signal_rates.items(), key=lambda kv: kv[1])
+        if focus_rate < 0.6:
+            sentences.append(rng.choice(FOCUS_TEMPLATES).format(focus_area=focus_area))
+            highlights.append(f"🧭 Suggested focus: {focus_area}")
 
     # ---- Closer --------------------------------------------------
     overall = _overall_word(rng, mood_score)
@@ -480,6 +613,10 @@ async def generate_weekly_summary(
             "bq_sessions": len(sessions),
             "bq_completed": len([s for s in sessions if s.completed]),
             "chime_attempts": len(chime_events),
+            "vm_attempts": len(vm_rows),
+            "vm_passed": len([a for a, g in vm_rows if a.outcome in _VM_SUCCESS_OUTCOMES]),
+            "vhr_sessions": len(vhr_sessions),
+            "vhr_avg_stars": round(sum(s.stars for s in vhr_sessions) / len(vhr_sessions), 1) if vhr_sessions else None,
             "assignments_completed": len(completed_assignments),
             "assignments_overdue": len(overdue_assignments),
             "goals_open": len([g for g in goals if not g.achieved]),
@@ -487,5 +624,6 @@ async def generate_weekly_summary(
             "home_practice_days": len({log.practiced_on.date() for log in practice_logs}),
             "home_practice_minutes": sum(log.duration_minutes or 0 for log in practice_logs),
             "mood_score": mood_score,
+            "suggested_focus": min(signal_rates, key=signal_rates.get) if signal_rates and min(signal_rates.values()) < 0.6 else None,
         },
     }

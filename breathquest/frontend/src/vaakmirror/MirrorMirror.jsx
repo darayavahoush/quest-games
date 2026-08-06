@@ -9,6 +9,7 @@ import { drawMouthOutline, drawFaceFilter } from './lib/faceOverlay.js'
 import { emaUpdateObject, createTierStabilizer } from './lib/signalSmoothing.js'
 import { playChime, playFanfare, speakSound } from './lib/sound.js'
 import { createGameSession, logAttempt, endGameSession, getGameSettings } from './lib/api.js'
+import { useEndSessionOnLeave } from './lib/useEndSessionOnLeave.js'
 import { useAuth } from '../context/AuthContext'
 import CelebrationOverlay from './components/CelebrationOverlay.jsx'
 import CharacterFilterPicker, { FILTERS } from './components/CharacterFilterPicker.jsx'
@@ -59,6 +60,7 @@ export default function MirrorMirror() {
   const smoothedRef = useRef(null)
   const tierStabilizerRef = useRef(createTierStabilizer(4))
   const sessionIdRef = useRef(null)
+  useEndSessionOnLeave(sessionIdRef)
 
   const [status, setStatus] = useState('loading') // loading | ready | denied | error
   const [roundSize, setRoundSize] = useState(DEFAULT_ROUND_SIZE)

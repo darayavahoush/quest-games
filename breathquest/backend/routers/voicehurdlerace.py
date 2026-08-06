@@ -8,6 +8,7 @@ get_current_therapist and are scoped to that therapist's own patients.
 """
 
 from typing import Optional
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,8 +23,25 @@ from schemas.voicehurdlerace_schemas import (
     LeaderboardEntryOut,
 )
 from core.deps import get_current_patient, get_current_therapist
+from agent.service import AgentService
+from retraining import data_store
 
 router = APIRouter(prefix="/voicehurdlerace", tags=["voicehurdlerace"])
+logger = logging.getLogger(__name__)
+
+# The last of the four games to get the shared adaptive-difficulty agent —
+# see agent/service.py's docstring and vaakmirror/agent_bridge.py for why
+# this points at the same DB Chime/BreathQuest/VaakMirror all use rather
+# than a separate store: one per-child Q-table learns from every game.
+_agent_service = AgentService(db_path=data_store.DEFAULT_DB_PATH, recent_window=10)
+
+
+def _vhr_level_key(level_id: int) -> str:
+    """VoiceHurdleRace's levels are ints (LEVELS[].id in the frontend), but
+    AgentService/data_store's level_id namespace is shared across every
+    game's string ids — prefix so e.g. level 1 here can't collide with
+    Chime's or BreathQuest's own id scheme."""
+    return f"vhr_{level_id}"
 
 
 @router.post("/sessions", response_model=VoiceHurdleRaceSessionOut, status_code=201)
@@ -44,7 +62,54 @@ async def create_session(
     )
     db.add(session)
     await db.flush()
+
+    _log_race_to_agent(patient.id, data)
+
     return session
+
+
+def _log_race_to_agent(patient_id: str, data: VoiceHurdleRaceSessionCreate):
+    """VoiceHurdleRace logs one row per *completed* race, not a start/end
+    pair — there's no separate abandonment case to log here the way the
+    other three games have (see weekly_summary.py's docstring on this same
+    point). Never lets agent bookkeeping break the actual game flow."""
+    try:
+        level_key = _vhr_level_key(data.level_id)
+        existing = data_store.get_events(child_id=patient_id, db_path=data_store.DEFAULT_DB_PATH)
+        attempt_number = len([e for e in existing if e["level_id"] == level_key]) + 1
+
+        data_store.add_event(
+            child_id=patient_id,
+            level_id=level_key,
+            attempt_number=attempt_number,
+            score=data.stars / 3,
+            is_valid_attempt=True,
+            threshold_at_time=data.difficulty,
+            quit_flag=False,
+            db_path=data_store.DEFAULT_DB_PATH,
+        )
+        _agent_service.maybe_update_tabular_q_from_new_event(patient_id, level_key, False)
+    except Exception:
+        logger.exception("Failed to log VoiceHurdleRace session to the adaptive-difficulty agent")
+
+
+@router.get("/agent/decide/{level_id}")
+async def get_agent_decision(
+    level_id: int,
+    policy: str = "tabular_q",
+    patient: Patient = Depends(get_current_patient),
+):
+    """Same shape as /chime/agent/decide and /breath/agent/decide — the
+    frontend translates the raise/hold/lower action into a scaled
+    pitchTolerance/loudnessTolerance before starting the next race (see
+    voiceHurdleRace/difficulty.ts)."""
+    try:
+        result = _agent_service.decide(patient.id, _vhr_level_key(level_id), policy)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=f"Model not found: {exc}") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return result
 
 
 @router.get("/sessions", response_model=list[VoiceHurdleRaceSessionOut])

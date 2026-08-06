@@ -1,0 +1,537 @@
+From c8631e52484a80c36f4ddb6a18e31e219fb0c33d Mon Sep 17 00:00:00 2001
+From: Ananya Sridhar <ananyasridhar108@gmail.com>
+Date: Thu, 6 Aug 2026 03:45:10 +0000
+Subject: [PATCH] Verbal instructions: Indian-accent voice preference, nav
+ screens go manual-only, finish the remaining 5 bespoke Chime games
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Three follow-ups to the verbal-instructions feature, based on direct
+feedback after it shipped:
+
+1. Voice preference (lib/speech.js): speak() now asks for an en-IN voice
+   via speechSynthesis.getVoices() (caching the list once
+   onvoiceschanged fires, since it's often empty synchronously on first
+   call), falling back to utter.lang = 'en-IN' as a hint, and silently to
+   the device default if neither is available. Worth being upfront in the
+   code comment about what this actually is: there's no server-side TTS
+   provider wired into this app, no API key, no billing — this is the
+   browser's free built-in Web Speech API, so actual voice availability is
+   whatever the device exposes, not something any client code can force.
+   Chrome on Android/desktop commonly lists a network "Google" en-IN voice
+   online; iOS/macOS Safari ships a built-in "Rishi" en-IN voice offline
+   too — devices with neither just get their normal default voice.
+
+   Found that VillageBuilder.jsx had already independently built almost
+   this exact same pickIndianEnglishVoice() function, wired to a
+   manual-only "hear the word" button with no auto-speak. Removed the
+   duplicate and consolidated it onto the shared utility, then added the
+   auto-speak-once this game was missing (start-screen instruction, and
+   each new target word as the round progresses) — one implementation
+   instead of two, and it gained the same auto+replay behavior every other
+   game already had.
+
+2. Nav/menu screens (Landing.jsx, Play.jsx, GamePicker.jsx) are now
+   manual, tap-to-hear only — the auto-play on every visit to a login/menu
+   screen was flagged as an annoying voice-over. Converted their
+   useSpokenInstruction() calls to plain speak() wired only to the
+   existing speaker-icon buttons; no more auto-firing there. This judgment
+   call is scoped to nav/menu screens only — the actual games (BreathQuest
+   levels, Chime, VaakMirror) still auto-speak once per level/attempt,
+   since there it's instructional rather than narrating a menu, and that
+   distinction is now written into the code comments at each site so a
+   future change doesn't accidentally blur the two again.
+
+3. Finished the remaining 5 bespoke Chime games flagged as a follow-up
+   last time (RocketLaunch and SubmarineDive were already done): FireflyJar,
+   WindChimeGarden, BubbleWrapPop, and VillageBuilder now all auto-speak
+   their start-screen instruction once per entry, held off when the
+   game's own existing mute toggle is on (same as every other game),
+   with a replay button next to the instruction text.
+
+Verified: npm run build clean (664 modules, 0 errors) and oxlint clean
+(0 errors, same 3 pre-existing harmless fast-refresh warnings) after every
+change; grepped for and confirmed no leftover references to
+VillageBuilder's removed pickIndianEnglishVoice() or any stale
+speakTargetWord call sites; diffed all 10 changed files line by line.
+---
+ .../frontend/src/chime/BubbleWrapPop.jsx      | 16 +++++-
+ breathquest/frontend/src/chime/FireflyJar.jsx | 16 +++++-
+ .../frontend/src/chime/RocketLaunch.jsx       | 18 ++++++-
+ .../frontend/src/chime/SubmarineDive.jsx      | 16 +++++-
+ .../frontend/src/chime/VillageBuilder.jsx     | 37 +++++++------
+ .../frontend/src/chime/WindChimeGarden.jsx    | 15 +++++-
+ breathquest/frontend/src/lib/speech.js        | 54 ++++++++++++++++---
+ breathquest/frontend/src/pages/Landing.jsx    |  6 ++-
+ .../frontend/src/pages/kid/GamePicker.jsx     |  6 ++-
+ breathquest/frontend/src/pages/kid/Play.jsx   | 37 ++++++-------
+ 10 files changed, 161 insertions(+), 60 deletions(-)
+
+diff --git a/breathquest/frontend/src/chime/BubbleWrapPop.jsx b/breathquest/frontend/src/chime/BubbleWrapPop.jsx
+index 8913f21..bcacf9d 100644
+--- a/breathquest/frontend/src/chime/BubbleWrapPop.jsx
++++ b/breathquest/frontend/src/chime/BubbleWrapPop.jsx
+@@ -1,8 +1,9 @@
+ import { useEffect, useRef, useState, useCallback } from 'react'
+ import { useNavigate } from 'react-router-dom'
+-import { ArrowLeft, Settings } from 'lucide-react'
++import { ArrowLeft, Settings, Volume2 } from 'lucide-react'
+ import { logEvent, getAgentDecision } from './lib/api'
+ import { getNextLevelRoute } from './lib/levelProgress'
++import { useSpokenInstruction } from '../lib/speech'
+ 
+ const MIN_PEAK_RMS_DEFAULT = 0.05
+ const MAX_EXPECTED_PEAK_RMS_DEFAULT = 0.4
+@@ -118,6 +119,11 @@ export default function BubbleWrapPop() {
+   useEffect(() => { reduceMotionRef.current = reduceMotion; localStorage.setItem('bubble_reduce_motion', reduceMotion) }, [reduceMotion])
+   useEffect(() => { mutedRef.current = muted; localStorage.setItem('bubble_muted', muted) }, [muted])
+ 
++  const replayInstruction = useSpokenInstruction(
++    'Say a quick HA burst to pop a bubble on the sheet!',
++    { enabled: screen === 'start' && !muted },
++  )
++
+   useEffect(() => {
+     const state = stateRef.current
+     return () => {
+@@ -524,7 +530,13 @@ export default function BubbleWrapPop() {
+           <div className="bwp-panel">
+             <div className="bwp-mic-icon">🫧</div>
+             <h1 className="bwp-title">Bubble Wrap Pop</h1>
+-            <p className="bwp-subtitle">Say a quick "HA!" burst to pop a bubble on the sheet!</p>
++            <p className="bwp-subtitle">
++              Say a quick "HA!" burst to pop a bubble on the sheet!{' '}
++              <button onClick={replayInstruction} aria-label="Hear this again"
++                style={{ display: 'inline-flex', verticalAlign: 'middle', opacity: 0.6, background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}>
++                <Volume2 size={16} />
++              </button>
++            </p>
+             <button className="bwp-btn" onClick={requestMicAndCalibrate}>Let's Play!</button>
+           </div>
+         </div>
+diff --git a/breathquest/frontend/src/chime/FireflyJar.jsx b/breathquest/frontend/src/chime/FireflyJar.jsx
+index ebdcced..c6e9c2c 100644
+--- a/breathquest/frontend/src/chime/FireflyJar.jsx
++++ b/breathquest/frontend/src/chime/FireflyJar.jsx
+@@ -1,8 +1,9 @@
+ import { useEffect, useRef, useState } from 'react'
+ import { useNavigate } from 'react-router-dom'
+-import { ArrowLeft, Settings } from 'lucide-react'
++import { ArrowLeft, Settings, Volume2 } from 'lucide-react'
+ import { logEvent, getAgentDecision } from './lib/api'
+ import { getNextLevelRoute } from './lib/levelProgress'
++import { useSpokenInstruction } from '../lib/speech'
+ 
+ 
+ const MIN_PEAK_RMS_DEFAULT = 0.05
+@@ -109,6 +110,11 @@ export default function FireflyJar() {
+   useEffect(() => { reduceMotionRef.current = reduceMotion; localStorage.setItem('firefly_reduce_motion', reduceMotion) }, [reduceMotion])
+   useEffect(() => { mutedRef.current = muted; localStorage.setItem('firefly_muted', muted) }, [muted])
+ 
++  const replayInstruction = useSpokenInstruction(
++    'Say "ma" to catch a firefly and fill the jar! Press your lips together like you\'re humming mmm, then pop your mouth open with your voice on: ma.',
++    { enabled: screen === 'start' && !muted },
++  )
++
+   useEffect(() => {
+     const state = stateRef.current
+     return () => {
+@@ -574,7 +580,13 @@ export default function FireflyJar() {
+           <div className="fjar-panel">
+             <div className="fjar-mic-icon">🫙</div>
+             <h1 className="fjar-title">Firefly Jar</h1>
+-            <p className="fjar-subtitle">Say "ma" to catch a firefly and fill the jar!</p>
++            <p className="fjar-subtitle">
++              Say "ma" to catch a firefly and fill the jar!{' '}
++              <button onClick={replayInstruction} aria-label="Hear this again"
++                style={{ display: 'inline-flex', verticalAlign: 'middle', opacity: 0.6, background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}>
++                <Volume2 size={16} />
++              </button>
++            </p>
+             <div className="fjar-howto">
+               <div className="fjar-howto-title">👄 How to make the sound</div>
+               <ol>
+diff --git a/breathquest/frontend/src/chime/RocketLaunch.jsx b/breathquest/frontend/src/chime/RocketLaunch.jsx
+index 6209ea8..022d449 100644
+--- a/breathquest/frontend/src/chime/RocketLaunch.jsx
++++ b/breathquest/frontend/src/chime/RocketLaunch.jsx
+@@ -1,8 +1,9 @@
+ import { useEffect, useRef, useState, useCallback } from 'react'
+ import { useNavigate } from 'react-router-dom'
+-import { ArrowLeft, Settings } from 'lucide-react'
++import { ArrowLeft, Settings, Volume2 } from 'lucide-react'
+ import { logEvent, getAgentDecision } from './lib/api'
+ import { getNextLevelRoute } from './lib/levelProgress'
++import { useSpokenInstruction } from '../lib/speech'
+ 
+ const LEVEL_ID = 'aa'
+ const AGENT_POLICY = 'tabular_q'
+@@ -161,6 +162,14 @@ export default function RocketLaunch() {
+   useEffect(() => { reduceMotionRef.current = reduceMotion; localStorage.setItem('pq_reduce_motion', reduceMotion) }, [reduceMotion])
+   useEffect(() => { mutedRef.current = muted; localStorage.setItem('pq_muted', muted) }, [muted])
+ 
++  // Speak the start-screen instruction once each time it's (re-)shown —
++  // held off if the game's own mute toggle is on, matching how that
++  // toggle already gates every other sound in this game.
++  const replayInstruction = useSpokenInstruction(
++    'Say a big, loud AAAA to blast your rocket into space!',
++    { enabled: screen === 'start' && !muted },
++  )
++
+   useEffect(() => {
+     const state = stateRef.current
+     return () => {
+@@ -702,7 +711,12 @@ export default function RocketLaunch() {
+           <div className="bg-[rgba(27,20,64,0.62)] border border-white/10 rounded-[28px_28px_40px_28px] p-10 max-w-md w-full backdrop-blur-md shadow-2xl">
+             <div className="text-6xl mb-3">🚀</div>
+             <h1 className="text-4xl font-extrabold mb-2">Rocket Launch</h1>
+-            <p className="text-lg font-bold text-[#FFD166] mb-7 leading-relaxed">Say a big, loud "AAAA" to blast your rocket into space!</p>
++            <p className="text-lg font-bold text-[#FFD166] mb-7 leading-relaxed flex items-center justify-center gap-2 flex-wrap">
++              Say a big, loud "AAAA" to blast your rocket into space!
++              <button onClick={replayInstruction} className="text-[#FFD166]/60 hover:text-[#FFD166] transition-colors" aria-label="Hear this again">
++                <Volume2 size={18} />
++              </button>
++            </p>
+             <button
+               onClick={requestMicAndCalibrate}
+               className="font-bold text-xl rounded-full px-10 py-4 text-[#1B1440] bg-[#FFD166] shadow-[0_6px_0_#C99A2E] hover:-translate-y-0.5 transition-transform"
+diff --git a/breathquest/frontend/src/chime/SubmarineDive.jsx b/breathquest/frontend/src/chime/SubmarineDive.jsx
+index 6b5ba84..fb20bbe 100644
+--- a/breathquest/frontend/src/chime/SubmarineDive.jsx
++++ b/breathquest/frontend/src/chime/SubmarineDive.jsx
+@@ -1,8 +1,9 @@
+ import { useEffect, useRef, useState } from 'react'
+ import { useNavigate } from 'react-router-dom'
+-import { ArrowLeft, Settings } from 'lucide-react'
++import { ArrowLeft, Settings, Volume2 } from 'lucide-react'
+ import { logEvent, getAgentDecision } from './lib/api'
+ import { getNextLevelRoute } from './lib/levelProgress'
++import { useSpokenInstruction } from '../lib/speech'
+ 
+ const TARGET_F1_DEFAULT = 300.0
+ const TARGET_F2_DEFAULT = 870.0
+@@ -189,6 +190,11 @@ export default function SubmarineDive() {
+   useEffect(() => { reduceMotionRef.current = reduceMotion; localStorage.setItem('sub_reduce_motion', reduceMotion) }, [reduceMotion])
+   useEffect(() => { mutedRef.current = muted; localStorage.setItem('sub_muted', muted) }, [muted])
+ 
++  const replayInstruction = useSpokenInstruction(
++    'Say a long, round OOOO to dive your submarine deep!',
++    { enabled: screen === 'start' && !muted },
++  )
++
+   useEffect(() => {
+     const state = stateRef.current
+     return () => {
+@@ -784,7 +790,13 @@ export default function SubmarineDive() {
+           <div className="sdv-panel">
+             <div className="sdv-mic-icon">🤿</div>
+             <h1 className="sdv-title">Submarine Dive</h1>
+-            <p className="sdv-subtitle">Say a long, round "OOOO" to dive your submarine deep!</p>
++            <p className="sdv-subtitle">
++              Say a long, round "OOOO" to dive your submarine deep!{' '}
++              <button onClick={replayInstruction} aria-label="Hear this again"
++                style={{ display: 'inline-flex', verticalAlign: 'middle', opacity: 0.6, background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}>
++                <Volume2 size={16} />
++              </button>
++            </p>
+             <button className="sdv-btn" onClick={requestMicAndCalibrate}>Let's Play!</button>
+           </div>
+         </div>
+diff --git a/breathquest/frontend/src/chime/VillageBuilder.jsx b/breathquest/frontend/src/chime/VillageBuilder.jsx
+index 73690c5..851e892 100644
+--- a/breathquest/frontend/src/chime/VillageBuilder.jsx
++++ b/breathquest/frontend/src/chime/VillageBuilder.jsx
+@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
+ import { ArrowLeft, Settings, Volume2 } from 'lucide-react'
+ import { scoreWord, transcribeAudio, logEvent, getAgentDecision } from './lib/api'
+ import { sampleWordList } from './data/wordBank.js'
++import { useSpokenInstruction } from '../lib/speech'
+ 
+ // Canonical short code — LEVEL_ORDER in lib/levelProgress.js expects
+ // 'village-builder', not the prototype's original 'word_village'. Same
+@@ -89,13 +90,6 @@ function lerpColor(hexA, hexB, t) {
+   const bl = Math.round(a[2] + (b[2] - a[2]) * t)
+   return `rgb(${r},${g},${bl})`
+ }
+-function pickIndianEnglishVoice() {
+-  const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : []
+-  return voices.find(v => v.lang === 'en-IN')
+-    || voices.find(v => v.lang && v.lang.toLowerCase().startsWith('en-in'))
+-    || voices.find(v => /india/i.test(v.name))
+-    || null
+-}
+ function buildWordListFromInput(rawInput) {
+   const words = rawInput.split(',').map(w => w.trim().toLowerCase()).filter(Boolean)
+   if (words.length === 0) return null
+@@ -172,17 +166,19 @@ export default function VillageBuilder() {
+   const playBuildSound = useCallback(() => { [440, 660].forEach((f, i) => setTimeout(() => playTone(f, 0.15, 'sine', 0.07), i * 60)) }, [playTone])
+   const playSuccessChime = useCallback(() => { [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => setTimeout(() => playTone(f, 0.5, 'triangle', 0.05), i * 110)) }, [playTone])
+ 
+-  const speakTargetWord = useCallback(() => {
+-    if (!window.speechSynthesis) return
+-    const word = wordListRef.current[s.currentWordIndex]
+-    const utterance = new SpeechSynthesisUtterance(word)
+-    const indianVoice = pickIndianEnglishVoice()
+-    if (indianVoice) utterance.voice = indianVoice
+-    else utterance.lang = 'en-IN'
+-    utterance.rate = 0.85
+-    window.speechSynthesis.cancel()
+-    window.speechSynthesis.speak(utterance)
+-  }, [s])
++  // Start-screen instruction, auto-spoken once per (re-)entry.
++  const replayStartInstruction = useSpokenInstruction(
++    'Say the word to bring a new house to life — watch your village wake up as you go!',
++    { enabled: phase === 'start' && !muted },
++  )
++
++  // Each new target word is auto-spoken once — useSpokenInstruction's
++  // "text changed while enabled" branch fires again every time targetWord
++  // moves on to the next word in the round, not just the very first one.
++  // Its returned function also doubles as the manual "hear the word"
++  // replay button below, so there's one source of truth for how this
++  // game speaks a word instead of two separate copies.
++  const speakTargetWord = useSpokenInstruction(targetWord, { enabled: phase === 'playing' && !muted, rate: 0.85 })
+ 
+   // ---- canvas sizing ----
+   const resizeCanvas = useCallback(() => {
+@@ -677,8 +673,11 @@ export default function VillageBuilder() {
+           <div className="bg-white/95 rounded-[28px_28px_40px_28px] p-9 max-w-md w-full shadow-2xl" style={{ color: '#2E4A2E' }}>
+             <div className="text-6xl mb-3">🏘️</div>
+             <h1 className="villb-title text-4xl font-extrabold mb-2">Village Builder</h1>
+-            <p className="font-semibold mb-7 leading-relaxed" style={{ color: '#B5502E' }}>
++            <p className="font-semibold mb-7 leading-relaxed flex items-center justify-center gap-2 flex-wrap" style={{ color: '#B5502E' }}>
+               Say the word to bring a new house to life — watch your village wake up as you go!
++              <button onClick={replayStartInstruction} style={{ opacity: 0.6, background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', display: 'inline-flex' }} aria-label="Hear this again">
++                <Volume2 size={18} />
++              </button>
+             </p>
+             <div className="text-left mb-5">
+               <label className="block font-bold text-sm mb-1.5">Custom words (optional)</label>
+diff --git a/breathquest/frontend/src/chime/WindChimeGarden.jsx b/breathquest/frontend/src/chime/WindChimeGarden.jsx
+index 0a6e486..d499c44 100644
+--- a/breathquest/frontend/src/chime/WindChimeGarden.jsx
++++ b/breathquest/frontend/src/chime/WindChimeGarden.jsx
+@@ -1,8 +1,9 @@
+ import { useEffect, useRef, useState, useCallback } from 'react'
+ import { useNavigate } from 'react-router-dom'
+-import { ArrowLeft, Settings } from 'lucide-react'
++import { ArrowLeft, Settings, Volume2 } from 'lucide-react'
+ import { logEvent, getAgentDecision } from './lib/api'
+ import { getNextLevelRoute } from './lib/levelProgress'
++import { useSpokenInstruction } from '../lib/speech'
+ 
+ const LEVEL_ID = 'fa'
+ const AGENT_POLICY = 'tabular_q'
+@@ -115,6 +116,11 @@ export default function WindChimeGarden() {
+   useEffect(() => { reduceMotionRef.current = reduceMotion; localStorage.setItem('chime_reduce_motion', reduceMotion) }, [reduceMotion])
+   useEffect(() => { mutedRef.current = muted; localStorage.setItem('chime_muted', muted) }, [muted])
+ 
++  const replayInstruction = useSpokenInstruction(
++    'Say a long ffff to blow glowing bubbles into the evening sky!',
++    { enabled: screen === 'start' && !muted },
++  )
++
+   useEffect(() => {
+     const state = stateRef.current
+     return () => {
+@@ -616,7 +622,12 @@ export default function WindChimeGarden() {
+           <div className="bg-[rgba(42,33,88,0.65)] border border-white/10 rounded-[28px_28px_40px_28px] p-10 max-w-md w-full backdrop-blur-md shadow-2xl">
+             <div className="text-6xl mb-3">🫧</div>
+             <h1 className="text-4xl font-extrabold mb-2">Bubble Garden</h1>
+-            <p className="text-lg font-bold text-[#FFD166] mb-7 leading-relaxed">Say a long "ffff" to blow glowing bubbles into the evening sky!</p>
++            <p className="text-lg font-bold text-[#FFD166] mb-7 leading-relaxed flex items-center justify-center gap-2 flex-wrap">
++              Say a long "ffff" to blow glowing bubbles into the evening sky!
++              <button onClick={replayInstruction} className="text-[#FFD166]/60 hover:text-[#FFD166] transition-colors" aria-label="Hear this again">
++                <Volume2 size={18} />
++              </button>
++            </p>
+             <button
+               onClick={requestMicAndCalibrate}
+               className="font-bold text-xl rounded-full px-10 py-4 text-[#2A2158] bg-[#FFD166] shadow-[0_6px_0_#C99A2E] hover:-translate-y-0.5 transition-transform"
+diff --git a/breathquest/frontend/src/lib/speech.js b/breathquest/frontend/src/lib/speech.js
+index eb9b592..e609e80 100644
+--- a/breathquest/frontend/src/lib/speech.js
++++ b/breathquest/frontend/src/lib/speech.js
+@@ -1,18 +1,53 @@
+ // Shared browser text-to-speech utility for verbal instructions across the
+-// app — BreathQuest levels, Chime games, VaakMirror, and the login/nav
+-// flow. Generalizes the pattern VaakMirror's speakSound() already
+-// established in vaakmirror/lib/sound.js: cancel any in-flight utterance,
+-// speak the new one, fail silently if speech synthesis isn't available
+-// (some browsers block audio until a user gesture has happened somewhere
+-// on the page — the visual UI always carries the instruction on its own
+-// regardless).
++// app — BreathQuest levels, Chime games, VaakMirror, and (as a manual
++// tap-to-hear only, no auto-play) the login/nav flow. Generalizes the
++// pattern VaakMirror's speakSound() already established in
++// vaakmirror/lib/sound.js: cancel any in-flight utterance, speak the new
++// one, fail silently if speech synthesis isn't available (some browsers
++// block audio until a user gesture has happened somewhere on the page —
++// the visual UI always carries the instruction on its own regardless).
+ //
+ // vaakmirror/lib/sound.js now re-exports `speak` as `speakSound` so its
+ // four existing call sites (MirrorMirror, LipSyncHero, TongueTamer,
+ // MinimalPairDrill) keep working unchanged.
++//
++// Voice: there's no server-side TTS provider wired into this app (no API
++// key, no backend audio pipeline) — this is entirely the browser's
++// built-in Web Speech API (`window.speechSynthesis`), which is free and
++// needs no setup, but means the actual voice is whatever the device
++// exposes, not something this code can force. `pickPreferredVoice()`
++// below asks for an Indian-English voice (`en-IN`) when the device has
++// one and otherwise falls back to the browser's default silently.
++// Real-world availability: Chrome on Android/desktop commonly lists a
++// network "Google" en-IN voice when online; iOS/macOS Safari ships a
++// built-in en-IN voice ("Rishi") that works offline too. Devices with
++// neither (e.g. some Windows/Chrome setups, or Chrome fully offline) will
++// just get their normal default system voice — there's no way to
++// guarantee an en-IN voice exists on every device short of adding a real
++// paid cloud TTS backend, which isn't set up here.
+ 
+ import { useEffect, useRef } from 'react'
+ 
++let cachedVoices = null
++if (typeof window !== 'undefined' && window.speechSynthesis) {
++  window.speechSynthesis.onvoiceschanged = () => {
++    cachedVoices = window.speechSynthesis.getVoices()
++  }
++}
++
++function pickPreferredVoice() {
++  if (typeof window === 'undefined' || !window.speechSynthesis) return null
++  const voices = cachedVoices?.length ? cachedVoices : window.speechSynthesis.getVoices()
++  if (!voices || voices.length === 0) return null
++  cachedVoices = voices
++  return (
++    voices.find(v => v.lang === 'en-IN') ||
++    voices.find(v => v.lang?.toLowerCase().startsWith('en-in')) ||
++    voices.find(v => /india/i.test(v.name)) ||
++    null
++  )
++}
++
+ export function speak(text, { rate = 0.95, pitch = 1.0 } = {}) {
+   try {
+     if (!text || !window.speechSynthesis) return
+@@ -20,6 +55,11 @@ export function speak(text, { rate = 0.95, pitch = 1.0 } = {}) {
+     const utter = new SpeechSynthesisUtterance(text)
+     utter.rate = rate
+     utter.pitch = pitch
++    // Hint the language even when no exact-match voice object is found —
++    // some browsers will still route to a same-language voice by lang code.
++    utter.lang = 'en-IN'
++    const voice = pickPreferredVoice()
++    if (voice) utter.voice = voice
+     window.speechSynthesis.speak(utter)
+   } catch {
+     // Ignore — voice is a layer on top of the visual UI, never load-bearing.
+diff --git a/breathquest/frontend/src/pages/Landing.jsx b/breathquest/frontend/src/pages/Landing.jsx
+index aac5ef8..9fa423a 100644
+--- a/breathquest/frontend/src/pages/Landing.jsx
++++ b/breathquest/frontend/src/pages/Landing.jsx
+@@ -1,7 +1,7 @@
+ import { useNavigate } from 'react-router-dom'
+ import { Stethoscope, Heart, Sparkles, ArrowRight, Volume2 } from 'lucide-react'
+ import { Avatar } from '../components/ui'
+-import { useSpokenInstruction } from '../lib/speech'
++import { speak } from '../lib/speech'
+ 
+ const EMBERS = [
+   { left: '22%', delay: '0s',    duration: '11s', size: 5 },
+@@ -39,7 +39,9 @@ function BreathBuddy() {
+ 
+ export default function Landing() {
+   const navigate = useNavigate()
+-  const replayTagline = useSpokenInstruction(
++  // Manual tap-to-hear only, no auto-play — see Play.jsx for why nav/menu
++  // screens don't auto-speak while the actual games still do.
++  const replayTagline = () => speak(
+     'Blow, speak, and watch the world move. Are you a kid ready to play, a therapist, or a parent?',
+   )
+ 
+diff --git a/breathquest/frontend/src/pages/kid/GamePicker.jsx b/breathquest/frontend/src/pages/kid/GamePicker.jsx
+index 0b4b09e..a5e898c 100644
+--- a/breathquest/frontend/src/pages/kid/GamePicker.jsx
++++ b/breathquest/frontend/src/pages/kid/GamePicker.jsx
+@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
+ import { TrendingUp, Volume2 } from 'lucide-react'
+ import { useAuth } from '../../context/AuthContext'
+ import { Avatar } from '../../components/ui'
+-import { useSpokenInstruction } from '../../lib/speech'
++import { speak } from '../../lib/speech'
+ 
+ const APPS = [
+   {
+@@ -94,10 +94,12 @@ export default function GamePicker() {
+     return () => clearTimeout(t)
+   }, [])
+ 
++  // Manual tap-to-hear only, no auto-play — see Play.jsx for why nav/menu
++  // screens don't auto-speak while the actual games still do.
+   const spokenGreeting = patient
+     ? `${greeting()}, ${patient.first_name || 'friend'}! Pick a world to play in — each one starts the same way, take a breath.`
+     : null
+-  const replayGreeting = useSpokenInstruction(spokenGreeting, { enabled: !!patient })
++  const replayGreeting = () => { if (spokenGreeting) speak(spokenGreeting) }
+ 
+   return (
+     <div className="min-h-screen" style={{ background: 'linear-gradient(180deg, #12142E 0%, #1E1E3F 100%)' }}>
+diff --git a/breathquest/frontend/src/pages/kid/Play.jsx b/breathquest/frontend/src/pages/kid/Play.jsx
+index 2be011c..150f713 100644
+--- a/breathquest/frontend/src/pages/kid/Play.jsx
++++ b/breathquest/frontend/src/pages/kid/Play.jsx
+@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext'
+ import { getErrorMessage } from '../../api/client'
+ import { Button, Avatar } from '../../components/ui'
+ import { Creature } from '../../components/ui/Creatures'
+-import { useSpokenInstruction } from '../../lib/speech'
++import { speak } from '../../lib/speech'
+ 
+ const AVATARS = ['chick', 'dragon', 'bunny', 'fox', 'rocket', 'fish']
+ const AVATAR_NAMES = { chick: 'Chicky', dragon: 'Dino', bunny: 'Hoppy', fox: 'Foxy', rocket: 'Zoom', fish: 'Finley' }
+@@ -125,25 +125,22 @@ export default function KidPlay() {
+     return () => clearTimeout(t)
+   }, [])
+ 
+-  // Verbal instructions per screen — each fires once on entering that mode
+-  // (and again if the kid navigates back into it later) via
+-  // useSpokenInstruction, plus a manual replay button next to the text.
+-  const replayChoose = useSpokenInstruction(
+-    'Ready to play? Tap New Player to create an account, or I have a code to log back in.',
+-    { enabled: mode === 'choose' && !registered },
+-  )
+-  const replayRegister = useSpokenInstruction(
+-    'Create your account. Type your name, pick your character, and choose a 4 digit PIN.',
+-    { enabled: mode === 'register' },
+-  )
+-  const replayLogin = useSpokenInstruction(
+-    'Welcome back! Enter your player code and your PIN.',
+-    { enabled: mode === 'login' },
+-  )
+-  const replayRegistered = useSpokenInstruction(
+-    registered ? `You're in, ${AVATAR_NAMES[avatar]}! Write down your player code and your PIN so you can log back in.` : null,
+-    { enabled: !!registered },
+-  )
++  // Verbal instructions on this screen are manual, tap-to-hear only — no
++  // auto-play. Auto-speaking every time a kid lands on a nav/login screen
++  // got flagged as an annoying voice-over; that judgment call only applies
++  // here (and Landing.jsx / GamePicker.jsx) — the actual games still
++  // auto-speak once per level/attempt via useSpokenInstruction, since
++  // that's instructional, not just narration of a menu.
++  const CHOOSE_TXT     = 'Ready to play? Tap New Player to create an account, or I have a code to log back in.'
++  const REGISTER_TXT   = 'Create your account. Type your name, pick your character, and choose a 4 digit PIN.'
++  const LOGIN_TXT      = 'Welcome back! Enter your player code and your PIN.'
++  const registeredText = registered
++    ? `You're in, ${AVATAR_NAMES[avatar]}! Write down your player code and your PIN so you can log back in.`
++    : null
++  const replayChoose     = () => speak(CHOOSE_TXT)
++  const replayRegister   = () => speak(REGISTER_TXT)
++  const replayLogin      = () => speak(LOGIN_TXT)
++  const replayRegistered = () => { if (registeredText) speak(registeredText) }
+ 
+   const handlePin = (digit) => { if (pin.length < 4) setPin(p => p + digit) }
+   const deletePin = () => setPin(p => p.slice(0, -1))
+-- 
+2.43.0
+

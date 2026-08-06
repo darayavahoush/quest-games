@@ -9,6 +9,7 @@ import { drawMouthOutline, drawFaceFilter, drawTongueArrow } from './lib/faceOve
 import { emaUpdate, emaUpdateObject, createTierStabilizer } from './lib/signalSmoothing.js'
 import { playChime, playFanfare, speakSound } from './lib/sound.js'
 import { createGameSession, logAttempt, endGameSession } from './lib/api.js'
+import { useEndSessionOnLeave } from './lib/useEndSessionOnLeave.js'
 import CharacterFilterPicker, { FILTERS } from './components/CharacterFilterPicker.jsx'
 import ProgressRing from './components/ProgressRing.jsx'
 import TongueShapeGuide from './components/TongueShapeGuide.jsx'
@@ -59,6 +60,7 @@ export default function TongueTamer() {
   const smoothedTongueRef = useRef(null)
   const tierStabilizerRef = useRef(createTierStabilizer(4))
   const sessionIdRef = useRef(null)
+  useEndSessionOnLeave(sessionIdRef)
   const elevationOffsetRef = useRef(0)
   const lateralOffsetRef = useRef(0)
   const cavityOffsetRef = useRef(0)

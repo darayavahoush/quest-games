@@ -10,6 +10,7 @@ import { drawMouthOutline, drawFaceFilter } from './lib/faceOverlay.js'
 import { emaUpdateObject, createTierStabilizer } from './lib/signalSmoothing.js'
 import { playChime, playFanfare, speakSound } from './lib/sound.js'
 import { createGameSession, logAttempt, endGameSession, getWeakSounds } from './lib/api.js'
+import { useEndSessionOnLeave } from './lib/useEndSessionOnLeave.js'
 import CelebrationOverlay from './components/CelebrationOverlay.jsx'
 import CharacterFilterPicker, { FILTERS } from './components/CharacterFilterPicker.jsx'
 import ProgressRing from './components/ProgressRing.jsx'
@@ -58,6 +59,7 @@ export default function MinimalPairDrill() {
   const smoothedRef = useRef(null)
   const tierStabilizerRef = useRef(createTierStabilizer(4))
   const sessionIdRef = useRef(null)
+  useEndSessionOnLeave(sessionIdRef)
 
   const [status, setStatus] = useState('loading') // loading | ready | denied | error
   const [pair, setPair] = useState(defaultPair())

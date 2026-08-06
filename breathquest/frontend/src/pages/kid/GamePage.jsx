@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Volume2 } from 'lucide-react'
-import { sessionsAPI } from '../../api/client'
+import { sessionsAPI, beaconPost } from '../../api/client'
 import { BreathEngine } from '../../game/engine/BreathEngine.js'
 import { LEVEL_FACTORIES, LEVEL_META } from '../../game/index.js'
 import { calcStars, saveScore, loadScores, isUnlocked, LEVEL_ORDER } from '../../game/scoring/index.js'
@@ -214,11 +214,24 @@ export default function GamePage() {
     engineRef.current?.stop()
   }
 
-  // Backing out mid-level is a real signal for the difficulty agent (same
-  // idea as the quit_flag Chime logs) — only fires while actually playing,
-  // not from the ready/complete/error screens.
+  // Kept in sync with `phase` state so the pagehide handler below — which
+  // has to be registered once and can't re-subscribe on every phase change
+  // — always reads the *current* phase instead of whatever it was when the
+  // listener was first attached.
+  const phaseRef = useRef(phase)
+  useEffect(() => { phaseRef.current = phase }, [phase])
+
+  // Backing out mid-level (or the tab just closing — see the pagehide
+  // handler below) is a real signal for the difficulty agent, same idea as
+  // the quit_flag Chime logs. This used to only log the agent event and
+  // never actually closed the GameSession row itself, leaving it open
+  // forever (started_at set, ended_at null) — skewing completion-rate
+  // stats and the weekly summary. Now closes both.
   const logQuitIfPlaying = () => {
     if (phase !== 'playing' && phase !== 'breathe' && phase !== 'calibrating') return
+    if (sessionRef.current) {
+      sessionsAPI.end(sessionRef.current, { stars_earned: 0, completed: false }).catch(() => {})
+    }
     const attemptNumber = loadAttemptNumber(levelId) + 1
     saveAttemptNumber(levelId, attemptNumber)
     logBreathEvent({
@@ -230,6 +243,34 @@ export default function GamePage() {
       quit_flag: true,
     }).catch(() => {})
   }
+
+  // The above only covers backing out *within* the SPA. If the kid just
+  // closes the tab, hits browser-back off the site, or the browser dies,
+  // neither logQuitIfPlaying nor any other in-app handler ever runs — a
+  // regular axios call gets cancelled mid-flight the instant the page
+  // unloads. `pagehide` + a keepalive beacon is the one combination
+  // browsers guarantee still gets sent after the page is gone.
+  useEffect(() => {
+    const handlePageHide = () => {
+      const p = phaseRef.current
+      if (p !== 'playing' && p !== 'breathe' && p !== 'calibrating') return
+      if (sessionRef.current) {
+        beaconPost(`/sessions/${sessionRef.current}/end`, { stars_earned: 0, completed: false })
+      }
+      const attemptNumber = loadAttemptNumber(levelId) + 1
+      saveAttemptNumber(levelId, attemptNumber)
+      beaconPost('/breath/events', {
+        level_id: levelId,
+        attempt_number: attemptNumber,
+        score: 0,
+        is_valid_attempt: false,
+        threshold_at_time: difficultyRef.current,
+        quit_flag: true,
+      })
+    }
+    window.addEventListener('pagehide', handlePageHide)
+    return () => window.removeEventListener('pagehide', handlePageHide)
+  }, [levelId])
 
   const replay = () => {
     cleanup()
