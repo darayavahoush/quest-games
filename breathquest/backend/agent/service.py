@@ -187,6 +187,16 @@ class AgentService:
     def _downgrade_reason(self, child_id: str, policy: str) -> Optional[str]:
         """None if `policy` is safe to run as requested; otherwise a
         human-readable reason it's being downgraded to rule_based instead."""
+        if policy == "bandit":
+            return (
+                "bandit is retired from production selection: eval showed it "
+                "underperforming rule_based on ALP, frustration, and quit rate "
+                "despite 300 training episodes (35.55 vs. 47.42) — a stateless "
+                "contextual bandit is a structural mismatch for this reward "
+                "(ALP is path-dependent, frustration accumulates across steps), "
+                "not a tuning problem, so it stays out of the servable set"
+            )
+
         if policy == "tabular_q":
             from agent.child_q_store import Q_TABLES_DIR
             child_events = data_store.count_events(child_id=child_id, db_path=self.db_path)
@@ -287,6 +297,9 @@ class AgentService:
 
         else:
             raise ValueError(f"Unknown policy: {policy}")
+
+        from agent.safety import apply_frustration_mask
+        action_idx = apply_frustration_mask(obs[2], action_idx)
 
         action = ACTION_LABELS[action_idx]
         return {

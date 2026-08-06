@@ -62,6 +62,8 @@ class DifficultyEnv(gym.Env):
         return self._obs(), {}
 
     def step(self, action):
+        from agent.safety import apply_frustration_mask
+        action = apply_frustration_mask(self.child.frustration, action)
         self.difficulty = float(np.clip(self.difficulty + [-0.05, 0.0, 0.05][action], 0.0, 1.0))
         record = self.child.attempt(self.difficulty)
         self.recent.append(record["success"])
