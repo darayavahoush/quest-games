@@ -13,7 +13,9 @@ from schemas.schemas import (
     TherapistRegister, TherapistLogin, TokenResponse,
     KidLoginRequest, KidTokenResponse, KidRegisterRequest,
     ParentRegisterRequest, ParentLoginRequest, ParentTokenResponse,
+    AssessmentPinSetupRequest,
 )
+from core import assessment_client
 from core.security import (
     hash_password, verify_password,
     create_access_token,
@@ -121,6 +123,71 @@ async def kid_login(data: KidLoginRequest, db: AsyncSession = Depends(get_db)):
 
     if not verify_pin(data.pin, patient.pin_hash):
         raise HTTPException(status_code=401, detail="Incorrect PIN")
+
+    token = create_kid_token(patient.id)
+    return KidTokenResponse(
+        access_token=token,
+        patient_id=patient.id,
+        first_name=patient.first_name,
+        avatar=patient.avatar,
+        player_code=patient.player_code,
+    )
+
+
+# ------------------------------------------------------------------ #
+#  Assessment-linked kid setup                                         #
+#  Candidate lists + PIN setup for kids created in Assessment, reached #
+#  over HTTP via core/assessment_client.py (see diagnostic_client.py   #
+#  for the same cross-service pattern used elsewhere in this codebase) #
+# ------------------------------------------------------------------ #
+
+@router.get("/therapist-candidates")
+async def therapist_candidates():
+    """Distinct therapist names recorded during Assessment intake, for a
+    therapist self-select dropdown. Empty list if Assessment is unreachable."""
+    return {"therapists": assessment_client.get_therapist_candidates()}
+
+
+@router.get("/kid-candidates")
+async def kid_candidates():
+    """Active patients from Assessment, for the kid-selection list at
+    BreathQuest PIN setup. Empty list if Assessment is unreachable."""
+    return {"patients": assessment_client.get_kid_candidates()}
+
+
+@router.post("/kid-pin-setup", response_model=KidTokenResponse)
+async def kid_pin_setup(data: AssessmentPinSetupRequest, db: AsyncSession = Depends(get_db)):
+    assessment_patient = assessment_client.get_assessment_patient(data.patient_id)
+    if not assessment_patient:
+        raise HTTPException(status_code=404, detail="Patient not found in Assessment, or Assessment is unreachable")
+    if not assessment_patient.get("is_active", True):
+        raise HTTPException(status_code=403, detail="Patient is not active in Assessment")
+
+    # Find-or-create on assessment_patient_id, not a derived code — makes
+    # re-running PIN setup for the same kid idempotent instead of creating
+    # a second duplicate BreathQuest patient (see models.py comment).
+    result = await db.execute(
+        select(Patient).where(Patient.assessment_patient_id == data.patient_id)
+    )
+    patient = result.scalar_one_or_none()
+
+    if patient:
+        patient.pin_hash = hash_pin(data.pin)
+        patient.avatar = data.avatar
+        patient.first_name = assessment_patient.get("name", patient.first_name)
+    else:
+        code = await generate_unique_player_code(db, data.avatar)
+        patient = Patient(
+            therapist_id=None,
+            first_name=assessment_patient.get("name", "Player"),
+            avatar=data.avatar,
+            pin_hash=hash_pin(data.pin),
+            player_code=code,
+            assessment_patient_id=data.patient_id,
+        )
+        db.add(patient)
+
+    await db.flush()
 
     token = create_kid_token(patient.id)
     return KidTokenResponse(

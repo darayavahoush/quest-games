@@ -77,8 +77,9 @@ export default function TherapistLogin() {
 
       <div className="flex items-center justify-center p-6 py-16">
         <div className="w-full max-w-md">
-          <Link to="/" className="inline-flex items-center gap-1.5 text-white/40 hover:text-white/70
-                                  transition-colors mb-8 text-sm">
+          <Link to="/" className="inline-flex items-center gap-2 text-white/50 hover:text-white
+                                  hover:bg-white/5 transition-colors mb-8 text-sm font-medium
+                                  -ml-3 px-3 py-1.5 rounded-full">
             <ArrowLeft className="w-4 h-4" /> Back
           </Link>
 

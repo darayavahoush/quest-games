@@ -129,6 +129,20 @@ class KidTokenResponse(BaseModel):
     player_code: str
 
 
+class AssessmentPinSetupRequest(BaseModel):
+    # id of the Assessment-side Patient record (not a BreathQuest patient_id)
+    patient_id: str
+    avatar: str = "chick"
+    pin: str
+
+    @field_validator("pin")
+    @classmethod
+    def pin_format(cls, v):
+        if not re.match(r"^\d{4}$", v):
+            raise ValueError("PIN must be exactly 4 digits")
+        return v
+
+
 class ParentRegisterRequest(BaseModel):
     # Exactly one of these must be provided — validated in the endpoint,
     # not here, since it needs a DB lookup either way.

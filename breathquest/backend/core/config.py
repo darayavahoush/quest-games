@@ -27,6 +27,9 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
+        extra = "ignore"  # ASSESSMENT_SERVICE_URL/API_KEY etc. are read
+        # directly via os.getenv() in core/assessment_client.py, not
+        # through this typed Settings model — don't fail startup on them.
 
 
 @lru_cache

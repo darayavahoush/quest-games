@@ -1,3 +1,4 @@
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 
@@ -46,3 +47,9 @@ async def get_db() -> AsyncSession:
 async def create_tables():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # One-time column add for existing `patients` rows — create_all()
+        # only creates missing tables, it won't alter one that already
+        # exists. IF NOT EXISTS makes this safe to leave in permanently.
+        await conn.execute(text(
+            "ALTER TABLE patients ADD COLUMN IF NOT EXISTS assessment_patient_id VARCHAR UNIQUE"
+        ))

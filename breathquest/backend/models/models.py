@@ -65,6 +65,11 @@ class Patient(Base):
     # Nullable: most patients won't have one generated until a therapist
     # requests it. Single-use — cleared once redeemed (see parent-register).
     parent_invite_code: Mapped[str | None] = mapped_column(nullable=True, unique=True)
+    # Set when this patient was linked from an Assessment-side patient
+    # record via kid-pin-setup. Unique + nullable so PIN setup can
+    # find-or-create idempotently on re-link instead of duplicating
+    # (see routers/auth.py::kid_pin_setup).
+    assessment_patient_id: Mapped[str | None] = mapped_column(String, nullable=True, unique=True, index=True)
     age:              Mapped[int | None]    = mapped_column(Integer)
     diagnosis_notes:  Mapped[str | None]   = mapped_column(Text)
     is_active:        Mapped[bool]          = mapped_column(Boolean, default=True)

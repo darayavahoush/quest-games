@@ -98,9 +98,10 @@ export default function ParentAuth() {
 
       <div className="flex items-center justify-center p-6 py-16">
         <div className="w-full max-w-md">
-          <Link to="/" className="inline-flex items-center gap-1.5 text-paper/40 hover:text-paper/70
-                                  transition-colors mb-8 text-sm">
-            <ArrowLeft className="w-4 h-4" /> Back home
+          <Link to="/" className="inline-flex items-center gap-2 text-paper/50 hover:text-paper
+                                  hover:bg-white/5 transition-colors mb-8 text-sm font-medium
+                                  -ml-3 px-3 py-1.5 rounded-full">
+            <ArrowLeft className="w-4 h-4" /> Back
           </Link>
 
           <div className="mb-8 lg:hidden text-center">
