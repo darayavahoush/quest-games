@@ -13,7 +13,7 @@ export const LEVEL_ROUTES = {
   ma: '/play/chime/firefly-jar',
   fa: '/play/chime/wind-chime-garden',
   ha: '/play/chime/bubble-wrap-pop',
-  ee: '/play/chime/kite-flyer',
+  ee: '/play/chime/xylophone-tower',
   r: '/play/chime/lions-roar',
   'village-builder': '/play/chime/village-builder',
 }

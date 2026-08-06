@@ -23,7 +23,7 @@ import SubmarineDive      from './chime/SubmarineDive'
 import FireflyJar         from './chime/FireflyJar'
 import WindChimeGarden    from './chime/WindChimeGarden'
 import BubbleWrapPop      from './chime/BubbleWrapPop'
-import KiteFlyer          from './chime/KiteFlyer'
+import XylophoneTower    from './chime/XylophoneTower'
 import LionsRoar          from './chime/LionsRoar'
 import RequireLevelUnlocked from './chime/lib/RequireLevelUnlocked'
 import VoiceHurdleRace    from './voiceHurdleRace/VoiceHurdleRace'
@@ -155,8 +155,8 @@ function AppRoutes() {
       <Route path="/play/chime/bubble-wrap-pop" element={
         <ProtectedKid><RequireLevelUnlocked levelId="ha"><BubbleWrapPop /></RequireLevelUnlocked></ProtectedKid>
       } />
-      <Route path="/play/chime/kite-flyer" element={
-        <ProtectedKid><RequireLevelUnlocked levelId="ee"><KiteFlyer /></RequireLevelUnlocked></ProtectedKid>
+      <Route path="/play/chime/xylophone-tower" element={
+        <ProtectedKid><RequireLevelUnlocked levelId="ee"><XylophoneTower /></RequireLevelUnlocked></ProtectedKid>
       } />
       <Route path="/play/chime/lions-roar" element={
         <ProtectedKid><RequireLevelUnlocked levelId="r"><LionsRoar /></RequireLevelUnlocked></ProtectedKid>
