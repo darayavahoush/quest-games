@@ -5,7 +5,7 @@ import { voiceHurdleRaceApi } from '../../api/voiceHurdleRaceApi'
 import { Card, Badge, Avatar, StarRating, Button, Spinner, PageLoader } from '../../components/ui'
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer,
          BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line, Legend } from 'recharts'
-import { Download } from 'lucide-react'
+import { Download, BarChart3, Gamepad2, Dog, Bell, Waves, HeartPulse, FileText } from 'lucide-react'
 
 const LEVEL_EMOJIS = {
   pinwheel: '🌀', float_rider: '🐥', candle: '🕯️',
@@ -316,10 +316,29 @@ export default function PatientDetail() {
                    : '→ Stable'
   const trendColor = trend > 0 ? 'text-brand-green' : trend < 0 ? 'text-brand-coral' : 'text-white/50'
 
+  const TABS = [
+    ['progress', BarChart3, 'Progress'],
+    ['sessions', Gamepad2, 'Sessions'],
+    ['voicehurdlerace', Dog, 'Voice Hurdle'],
+    ['chime', Bell, 'Chime'],
+    ['vaakmirror', Waves, 'Orpheus'],
+    ['care', HeartPulse, 'Care'],
+    ['notes', FileText, 'Notes'],
+  ]
+
   return (
-    <div className="min-h-screen bg-brand-dark">
+    <div className="min-h-screen bg-brand-dark relative">
+      {/* Same ambient glow as the therapist dashboard, so landing on a
+          specific patient doesn't feel like a flatter, less-considered
+          page than the dashboard just navigated from. */}
+      <div className="absolute top-0 left-0 w-full h-80 overflow-hidden pointer-events-none">
+        <div className="absolute -top-32 -left-24 w-[28rem] h-[28rem] rounded-full bg-brand-teal/[0.07] blur-[100px]" />
+        <div className="absolute -top-40 right-0 w-[26rem] h-[26rem] rounded-full bg-brand-green/[0.05] blur-[100px]" />
+      </div>
+
       {/* Nav */}
-      <nav className="border-b border-white/10 px-6 py-4 flex items-center gap-4 sticky top-0 bg-brand-dark/95 backdrop-blur z-10">
+      <nav className="relative border-b border-white/[0.08] px-6 py-4 flex items-center gap-4
+                       sticky top-0 bg-brand-dark/85 backdrop-blur-xl z-10">
         <button onClick={() => navigate('/therapist/dashboard')}
                 className="text-white/40 hover:text-white text-sm transition-colors">← Dashboard</button>
         <span className="text-white/20">/</span>
@@ -331,17 +350,20 @@ export default function PatientDetail() {
         </Button>
       </nav>
       {reportError && (
-        <div className="max-w-5xl mx-auto px-6 pt-4">
+        <div className="relative max-w-5xl mx-auto px-6 pt-4">
           <div className="bg-brand-coral/10 border border-brand-coral/30 rounded-xl px-4 py-3 text-brand-coral text-sm">
             {reportError}
           </div>
         </div>
       )}
 
-      <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="relative max-w-5xl mx-auto px-6 py-8">
         {/* Profile header */}
         <div className="flex items-center gap-6 mb-8">
-          <Avatar avatar={data.avatar} size="xl" />
+          <div className="relative">
+            <div className="absolute inset-0 rounded-full bg-brand-green/20 blur-xl" />
+            <Avatar avatar={data.avatar} size="xl" />
+          </div>
           <div className="flex-1">
             <h1 className="font-display text-3xl font-bold text-white">{data.first_name}</h1>
             <div className="flex items-center gap-3 mt-2 flex-wrap">
@@ -359,11 +381,12 @@ export default function PatientDetail() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-white/5 p-1 rounded-xl mb-6 w-fit">
-          {[['progress', '📊 Progress'], ['sessions', '🎮 Sessions'], ['voicehurdlerace', '🐶 Voice Hurdle'], ['chime', '🔔 Chime'], ['vaakmirror', '🪞 Orpheus'], ['care', '🩺 Care'], ['notes', '📝 Notes']].map(([t, label]) => (
+        <div className="flex gap-1 bg-white/[0.04] border border-white/[0.06] p-1 rounded-xl mb-6 w-fit overflow-x-auto">
+          {TABS.map(([t, Icon, label]) => (
             <button key={t} onClick={() => setTab(t)}
-              className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all
-                ${tab === t ? 'bg-brand-green text-brand-dark' : 'text-white/50 hover:text-white'}`}>
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap
+                ${tab === t ? 'bg-brand-green text-brand-dark shadow-sm' : 'text-white/50 hover:text-white hover:bg-white/[0.04]'}`}>
+              <Icon size={14} />
               {label}
             </button>
           ))}
