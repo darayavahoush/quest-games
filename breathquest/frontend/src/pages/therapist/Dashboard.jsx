@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { dashboardAPI } from '../../api/client'
-import { Button, Card, Badge, Avatar, PageLoader } from '../../components/ui'
+import { Button, Card, Badge, Avatar, StatCard, PageLoader } from '../../components/ui'
 import AddPatientModal from '../../components/therapist/AddPatientModal'
 import {
   Wind, Users, UserCheck, Gamepad2, Star, AlertTriangle, Clock,
@@ -73,14 +73,12 @@ export default function TherapistDashboard() {
   const today = new Date().toLocaleDateString('en', { weekday: 'long', month: 'long', day: 'numeric' })
 
   return (
-    <div className="min-h-screen bg-brand-dark relative">
-      {/* Soft glow accents behind the header — same idea as the login screen's
-          radial panel, so landing here right after signing in doesn't feel
-          like a completely different, flatter app. */}
-      <div className="absolute top-0 left-0 w-full h-72 overflow-hidden pointer-events-none">
-        <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-brand-teal/10 blur-3xl" />
-        <div className="absolute -top-32 right-0 w-96 h-96 rounded-full bg-brand-green/5 blur-3xl" />
-      </div>
+    <div className="min-h-screen relative"
+         style={{ background: 'radial-gradient(ellipse 1400px 800px at 15% -10%, #1D9E75 0%, #16332D 35%, #12122A 70%)' }}>
+      {/* A real gradient now, not just a couple of faint blur blobs on a flat
+          fill — same idea as the login screen's radial panel, in the
+          brand.teal/brand.dark this page (and PatientDetail) already use. */}
+      <div className="absolute -top-32 right-0 w-96 h-96 rounded-full bg-brand-green/10 blur-3xl pointer-events-none" />
 
       {/* Top nav */}
       <nav className="relative border-b border-white/10 px-6 py-4 flex items-center justify-between sticky top-0 bg-brand-dark/90 backdrop-blur z-10">
@@ -159,26 +157,12 @@ export default function TherapistDashboard() {
 
         {/* Stats row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {[
-            { label: 'Total Patients',     value: summary?.total_patients    ?? 0, Icon: Users,
-              bar: 'bg-brand-green',  chip: 'bg-brand-green/15',  text: 'text-brand-green' },
-            { label: 'Active Patients',    value: summary?.active_patients   ?? 0, Icon: UserCheck,
-              bar: 'bg-brand-teal',   chip: 'bg-brand-teal/15',   text: 'text-brand-teal' },
-            { label: 'Sessions This Week', value: summary?.sessions_this_week ?? 0, Icon: Gamepad2,
-              bar: 'bg-brand-amber',  chip: 'bg-brand-amber/15',  text: 'text-brand-amber' },
-            { label: 'Avg Stars / Session',value: summary?.avg_stars_this_week != null
-                ? summary.avg_stars_this_week.toFixed(1) : '—',                       Icon: Star,
-              bar: 'bg-yellow-400',   chip: 'bg-yellow-400/15',   text: 'text-yellow-400' },
-          ].map(({ label, value, Icon, bar, chip, text }) => (
-            <Card key={label} className="relative overflow-hidden">
-              <div className={`absolute top-0 left-0 w-full h-0.5 ${bar}`} />
-              <div className={`w-9 h-9 rounded-lg ${chip} flex items-center justify-center mb-3`}>
-                <Icon size={17} className={text} />
-              </div>
-              <p className="text-2xl font-bold font-display text-white leading-tight">{value}</p>
-              <p className="text-white/40 text-xs mt-0.5">{label}</p>
-            </Card>
-          ))}
+          <StatCard icon={Users} accent="#A8FF6F" value={summary?.total_patients ?? 0} label="Total Patients" />
+          <StatCard icon={UserCheck} accent="#1D9E75" value={summary?.active_patients ?? 0} label="Active Patients" />
+          <StatCard icon={Gamepad2} accent="#FAC775" value={summary?.sessions_this_week ?? 0} label="Sessions This Week" />
+          <StatCard icon={Star} accent="#FACC15"
+            value={summary?.avg_stars_this_week != null ? summary.avg_stars_this_week.toFixed(1) : '—'}
+            label="Avg Stars / Session" />
         </div>
 
         {/* Patient list */}
@@ -246,10 +230,10 @@ function PatientCard({ patient, alert, onClick }) {
                    : patient.total_stars >= 6  ? 'text-yellow-400'
                    : 'text-white/50'
   return (
-    <button onClick={onClick}
-      className={`card text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg group w-full
-                 ${alert ? 'border-brand-amber/30 hover:border-brand-amber/50 hover:bg-brand-amber/5 hover:shadow-brand-amber/5'
-                         : 'hover:border-brand-green/40 hover:bg-brand-green/5 hover:shadow-brand-green/5'}`}>
+    <Card as="button" onClick={onClick}
+      className={`text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg group w-full
+                 ${alert ? 'hover:border-brand-amber/40 hover:bg-brand-amber/5'
+                         : 'hover:border-brand-green/30 hover:bg-brand-green/5'}`}>
       <div className="flex items-center gap-3 mb-4">
         <Avatar avatar={patient.avatar} size="md" />
         <div className="flex-1 min-w-0">
@@ -286,6 +270,6 @@ function PatientCard({ patient, alert, onClick }) {
         <span className="text-white/30 text-xs">View progress</span>
         <ChevronRight size={14} className="text-brand-green group-hover:translate-x-1 transition-transform" />
       </div>
-    </button>
+    </Card>
   )
 }
