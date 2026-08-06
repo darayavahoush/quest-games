@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { TrendingUp, TrendingDown, Calendar, Star, Sparkles, Heart } from 'lucide-react'
+import { TrendingUp, TrendingDown, Calendar, Star, Sparkles, Heart, LogOut } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import { Avatar } from '../../components/ui'
+import { Avatar, Card, StatCard } from '../../components/ui'
 import { parentAPI } from '../../api/client'
 
 function formatDate(iso) {
@@ -38,22 +38,29 @@ export default function ParentDashboard() {
   const trend = data?.improvement_trend
 
   return (
-    <div className="bg-ink min-h-screen">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+    <div className="min-h-screen bg-ink relative">
+      {/* Ambient glow header — same elevated-dashboard language as the
+          therapist side, in the parent flow's own coral/mint accent pair
+          instead of teal/green. */}
+      <div className="absolute top-0 left-0 w-full h-80 overflow-hidden pointer-events-none">
+        <div className="absolute -top-32 -left-24 w-[28rem] h-[28rem] rounded-full bg-coral/[0.08] blur-[100px]" />
+        <div className="absolute -top-40 right-0 w-[26rem] h-[26rem] rounded-full bg-mint/[0.06] blur-[100px]" />
+      </div>
+
+      <div className="relative flex items-center justify-between px-6 py-4 border-b border-white/[0.08]
+                       sticky top-0 bg-ink/85 backdrop-blur-xl z-10">
         <div className="flex items-center gap-3">
           <Avatar avatar={data?.avatar} size="sm" />
-          <div>
-            <span className="font-display font-bold text-paper">
-              {data?.child_first_name || parent?.child_first_name}'s Progress
-            </span>
-          </div>
+          <span className="font-display font-bold text-paper">
+            {data?.child_first_name || parent?.child_first_name}'s Progress
+          </span>
         </div>
-        <button onClick={logout} className="text-paper/30 hover:text-paper/60 text-sm transition-colors">
-          Log out
+        <button onClick={logout} className="flex items-center gap-1.5 text-paper/40 hover:text-paper/70 text-sm transition-colors">
+          <LogOut size={14} /> Log out
         </button>
       </div>
 
-      <div className="max-w-3xl mx-auto px-6 py-10">
+      <div className="relative max-w-3xl mx-auto px-6 py-10">
         {status === 'loading' && (
           <div className="text-center py-20 text-paper/40">Loading progress…</div>
         )}
@@ -70,9 +77,9 @@ export default function ParentDashboard() {
             {/* Weekly summary — dense numbers/chips only, no narrative prose.
                 stats/highlights both come from the rule-based (no LLM)
                 generator dashboard.py already builds for therapists too. */}
-            <div className="rounded-2xl border border-mint/20 bg-mint/5 p-6 mb-6">
-              <p className="font-mono text-xs uppercase tracking-widest text-mint mb-3">This week</p>
-              <div className="grid grid-cols-3 gap-x-4 gap-y-3 mb-4">
+            <Card className="border-mint/20 mb-6">
+              <p className="font-mono text-xs uppercase tracking-widest text-mint mb-4">This week</p>
+              <div className="grid grid-cols-3 gap-x-4 gap-y-4 mb-5">
                 {[
                   ['BreathQuest', data.weekly_summary.stats.bq_sessions],
                   ['— completed', data.weekly_summary.stats.bq_completed],
@@ -85,8 +92,8 @@ export default function ParentDashboard() {
                   ['Practice minutes', data.weekly_summary.stats.home_practice_minutes],
                 ].map(([label, value], i) => (
                   <div key={i}>
-                    <p className="font-display text-lg font-bold text-paper leading-tight">{value}</p>
-                    <p className="text-paper/40 text-[11px] leading-tight">{label}</p>
+                    <p className="font-display text-xl font-bold text-paper leading-none tracking-tight">{value}</p>
+                    <p className="text-paper/40 text-[11px] leading-tight mt-1.5">{label}</p>
                   </div>
                 ))}
               </div>
@@ -99,13 +106,13 @@ export default function ParentDashboard() {
                   ))}
                 </div>
               )}
-            </div>
+            </Card>
 
             {/* Try this with your child — guided activity from the 50-idea
                 library, targeted at their weakest recent sound if we have
                 enough data (GET /parent/guided-activity). */}
             {activity && (
-              <div className="rounded-2xl border border-coral/25 bg-coral/5 p-6 mb-6">
+              <Card className="border-coral/25 mb-6">
                 <div className="flex items-center gap-2 mb-3">
                   <Heart size={16} className="text-coral-light" />
                   <p className="font-mono text-xs uppercase tracking-widest text-coral-light">
@@ -115,66 +122,46 @@ export default function ParentDashboard() {
                 <p className="font-display text-lg font-bold text-paper mb-1">{activity.idea.title}</p>
                 <p className="text-paper/60 text-sm leading-relaxed mb-2">{activity.idea.description}</p>
                 <p className="text-paper/35 text-xs italic">{activity.reason}</p>
-              </div>
+              </Card>
             )}
 
             {/* Top stats row */}
             <div className="grid grid-cols-3 gap-4 mb-6">
-              <div className="rounded-2xl p-5 text-center border border-white/10 bg-white/5">
-                <Sparkles className="w-5 h-5 text-brand-amber mx-auto mb-2" />
-                <p className="font-display text-2xl font-bold text-paper">{data.total_sessions}</p>
-                <p className="text-paper/40 text-xs mt-1">sessions played</p>
-              </div>
-              <div className="rounded-2xl p-5 text-center border border-white/10 bg-white/5">
-                <Star className="w-5 h-5 text-brand-amber mx-auto mb-2" fill="currentColor" fillOpacity={0.3} />
-                <p className="font-display text-2xl font-bold text-paper">{Math.round(data.completion_rate * 100)}%</p>
-                <p className="text-paper/40 text-xs mt-1">sessions completed</p>
-              </div>
-              <div className="rounded-2xl p-5 text-center border border-white/10 bg-white/5">
-                {trend == null ? (
-                  <>
-                    <Calendar className="w-5 h-5 text-paper/40 mx-auto mb-2" />
-                    <p className="font-display text-2xl font-bold text-paper/50">—</p>
-                    <p className="text-paper/40 text-xs mt-1">not enough data yet</p>
-                  </>
-                ) : (
-                  <>
-                    {trend >= 0
-                      ? <TrendingUp className="w-5 h-5 text-mint mx-auto mb-2" />
-                      : <TrendingDown className="w-5 h-5 text-coral mx-auto mb-2" />}
-                    <p className={`font-display text-2xl font-bold ${trend >= 0 ? 'text-mint' : 'text-coral'}`}>
-                      {trend >= 0 ? '+' : ''}{trend}
-                    </p>
-                    <p className="text-paper/40 text-xs mt-1">star trend</p>
-                  </>
-                )}
-              </div>
+              <StatCard icon={Sparkles} accent="#FAC775" value={data.total_sessions} label="sessions played" />
+              <StatCard icon={Star} accent="#FAC775" value={`${Math.round(data.completion_rate * 100)}%`} label="sessions completed" />
+              {trend == null ? (
+                <StatCard icon={Calendar} accent="#6B7280" value="—" label="not enough data yet" />
+              ) : (
+                <StatCard
+                  icon={trend >= 0 ? TrendingUp : TrendingDown}
+                  accent={trend >= 0 ? '#2FB8A6' : '#F0604A'}
+                  value={`${trend >= 0 ? '+' : ''}${trend}`}
+                  label="star trend"
+                />
+              )}
             </div>
 
             {/* Total stars bar */}
-            <div className="rounded-2xl p-6 border border-white/10 bg-white/5 mb-8">
-              <div className="flex items-center justify-between mb-2">
+            <Card className="mb-8">
+              <div className="flex items-center justify-between mb-3">
                 <span className="text-paper/60 text-sm font-medium">Total stars (BreathQuest)</span>
                 <span className="text-paper/40 text-xs">{data.total_stars} / {data.max_possible_stars}</span>
               </div>
-              <div className="h-3 rounded-full bg-white/10 overflow-hidden">
+              <div className="h-3 rounded-full bg-white/[0.06] overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-brand-amber to-ember rounded-full transition-[width] duration-700"
                   style={{ width: `${starPct}%` }}
                 />
               </div>
-            </div>
+            </Card>
 
             {/* Per-level breakdown -- best stars and last played, no raw
                 scores (avg_breath_strength always comes back null here on
                 purpose from the backend). */}
             <h2 className="font-display text-lg font-bold text-paper mb-3">By level</h2>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2.5">
               {data.level_progress.map((lvl) => (
-                <div
-                  key={lvl.level_id}
-                  className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3"
-                >
+                <Card key={lvl.level_id} className="flex items-center justify-between gap-4 py-4">
                   <div>
                     <p className="text-paper text-sm font-semibold">{lvl.level_name}</p>
                     <p className="text-paper/35 text-xs mt-0.5">
@@ -188,7 +175,7 @@ export default function ParentDashboard() {
                       </span>
                     ))}
                   </div>
-                </div>
+                </Card>
               ))}
             </div>
 
