@@ -29,7 +29,9 @@ CREATE TABLE IF NOT EXISTS session_events (
     threshold_at_time REAL,
     action TEXT,
     quit_flag INTEGER DEFAULT 0,
-    raw_features_json TEXT
+    raw_features_json TEXT,
+    severity_numeric REAL DEFAULT 0.0,
+    is_targeted_sound INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS retrain_checkpoints (
@@ -40,12 +42,23 @@ CREATE TABLE IF NOT EXISTS retrain_checkpoints (
 """
 
 
+def _ensure_new_columns(conn):
+    """Migration for chime_sessions.db files created before
+    severity_numeric/is_targeted_sound existed."""
+    existing_cols = {row[1] for row in conn.execute("PRAGMA table_info(session_events)").fetchall()}
+    if "severity_numeric" not in existing_cols:
+        conn.execute("ALTER TABLE session_events ADD COLUMN severity_numeric REAL DEFAULT 0.0")
+    if "is_targeted_sound" not in existing_cols:
+        conn.execute("ALTER TABLE session_events ADD COLUMN is_targeted_sound INTEGER DEFAULT 0")
+
+
 @contextmanager
 def get_connection(db_path: Path = DEFAULT_DB_PATH):
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     try:
         conn.executescript(SCHEMA)
+        _ensure_new_columns(conn)
         yield conn
         conn.commit()
     finally:
@@ -55,16 +68,18 @@ def get_connection(db_path: Path = DEFAULT_DB_PATH):
 def add_event(child_id: str, level_id: str, attempt_number: int, score: float,
               is_valid_attempt: bool, threshold_at_time: float = None, action: str = None,
               quit_flag: bool = False, raw_features: dict = None,
+              severity_numeric: float = 0.0, is_targeted_sound: bool = False,
               db_path: Path = DEFAULT_DB_PATH):
     with get_connection(db_path) as conn:
         conn.execute(
             """INSERT INTO session_events
                (child_id, timestamp, level_id, attempt_number, score, is_valid_attempt,
-                threshold_at_time, action, quit_flag, raw_features_json)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                threshold_at_time, action, quit_flag, raw_features_json,
+                severity_numeric, is_targeted_sound)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (child_id, datetime.now(timezone.utc).isoformat(), level_id, attempt_number,
              score, int(is_valid_attempt), threshold_at_time, action, int(quit_flag),
-             json.dumps(raw_features or {})),
+             json.dumps(raw_features or {}), severity_numeric, int(is_targeted_sound)),
         )
 
 

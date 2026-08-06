@@ -23,6 +23,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from retraining import data_store
 from retraining.scheduler import run_retrain_if_due
+from agent.diagnostic_client import get_diagnostic_context
 from word_level.asr_match import score_word_attempt
 from audio_features import EXTRACTORS
 
@@ -103,6 +104,9 @@ class AgentDecisionOut(BaseModel):
 # ============================================================
 @router.post("/events", response_model=EventOut)
 def log_event(event: EventIn, background_tasks: BackgroundTasks, patient: Patient = Depends(get_current_patient)):
+    severity_numeric, targeted_quests = get_diagnostic_context(patient.id)
+    is_targeted_sound = event.level_id in targeted_quests
+
     data_store.add_event(
         child_id=patient.id,
         level_id=event.level_id,
@@ -113,6 +117,8 @@ def log_event(event: EventIn, background_tasks: BackgroundTasks, patient: Patien
         action=event.action,
         quit_flag=event.quit_flag,
         raw_features=event.raw_features,
+        severity_numeric=severity_numeric,
+        is_targeted_sound=is_targeted_sound,
         db_path=DB_PATH,
     )
 

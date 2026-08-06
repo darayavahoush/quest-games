@@ -28,6 +28,7 @@ from models.models import Patient
 from core.deps import get_current_patient
 from retraining import data_store
 from retraining.scheduler import run_retrain_if_due
+from agent.diagnostic_client import get_diagnostic_context
 from agent.service import AgentService
 
 router = APIRouter(prefix="/breath", tags=["breath-agent"])
@@ -88,6 +89,9 @@ class AgentDecisionOut(BaseModel):
 @router.post("/events", response_model=BreathEventOut)
 def log_breath_event(event: BreathEventIn, background_tasks: BackgroundTasks,
                       patient: Patient = Depends(get_current_patient)):
+    severity_numeric, targeted_quests = get_diagnostic_context(patient.id)
+    is_targeted_sound = event.level_id in targeted_quests
+
     data_store.add_event(
         child_id=patient.id,
         level_id=event.level_id,
@@ -98,6 +102,8 @@ def log_breath_event(event: BreathEventIn, background_tasks: BackgroundTasks,
         action=event.action,
         quit_flag=event.quit_flag,
         raw_features=event.raw_features,
+        severity_numeric=severity_numeric,
+        is_targeted_sound=is_targeted_sound,
         db_path=DB_PATH,
     )
 

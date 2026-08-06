@@ -19,7 +19,7 @@ class RuleBasedAgent:
     streak of failures. No learning, no memory beyond the recent window."""
 
     def act(self, obs: np.ndarray) -> int:
-        success_rate, difficulty, frustration = obs
+        success_rate, difficulty, frustration, severity_numeric, is_targeted_sound = obs
         if frustration > 0.6:
             return 0  # lower difficulty
         if success_rate > 0.85:
@@ -41,10 +41,15 @@ class EpsilonGreedyBanditAgent:
         self.q_table = {}  # (success_bucket, frustration_bucket) -> [q_a0, q_a1, q_a2]
 
     def _bucket(self, obs: np.ndarray):
-        success_rate, difficulty, frustration = obs
+        success_rate, difficulty, frustration, severity_numeric, is_targeted_sound = obs
         sb = min(self.n_buckets - 1, int(success_rate * self.n_buckets))
         fb = min(self.n_buckets - 1, int(frustration * self.n_buckets))
-        return (sb, fb)
+        # Coarser than success/frustration on purpose — enough resolution to
+        # condition on "roughly how severe" and "targeted or not" without
+        # exploding table size.
+        sevb = min(2, int(severity_numeric * 3))  # 3 buckets: low/med/high
+        tb = int(round(is_targeted_sound))         # binary
+        return (sb, fb, sevb, tb)
 
     def act(self, obs: np.ndarray) -> int:
         key = self._bucket(obs)
@@ -78,11 +83,13 @@ class TabularQAgent:
         self.q_table = {}
 
     def _bucket(self, obs: np.ndarray):
-        success_rate, difficulty, frustration = obs
+        success_rate, difficulty, frustration, severity_numeric, is_targeted_sound = obs
         sb = min(self.n_buckets - 1, int(success_rate * self.n_buckets))
         db = min(self.n_buckets - 1, int(difficulty * self.n_buckets))
         fb = min(self.n_buckets - 1, int(frustration * self.n_buckets))
-        return (sb, db, fb)  # includes difficulty in state, unlike the bandit's coarser key
+        sevb = min(2, int(severity_numeric * 3))  # 3 buckets: low/med/high
+        tb = int(round(is_targeted_sound))         # binary
+        return (sb, db, fb, sevb, tb)  # includes difficulty in state, unlike the bandit's coarser key
 
     def _ensure(self, key):
         if key not in self.q_table:

@@ -30,6 +30,7 @@ import gymnasium as gym
 from gymnasium import spaces
 
 from simulator.student_model import make_random_child
+from agent.reward_constants import TARGETED_SOUND_BONUS
 
 WINDOW = 5
 ALP_SCALE = 20.0  # untuned — see module docstring
@@ -40,8 +41,9 @@ class DifficultyEnv(gym.Env):
         super().__init__()
         self.episode_length = episode_length
         self.calibrated_ranges = calibrated_ranges  # None = original hand-picked defaults
-        # state: [recent success rate, current difficulty, frustration proxy]
-        self.observation_space = spaces.Box(low=0.0, high=1.0, shape=(3,), dtype=np.float32)
+        # state: [recent success rate, current difficulty, frustration proxy,
+        #         diagnostic severity, is this a targeted-sound episode]
+        self.observation_space = spaces.Box(low=0.0, high=1.0, shape=(5,), dtype=np.float32)
         # actions: lower difficulty, hold, raise difficulty
         self.action_space = spaces.Discrete(3)
         self.child = None
@@ -68,15 +70,26 @@ class DifficultyEnv(gym.Env):
         self.skill_history.append(self.child.skill_level)
         self.skill_history = self.skill_history[-(2 * WINDOW):]
 
-        reward = ALP_SCALE * self._absolute_learning_progress()
-        reward -= record["frustration"] * 0.5
-        if record["quit"]:
-            reward -= 1.0
+        # Broken into named components (rather than one accumulated scalar)
+        # so evaluate.py can report per-component magnitudes — needed to
+        # actually calibrate ALP_SCALE/TARGETED_SOUND_BONUS against the
+        # frustration/quit penalties from real numbers instead of guessing.
+        alp_component = ALP_SCALE * self._absolute_learning_progress()
+        frustration_penalty = -record["frustration"] * 0.5
+        targeted_bonus = TARGETED_SOUND_BONUS if self.child.is_targeted else 0.0
+        quit_penalty = -1.0 if record["quit"] else 0.0
+        reward = alp_component + frustration_penalty + targeted_bonus + quit_penalty
 
         self.step_count += 1
         terminated = record["quit"]
         truncated = self.step_count >= self.episode_length
-        return self._obs(), reward, terminated, truncated, {}
+        info = {
+            "alp_component": alp_component,
+            "frustration_penalty": frustration_penalty,
+            "targeted_bonus": targeted_bonus,
+            "quit_penalty": quit_penalty,
+        }
+        return self._obs(), reward, terminated, truncated, info
 
     def _absolute_learning_progress(self) -> float:
         """Magnitude of change between the mean skill_level over the most
@@ -91,4 +104,7 @@ class DifficultyEnv(gym.Env):
 
     def _obs(self):
         success_rate = float(np.mean(self.recent)) if self.recent else 0.5
-        return np.array([success_rate, self.difficulty, self.child.frustration], dtype=np.float32)
+        return np.array([
+            success_rate, self.difficulty, self.child.frustration,
+            self.child.severity, float(self.child.is_targeted),
+        ], dtype=np.float32)
