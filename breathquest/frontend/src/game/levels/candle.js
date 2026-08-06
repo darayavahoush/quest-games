@@ -6,6 +6,28 @@ const N = 7
 // Candle colors
 const CANDLE_COLS = ['#E24B4A', '#FAC775', '#A8FF6F', '#60A5FA', '#C084FC']
 
+// ── Shared geometry (single source of truth) ──────────────────────────────
+// GamePage.jsx always renders this level at a fixed W=800, H=580 (see
+// pages/kid/GamePage.jsx) — not responsive — so these can be real constants
+// instead of function-default placeholders. Previously `update()` called
+// candleGeom(current) with no W/baseY/candleH args, silently falling back to
+// candleGeom's defaults (W=800, baseY=300), while `draw()` called it with the
+// *real* baseY derived from the cake layout (346, not 300). Puffing out a
+// candle spawned its spark/confetti burst ~46px above the actual flame,
+// which read as "the candle blows out but nothing visibly happens there" —
+// the reported "candle level bug". Computing these once here and having both
+// update() and draw() reference the same constants makes that drift
+// impossible to reintroduce.
+const CANDLE_W_DEFAULT = 800
+const CANDLE_H_DEFAULT = 580
+const TABLE_Y      = CANDLE_H_DEFAULT - 100
+const CAKE_H1      = 70
+const CAKE_H2      = 58
+const TIER1_TOP    = TABLE_Y - CAKE_H1
+const TIER2_TOP    = TIER1_TOP - CAKE_H2
+const CANDLE_BASE_Y = TIER2_TOP - 6
+const CANDLE_H      = 52
+
 // difficulty (0..1, from the adaptive agent) scales how sharp a puff has to
 // be to blow a candle out — 0.5 is the original hand-tuned threshold.
 export function createCandleLevel(difficulty = DEFAULT_DIFFICULTY) {
@@ -56,7 +78,7 @@ export function createCandleLevel(difficulty = DEFAULT_DIFFICULTY) {
       if (breath >= PUFF_THRESHOLD && puffCd <= 0 && candles[current]?.lit) {
         candles[current].lit = false
         puffCd = 0.9
-        const { cx, flameY } = candleGeom(current)
+        const { cx, flameY } = candleGeom(current, CANDLE_W_DEFAULT, CANDLE_BASE_Y, CANDLE_H)
         ps.emit(cx, flameY, {
           count: 22, color: '#FAC775', speed: 95, life: 0.9,
           size: 7, spread: Math.PI * 2, gravity: -20,
@@ -222,10 +244,11 @@ export function createCandleLevel(difficulty = DEFAULT_DIFFICULTY) {
       }
 
       // ── CANDLES — sitting ON TOP of the cake ──
-      // Candle bases sit at tier2Top (the very top frosting surface)
-      const CANDLE_BASE_Y = tier2Top - 6   // frosting surface
-      const CANDLE_H      = 52
-      const CANDLE_W      = 14
+      // Candle bases sit at tier2Top (the very top frosting surface). Uses
+      // the shared CANDLE_BASE_Y/CANDLE_H constants (see top of file) —
+      // the same ones update() uses — so the flame/particle position can
+      // never drift from what's actually drawn here again.
+      const CANDLE_W = 14
 
       for (let i = 0; i < N; i++) {
         const { cx } = candleGeom(i, W, CANDLE_BASE_Y, CANDLE_H)
@@ -355,7 +378,7 @@ export function createCandleLevel(difficulty = DEFAULT_DIFFICULTY) {
   }
 }
 
-function candleGeom(i, W = 800, baseY = 300, candleH = 52) {
+function candleGeom(i, W = CANDLE_W_DEFAULT, baseY = CANDLE_BASE_Y, candleH = CANDLE_H) {
   const spacing = 240 / (N - 1)
   const cx = Math.round(W/2 - 120 + i * spacing)
   return { cx, flameY: baseY - candleH - 20 }
