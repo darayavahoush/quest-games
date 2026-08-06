@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { KeyRound, PartyPopper, Sparkles, ArrowRight, ArrowLeft, Volume2 } from 'lucide-react'
+import { KeyRound, PartyPopper, Sparkles, ArrowRight, ArrowLeft, Volume2, Stethoscope } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import { getErrorMessage } from '../../api/client'
+import { authAPI, getErrorMessage } from '../../api/client'
 import { Button, Avatar } from '../../components/ui'
 import { Creature } from '../../components/ui/Creatures'
 import { speak } from '../../lib/speech'
@@ -117,13 +117,27 @@ export default function KidPlay() {
   const [loading, setLoading]   = useState(false)
   const [registered, setRegistered] = useState(null)  // {player_code, first_name}
   const [mounted, setMounted]   = useState(false)
-  const { loginKid, registerKid } = useAuth()
+  const [candidates, setCandidates]               = useState([])
+  const [candidatesLoading, setCandidatesLoading] = useState(false)
+  const [candidatesError, setCandidatesError]     = useState('')
+  const [selectedPatientId, setSelectedPatientId] = useState('')
+  const { loginKid, registerKid, setupKidPin } = useAuth()
   const navigate = useNavigate()
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 30)
     return () => clearTimeout(t)
   }, [])
+
+  useEffect(() => {
+    if (mode !== 'assessment' || candidates.length > 0 || candidatesLoading) return
+    setCandidatesLoading(true)
+    setCandidatesError('')
+    authAPI.kidCandidates()
+      .then(({ data }) => setCandidates(data.patients || []))
+      .catch(e => setCandidatesError(getErrorMessage(e)))
+      .finally(() => setCandidatesLoading(false))
+  }, [mode])
 
   // Verbal instructions on this screen are manual, tap-to-hear only — no
   // auto-play. Auto-speaking every time a kid lands on a nav/login screen
@@ -134,12 +148,14 @@ export default function KidPlay() {
   const CHOOSE_TXT     = 'Ready to play? Tap New Player to create an account, or I have a code to log back in.'
   const REGISTER_TXT   = 'Create your account. Type your name, pick your character, and choose a 4 digit PIN.'
   const LOGIN_TXT      = 'Welcome back! Enter your player code and your PIN.'
+  const ASSESSMENT_TXT = 'Find your name in the list, pick your character, and choose a 4 digit PIN.'
   const registeredText = registered
     ? `You're in, ${AVATAR_NAMES[avatar]}! Write down your player code and your PIN so you can log back in.`
     : null
   const replayChoose     = () => speak(CHOOSE_TXT)
   const replayRegister   = () => speak(REGISTER_TXT)
   const replayLogin      = () => speak(LOGIN_TXT)
+  const replayAssessment = () => speak(ASSESSMENT_TXT)
   const replayRegistered = () => { if (registeredText) speak(registeredText) }
 
   const handlePin = (digit) => { if (pin.length < 4) setPin(p => p + digit) }
@@ -169,6 +185,19 @@ export default function KidPlay() {
     } catch {
       setError('Wrong code or PIN — try again!')
       setPin('')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleAssessmentSetup = async () => {
+    if (pin.length < 4) { setError('Choose a 4-digit PIN'); return }
+    setError(''); setLoading(true)
+    try {
+      await setupKidPin(selectedPatientId, avatar, pin)
+      navigate('/play/levels')
+    } catch (e) {
+      setError(getErrorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -279,6 +308,25 @@ export default function KidPlay() {
                 </div>
               </div>
             </button>
+            <button onClick={() => setMode('assessment')}
+              className={`group relative overflow-hidden rounded-[2rem] p-6 text-left
+                         bg-gradient-to-br from-brand-coral/20 to-dusk-mid/50 backdrop-blur-sm border-2 border-brand-coral/40
+                         hover:border-brand-coral hover:-translate-y-1 hover:shadow-xl hover:shadow-brand-coral/20
+                         transition-all duration-300 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+              style={{ transitionDelay: mounted ? '180ms' : '0ms' }}>
+              <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full bg-brand-coral/10 blur-2xl
+                              group-hover:bg-brand-coral/20 transition-colors duration-300" />
+              <div className="relative flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-brand-coral/15 border border-brand-coral/25 flex items-center
+                                justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+                  <Stethoscope className="w-6 h-6 text-brand-coral" />
+                </div>
+                <div>
+                  <p className="font-vm-display text-xl font-bold text-white">My Therapist Set Me Up</p>
+                  <p className="text-white/40 text-sm">Find your name</p>
+                </div>
+              </div>
+            </button>
           </div>
         </div>
       )}
@@ -357,6 +405,68 @@ export default function KidPlay() {
           <Button className="w-full gap-2" size="lg" onClick={handleLogin} disabled={loading}>
             {loading ? 'Checking…' : <>Let's Play! <ArrowRight className="w-4 h-4" /></>}
           </Button>
+        </GlassPanel>
+      )}
+
+      {/* Assessment-linked setup */}
+      {mode === 'assessment' && (
+        <GlassPanel accent="brand-green" className="w-full max-w-sm relative z-10">
+          <button onClick={() => { setMode('choose'); setPin(''); setError(''); setSelectedPatientId('') }}
+                  className="text-white/30 hover:text-white/60 text-sm mb-6 transition-colors flex items-center gap-1">
+            <ArrowLeft className="w-3.5 h-3.5" /> Back
+          </button>
+          <h1 className="font-vm-display text-3xl font-bold text-white mb-6 text-center flex items-center justify-center gap-2">
+            Find Your Name <SpeakButton onClick={replayAssessment} className="text-white/25 hover:text-white/50" />
+          </h1>
+
+          {candidatesLoading && <p className="text-white/40 text-center text-sm mb-4">Loading…</p>}
+          {!candidatesLoading && candidatesError && (
+            <p className="text-brand-coral text-sm text-center mb-4">{candidatesError}</p>
+          )}
+          {!candidatesLoading && !candidatesError && candidates.length === 0 && (
+            <p className="text-white/40 text-center text-sm mb-4">No names found yet. Ask your therapist!</p>
+          )}
+
+          {!candidatesLoading && candidates.length > 0 && !selectedPatientId && (
+            <div className="flex flex-col gap-2 mb-2">
+              {candidates.map(c => (
+                <button key={c.id} onClick={() => setSelectedPatientId(c.id)}
+                  className="w-full text-left rounded-2xl p-4 bg-white/5 hover:bg-white/10 border border-white/10
+                             hover:border-brand-green/40 transition-all">
+                  <p className="font-vm-display text-lg font-bold text-white">{c.name}</p>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {selectedPatientId && (
+            <>
+              <label className="text-sm text-white/50 block mb-3">Pick your character</label>
+              <div className="grid grid-cols-3 gap-3 mb-6">
+                {AVATARS.map(av => (
+                  <button key={av} onClick={() => setAvatar(av)} className="flex flex-col items-center gap-1.5 group">
+                    <div className={`rounded-full p-1 transition-all
+                      ${avatar === av ? 'ring-2 ring-brand-green scale-110 shadow-lg shadow-brand-green/30' : 'ring-2 ring-transparent group-hover:ring-white/20'}`}>
+                      <Avatar avatar={av} size="lg" />
+                    </div>
+                    <span className={`text-xs font-semibold transition-colors
+                      ${avatar === av ? 'text-brand-green' : 'text-white/35 group-hover:text-white/60'}`}>
+                      {AVATAR_NAMES[av]}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              <label className="text-sm text-white/50 block mb-2">Choose a 4-digit PIN</label>
+              <PinDots length={pin.length} />
+              <PinPad onDigit={handlePin} onDelete={deletePin} />
+
+              {error && <p className="text-brand-coral text-sm text-center mb-3">{error}</p>}
+              <Button className="w-full gap-2" size="lg" onClick={handleAssessmentSetup} disabled={loading}>
+                {loading ? 'Setting up…' : <>Let's Play! <ArrowRight className="w-4 h-4" /></>}
+              </Button>
+            </>
+          )}
         </GlassPanel>
       )}
     </div>

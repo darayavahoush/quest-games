@@ -49,6 +49,15 @@ export function AuthProvider({ children }) {
     return data
   }
 
+  const setupKidPin = async (assessmentPatientId, avatar, pin) => {
+    const { data } = await authAPI.kidPinSetup({ patient_id: assessmentPatientId, avatar, pin })
+    localStorage.setItem('bq_token',     data.access_token)
+    localStorage.setItem('bq_user_type', 'patient')
+    localStorage.setItem('bq_user_data', JSON.stringify(data))
+    setPatient(data); setTherapist(null); setParent(null)
+    return data
+  }
+
   const loginKid = async (playerCode, pin) => {
     const { data } = await authAPI.kidLogin({ player_code: playerCode, pin })
     localStorage.setItem('bq_token',     data.access_token)
@@ -94,7 +103,7 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       therapist, patient, parent, loading,
-      loginTherapist, registerTherapist, loginKid, registerKid,
+      loginTherapist, registerTherapist, loginKid, registerKid, setupKidPin,
       loginParent, registerParent, logout,
       isTherapist: !!therapist,
       isKid:       !!patient,

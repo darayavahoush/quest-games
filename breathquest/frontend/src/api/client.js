@@ -87,6 +87,10 @@ export const authAPI = {
   kidLogin:    (data) => api.post('/auth/kid-login', data),
   parentRegister: (data) => api.post('/auth/parent-register', data),
   parentLogin:    (data) => api.post('/auth/parent-login', data),
+
+  therapistCandidates: () => api.get('/auth/therapist-candidates'),
+  kidCandidates:       () => api.get('/auth/kid-candidates'),
+  kidPinSetup: (data) => api.post('/auth/kid-pin-setup', data),
 }
 
 // ------------------------------------------------------------------ //
