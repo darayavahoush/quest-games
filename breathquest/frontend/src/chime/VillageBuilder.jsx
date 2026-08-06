@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Settings, Volume2 } from 'lucide-react'
 import { scoreWord, transcribeAudio, logEvent, getAgentDecision } from './lib/api'
 import { sampleWordList } from './data/wordBank.js'
+import { useSpokenInstruction } from '../lib/speech'
 
 // Canonical short code — LEVEL_ORDER in lib/levelProgress.js expects
 // 'village-builder', not the prototype's original 'word_village'. Same
@@ -89,13 +90,6 @@ function lerpColor(hexA, hexB, t) {
   const bl = Math.round(a[2] + (b[2] - a[2]) * t)
   return `rgb(${r},${g},${bl})`
 }
-function pickIndianEnglishVoice() {
-  const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : []
-  return voices.find(v => v.lang === 'en-IN')
-    || voices.find(v => v.lang && v.lang.toLowerCase().startsWith('en-in'))
-    || voices.find(v => /india/i.test(v.name))
-    || null
-}
 function buildWordListFromInput(rawInput) {
   const words = rawInput.split(',').map(w => w.trim().toLowerCase()).filter(Boolean)
   if (words.length === 0) return null
@@ -172,17 +166,19 @@ export default function VillageBuilder() {
   const playBuildSound = useCallback(() => { [440, 660].forEach((f, i) => setTimeout(() => playTone(f, 0.15, 'sine', 0.07), i * 60)) }, [playTone])
   const playSuccessChime = useCallback(() => { [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => setTimeout(() => playTone(f, 0.5, 'triangle', 0.05), i * 110)) }, [playTone])
 
-  const speakTargetWord = useCallback(() => {
-    if (!window.speechSynthesis) return
-    const word = wordListRef.current[s.currentWordIndex]
-    const utterance = new SpeechSynthesisUtterance(word)
-    const indianVoice = pickIndianEnglishVoice()
-    if (indianVoice) utterance.voice = indianVoice
-    else utterance.lang = 'en-IN'
-    utterance.rate = 0.85
-    window.speechSynthesis.cancel()
-    window.speechSynthesis.speak(utterance)
-  }, [s])
+  // Start-screen instruction, auto-spoken once per (re-)entry.
+  const replayStartInstruction = useSpokenInstruction(
+    'Say the word to bring a new house to life — watch your village wake up as you go!',
+    { enabled: phase === 'start' && !muted },
+  )
+
+  // Each new target word is auto-spoken once — useSpokenInstruction's
+  // "text changed while enabled" branch fires again every time targetWord
+  // moves on to the next word in the round, not just the very first one.
+  // Its returned function also doubles as the manual "hear the word"
+  // replay button below, so there's one source of truth for how this
+  // game speaks a word instead of two separate copies.
+  const speakTargetWord = useSpokenInstruction(targetWord, { enabled: phase === 'playing' && !muted, rate: 0.85 })
 
   // ---- canvas sizing ----
   const resizeCanvas = useCallback(() => {
@@ -677,8 +673,11 @@ export default function VillageBuilder() {
           <div className="bg-white/95 rounded-[28px_28px_40px_28px] p-9 max-w-md w-full shadow-2xl" style={{ color: '#2E4A2E' }}>
             <div className="text-6xl mb-3">🏘️</div>
             <h1 className="villb-title text-4xl font-extrabold mb-2">Village Builder</h1>
-            <p className="font-semibold mb-7 leading-relaxed" style={{ color: '#B5502E' }}>
+            <p className="font-semibold mb-7 leading-relaxed flex items-center justify-center gap-2 flex-wrap" style={{ color: '#B5502E' }}>
               Say the word to bring a new house to life — watch your village wake up as you go!
+              <button onClick={replayStartInstruction} style={{ opacity: 0.6, background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', display: 'inline-flex' }} aria-label="Hear this again">
+                <Volume2 size={18} />
+              </button>
             </p>
             <div className="text-left mb-5">
               <label className="block font-bold text-sm mb-1.5">Custom words (optional)</label>

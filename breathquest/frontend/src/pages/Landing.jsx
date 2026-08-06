@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { Stethoscope, Heart, Sparkles, ArrowRight, Volume2 } from 'lucide-react'
 import { Avatar } from '../components/ui'
-import { useSpokenInstruction } from '../lib/speech'
+import { speak } from '../lib/speech'
 
 const EMBERS = [
   { left: '22%', delay: '0s',    duration: '11s', size: 5 },
@@ -39,7 +39,9 @@ function BreathBuddy() {
 
 export default function Landing() {
   const navigate = useNavigate()
-  const replayTagline = useSpokenInstruction(
+  // Manual tap-to-hear only, no auto-play — see Play.jsx for why nav/menu
+  // screens don't auto-speak while the actual games still do.
+  const replayTagline = () => speak(
     'Blow, speak, and watch the world move. Are you a kid ready to play, a therapist, or a parent?',
   )
 

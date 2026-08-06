@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { TrendingUp, Volume2 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { Avatar } from '../../components/ui'
-import { useSpokenInstruction } from '../../lib/speech'
+import { speak } from '../../lib/speech'
 
 const APPS = [
   {
@@ -94,10 +94,12 @@ export default function GamePicker() {
     return () => clearTimeout(t)
   }, [])
 
+  // Manual tap-to-hear only, no auto-play — see Play.jsx for why nav/menu
+  // screens don't auto-speak while the actual games still do.
   const spokenGreeting = patient
     ? `${greeting()}, ${patient.first_name || 'friend'}! Pick a world to play in — each one starts the same way, take a breath.`
     : null
-  const replayGreeting = useSpokenInstruction(spokenGreeting, { enabled: !!patient })
+  const replayGreeting = () => { if (spokenGreeting) speak(spokenGreeting) }
 
   return (
     <div className="min-h-screen" style={{ background: 'linear-gradient(180deg, #12142E 0%, #1E1E3F 100%)' }}>

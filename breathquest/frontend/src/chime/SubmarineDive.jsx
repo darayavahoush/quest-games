@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Settings } from 'lucide-react'
+import { ArrowLeft, Settings, Volume2 } from 'lucide-react'
 import { logEvent, getAgentDecision } from './lib/api'
 import { getNextLevelRoute } from './lib/levelProgress'
+import { useSpokenInstruction } from '../lib/speech'
 
 const TARGET_F1_DEFAULT = 300.0
 const TARGET_F2_DEFAULT = 870.0
@@ -188,6 +189,11 @@ export default function SubmarineDive() {
   const mutedRef = useRef(muted)
   useEffect(() => { reduceMotionRef.current = reduceMotion; localStorage.setItem('sub_reduce_motion', reduceMotion) }, [reduceMotion])
   useEffect(() => { mutedRef.current = muted; localStorage.setItem('sub_muted', muted) }, [muted])
+
+  const replayInstruction = useSpokenInstruction(
+    'Say a long, round OOOO to dive your submarine deep!',
+    { enabled: screen === 'start' && !muted },
+  )
 
   useEffect(() => {
     const state = stateRef.current
@@ -784,7 +790,13 @@ export default function SubmarineDive() {
           <div className="sdv-panel">
             <div className="sdv-mic-icon">🤿</div>
             <h1 className="sdv-title">Submarine Dive</h1>
-            <p className="sdv-subtitle">Say a long, round "OOOO" to dive your submarine deep!</p>
+            <p className="sdv-subtitle">
+              Say a long, round "OOOO" to dive your submarine deep!{' '}
+              <button onClick={replayInstruction} aria-label="Hear this again"
+                style={{ display: 'inline-flex', verticalAlign: 'middle', opacity: 0.6, background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}>
+                <Volume2 size={16} />
+              </button>
+            </p>
             <button className="sdv-btn" onClick={requestMicAndCalibrate}>Let's Play!</button>
           </div>
         </div>

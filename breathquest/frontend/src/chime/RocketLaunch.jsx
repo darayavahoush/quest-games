@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Settings } from 'lucide-react'
+import { ArrowLeft, Settings, Volume2 } from 'lucide-react'
 import { logEvent, getAgentDecision } from './lib/api'
 import { getNextLevelRoute } from './lib/levelProgress'
+import { useSpokenInstruction } from '../lib/speech'
 
 const LEVEL_ID = 'aa'
 const AGENT_POLICY = 'tabular_q'
@@ -160,6 +161,14 @@ export default function RocketLaunch() {
   const mutedRef = useRef(muted)
   useEffect(() => { reduceMotionRef.current = reduceMotion; localStorage.setItem('pq_reduce_motion', reduceMotion) }, [reduceMotion])
   useEffect(() => { mutedRef.current = muted; localStorage.setItem('pq_muted', muted) }, [muted])
+
+  // Speak the start-screen instruction once each time it's (re-)shown —
+  // held off if the game's own mute toggle is on, matching how that
+  // toggle already gates every other sound in this game.
+  const replayInstruction = useSpokenInstruction(
+    'Say a big, loud AAAA to blast your rocket into space!',
+    { enabled: screen === 'start' && !muted },
+  )
 
   useEffect(() => {
     const state = stateRef.current
@@ -702,7 +711,12 @@ export default function RocketLaunch() {
           <div className="bg-[rgba(27,20,64,0.62)] border border-white/10 rounded-[28px_28px_40px_28px] p-10 max-w-md w-full backdrop-blur-md shadow-2xl">
             <div className="text-6xl mb-3">🚀</div>
             <h1 className="text-4xl font-extrabold mb-2">Rocket Launch</h1>
-            <p className="text-lg font-bold text-[#FFD166] mb-7 leading-relaxed">Say a big, loud "AAAA" to blast your rocket into space!</p>
+            <p className="text-lg font-bold text-[#FFD166] mb-7 leading-relaxed flex items-center justify-center gap-2 flex-wrap">
+              Say a big, loud "AAAA" to blast your rocket into space!
+              <button onClick={replayInstruction} className="text-[#FFD166]/60 hover:text-[#FFD166] transition-colors" aria-label="Hear this again">
+                <Volume2 size={18} />
+              </button>
+            </p>
             <button
               onClick={requestMicAndCalibrate}
               className="font-bold text-xl rounded-full px-10 py-4 text-[#1B1440] bg-[#FFD166] shadow-[0_6px_0_#C99A2E] hover:-translate-y-0.5 transition-transform"

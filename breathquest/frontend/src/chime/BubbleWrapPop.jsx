@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Settings } from 'lucide-react'
+import { ArrowLeft, Settings, Volume2 } from 'lucide-react'
 import { logEvent, getAgentDecision } from './lib/api'
 import { getNextLevelRoute } from './lib/levelProgress'
+import { useSpokenInstruction } from '../lib/speech'
 
 const MIN_PEAK_RMS_DEFAULT = 0.05
 const MAX_EXPECTED_PEAK_RMS_DEFAULT = 0.4
@@ -117,6 +118,11 @@ export default function BubbleWrapPop() {
   const mutedRef = useRef(muted)
   useEffect(() => { reduceMotionRef.current = reduceMotion; localStorage.setItem('bubble_reduce_motion', reduceMotion) }, [reduceMotion])
   useEffect(() => { mutedRef.current = muted; localStorage.setItem('bubble_muted', muted) }, [muted])
+
+  const replayInstruction = useSpokenInstruction(
+    'Say a quick HA burst to pop a bubble on the sheet!',
+    { enabled: screen === 'start' && !muted },
+  )
 
   useEffect(() => {
     const state = stateRef.current
@@ -524,7 +530,13 @@ export default function BubbleWrapPop() {
           <div className="bwp-panel">
             <div className="bwp-mic-icon">🫧</div>
             <h1 className="bwp-title">Bubble Wrap Pop</h1>
-            <p className="bwp-subtitle">Say a quick "HA!" burst to pop a bubble on the sheet!</p>
+            <p className="bwp-subtitle">
+              Say a quick "HA!" burst to pop a bubble on the sheet!{' '}
+              <button onClick={replayInstruction} aria-label="Hear this again"
+                style={{ display: 'inline-flex', verticalAlign: 'middle', opacity: 0.6, background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}>
+                <Volume2 size={16} />
+              </button>
+            </p>
             <button className="bwp-btn" onClick={requestMicAndCalibrate}>Let's Play!</button>
           </div>
         </div>

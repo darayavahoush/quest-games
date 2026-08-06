@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Settings } from 'lucide-react'
+import { ArrowLeft, Settings, Volume2 } from 'lucide-react'
 import { logEvent, getAgentDecision } from './lib/api'
 import { getNextLevelRoute } from './lib/levelProgress'
+import { useSpokenInstruction } from '../lib/speech'
 
 
 const MIN_PEAK_RMS_DEFAULT = 0.05
@@ -108,6 +109,11 @@ export default function FireflyJar() {
   const mutedRef = useRef(muted)
   useEffect(() => { reduceMotionRef.current = reduceMotion; localStorage.setItem('firefly_reduce_motion', reduceMotion) }, [reduceMotion])
   useEffect(() => { mutedRef.current = muted; localStorage.setItem('firefly_muted', muted) }, [muted])
+
+  const replayInstruction = useSpokenInstruction(
+    'Say "ma" to catch a firefly and fill the jar! Press your lips together like you\'re humming mmm, then pop your mouth open with your voice on: ma.',
+    { enabled: screen === 'start' && !muted },
+  )
 
   useEffect(() => {
     const state = stateRef.current
@@ -574,7 +580,13 @@ export default function FireflyJar() {
           <div className="fjar-panel">
             <div className="fjar-mic-icon">🫙</div>
             <h1 className="fjar-title">Firefly Jar</h1>
-            <p className="fjar-subtitle">Say "ma" to catch a firefly and fill the jar!</p>
+            <p className="fjar-subtitle">
+              Say "ma" to catch a firefly and fill the jar!{' '}
+              <button onClick={replayInstruction} aria-label="Hear this again"
+                style={{ display: 'inline-flex', verticalAlign: 'middle', opacity: 0.6, background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}>
+                <Volume2 size={16} />
+              </button>
+            </p>
             <div className="fjar-howto">
               <div className="fjar-howto-title">👄 How to make the sound</div>
               <ol>

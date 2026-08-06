@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { getErrorMessage } from '../../api/client'
 import { Button, Avatar } from '../../components/ui'
 import { Creature } from '../../components/ui/Creatures'
-import { useSpokenInstruction } from '../../lib/speech'
+import { speak } from '../../lib/speech'
 
 const AVATARS = ['chick', 'dragon', 'bunny', 'fox', 'rocket', 'fish']
 const AVATAR_NAMES = { chick: 'Chicky', dragon: 'Dino', bunny: 'Hoppy', fox: 'Foxy', rocket: 'Zoom', fish: 'Finley' }
@@ -125,25 +125,22 @@ export default function KidPlay() {
     return () => clearTimeout(t)
   }, [])
 
-  // Verbal instructions per screen — each fires once on entering that mode
-  // (and again if the kid navigates back into it later) via
-  // useSpokenInstruction, plus a manual replay button next to the text.
-  const replayChoose = useSpokenInstruction(
-    'Ready to play? Tap New Player to create an account, or I have a code to log back in.',
-    { enabled: mode === 'choose' && !registered },
-  )
-  const replayRegister = useSpokenInstruction(
-    'Create your account. Type your name, pick your character, and choose a 4 digit PIN.',
-    { enabled: mode === 'register' },
-  )
-  const replayLogin = useSpokenInstruction(
-    'Welcome back! Enter your player code and your PIN.',
-    { enabled: mode === 'login' },
-  )
-  const replayRegistered = useSpokenInstruction(
-    registered ? `You're in, ${AVATAR_NAMES[avatar]}! Write down your player code and your PIN so you can log back in.` : null,
-    { enabled: !!registered },
-  )
+  // Verbal instructions on this screen are manual, tap-to-hear only — no
+  // auto-play. Auto-speaking every time a kid lands on a nav/login screen
+  // got flagged as an annoying voice-over; that judgment call only applies
+  // here (and Landing.jsx / GamePicker.jsx) — the actual games still
+  // auto-speak once per level/attempt via useSpokenInstruction, since
+  // that's instructional, not just narration of a menu.
+  const CHOOSE_TXT     = 'Ready to play? Tap New Player to create an account, or I have a code to log back in.'
+  const REGISTER_TXT   = 'Create your account. Type your name, pick your character, and choose a 4 digit PIN.'
+  const LOGIN_TXT      = 'Welcome back! Enter your player code and your PIN.'
+  const registeredText = registered
+    ? `You're in, ${AVATAR_NAMES[avatar]}! Write down your player code and your PIN so you can log back in.`
+    : null
+  const replayChoose     = () => speak(CHOOSE_TXT)
+  const replayRegister   = () => speak(REGISTER_TXT)
+  const replayLogin      = () => speak(LOGIN_TXT)
+  const replayRegistered = () => { if (registeredText) speak(registeredText) }
 
   const handlePin = (digit) => { if (pin.length < 4) setPin(p => p + digit) }
   const deletePin = () => setPin(p => p.slice(0, -1))
