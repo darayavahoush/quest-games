@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Settings } from 'lucide-react'
+import { ArrowLeft, Settings, Volume2 } from 'lucide-react'
 import { logEvent, getAgentDecision } from './lib/api'
 import { getNextLevelRoute } from './lib/levelProgress'
+import { useSpokenInstruction } from '../lib/speech'
 
 const LEVEL_ID = 'r'
 const AGENT_POLICY = 'tabular_q'
@@ -96,6 +97,11 @@ export default function LionsRoar() {
   const mutedRef = useRef(muted)
   useEffect(() => { reduceMotionRef.current = reduceMotion; localStorage.setItem('chime_reduce_motion', reduceMotion) }, [reduceMotion])
   useEffect(() => { mutedRef.current = muted; localStorage.setItem('chime_muted', muted) }, [muted])
+
+  const replayInstruction = useSpokenInstruction(
+    'Give a strong, growly rrrr to make the lion roar and gather the pride!',
+    { enabled: screen === 'start' && !muted },
+  )
 
   useEffect(() => {
     const state = stateRef.current
@@ -590,7 +596,12 @@ export default function LionsRoar() {
           <div className="bg-[rgba(42,26,62,0.65)] border border-white/10 rounded-[28px_28px_40px_28px] p-10 max-w-md w-full backdrop-blur-md shadow-2xl">
             <div className="text-6xl mb-3">🦁</div>
             <h1 className="text-4xl font-extrabold mb-2">Lion's Roar</h1>
-            <p className="text-lg font-bold text-[#F0604A] mb-7 leading-relaxed">Give a strong, growly "rrrr" to make the lion roar and gather the pride!</p>
+            <p className="text-lg font-bold text-[#F0604A] mb-7 leading-relaxed flex items-center justify-center gap-2 flex-wrap">
+              Give a strong, growly "rrrr" to make the lion roar and gather the pride!
+              <button onClick={replayInstruction} className="text-[#F0604A]/60 hover:text-[#F0604A] transition-colors" aria-label="Hear this again">
+                <Volume2 size={18} />
+              </button>
+            </p>
             <button
               onClick={requestMicAndCalibrate}
               className="font-bold text-xl rounded-full px-10 py-4 text-[#2A1A3E] bg-[#F0604A] shadow-[0_6px_0_#B23F2E] hover:-translate-y-0.5 transition-transform"

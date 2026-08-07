@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Settings } from 'lucide-react'
+import { ArrowLeft, Settings, Volume2 } from 'lucide-react'
 import { logEvent, getAgentDecision } from './lib/api'
 import { getNextLevelRoute } from './lib/levelProgress'
+import { useSpokenInstruction } from '../lib/speech'
 
 const LEVEL_ID = 'ee'
 const AGENT_POLICY = 'tabular_q'
@@ -93,6 +94,11 @@ export default function XylophoneTower() {
   const mutedRef = useRef(muted)
   useEffect(() => { reduceMotionRef.current = reduceMotion; localStorage.setItem('chime_reduce_motion', reduceMotion) }, [reduceMotion])
   useEffect(() => { mutedRef.current = muted; localStorage.setItem('chime_muted', muted) }, [muted])
+
+  const replayInstruction = useSpokenInstruction(
+    'Hold a long, bright eeee to ring the bells and climb all the way to the top!',
+    { enabled: screen === 'start' && !muted },
+  )
 
   useEffect(() => {
     const state = stateRef.current
@@ -541,7 +547,12 @@ export default function XylophoneTower() {
           <div className="bg-[rgba(30,24,60,0.65)] border border-white/10 rounded-[28px_28px_40px_28px] p-10 max-w-md w-full backdrop-blur-md shadow-2xl">
             <div className="text-6xl mb-3">🔔</div>
             <h1 className="text-4xl font-extrabold mb-2">Xylophone Tower</h1>
-            <p className="text-lg font-bold text-[#FACC15] mb-7 leading-relaxed">Hold a long, bright "eeee" to ring the bells and climb all the way to the top!</p>
+            <p className="text-lg font-bold text-[#FACC15] mb-7 leading-relaxed flex items-center justify-center gap-2 flex-wrap">
+              Hold a long, bright "eeee" to ring the bells and climb all the way to the top!
+              <button onClick={replayInstruction} className="text-[#FACC15]/60 hover:text-[#FACC15] transition-colors" aria-label="Hear this again">
+                <Volume2 size={18} />
+              </button>
+            </p>
             <button
               onClick={requestMicAndCalibrate}
               className="font-bold text-xl rounded-full px-10 py-4 text-[#12122A] bg-[#FACC15] shadow-[0_6px_0_#C99A2E] hover:-translate-y-0.5 transition-transform"
