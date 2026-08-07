@@ -6,6 +6,7 @@ themself. Full session/level detail stays therapist/parent-only.
 """
 
 from datetime import datetime, timezone, timedelta
+import asyncio
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
@@ -66,14 +67,21 @@ async def get_my_progress(
         )).scalar() or 0
     else:
         vm_week = 0
-    chime_week = chime_data_store.count_events_since([patient.id], week_ago.isoformat(), db_path=CHIME_DB_PATH)
+    # chime_data_store.* is synchronous SQLite I/O — thread it off since
+    # this route is `async def` (same class of bug fixed across
+    # dashboard.py/parent.py/chime.py's get_patient_events in this pass:
+    # a direct call here would block the whole app's event loop for
+    # every other concurrent request while this query runs).
+    chime_week = await asyncio.to_thread(
+        chime_data_store.count_events_since, [patient.id], week_ago.isoformat(), db_path=CHIME_DB_PATH,
+    )
 
     games_played_this_week = bq_week + vhr_week + vm_week + chime_week
 
     # Simple streak: count consecutive days (including today) with at least
     # one session/event, walking backward from today. Cheap enough at kid
     # data volumes to compute on read rather than maintaining a counter.
-    last_played = chime_data_store.last_event_time(child_id=patient.id, db_path=CHIME_DB_PATH)
+    last_played = await asyncio.to_thread(chime_data_store.last_event_time, child_id=patient.id, db_path=CHIME_DB_PATH)
     bq_dates_result = await db.execute(
         select(func.date(GameSession.started_at)).where(GameSession.patient_id == patient.id).distinct()
     )

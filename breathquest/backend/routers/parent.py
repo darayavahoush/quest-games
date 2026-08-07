@@ -5,6 +5,7 @@ never be reachable via a parent token, even by accident.
 """
 
 from datetime import datetime, timezone, timedelta
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -138,7 +139,11 @@ async def get_guided_activity(
         if outcome in ("passed", "caught"):
             entry[0] += 1
 
-    for ev in chime_data_store.get_events(child_id=patient.id, db_path=CHIME_DB_PATH):
+    # chime_data_store.get_events is synchronous SQLite I/O — thread it off
+    # since this route is `async def` (same fix applied across
+    # dashboard.py/kid_progress.py/chime.py's get_patient_events).
+    chime_events = await asyncio.to_thread(chime_data_store.get_events, child_id=patient.id, db_path=CHIME_DB_PATH)
+    for ev in chime_events:
         if not ev.get("level_id"):
             continue
         try:

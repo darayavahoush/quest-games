@@ -3,6 +3,7 @@ routers/dashboard.py — Therapist dashboard: analytics, progress, notes.
 """
 
 from datetime import datetime, timezone, timedelta
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
@@ -118,8 +119,14 @@ async def get_dashboard_summary(
     )
     vm_week_count = vm_week.scalar() or 0
 
-    chime_week_count = chime_data_store.count_events_since(
-        patient_ids, week_ago.isoformat(), db_path=CHIME_DB_PATH
+    # chime_data_store.* below is synchronous SQLite I/O — threaded off so
+    # it doesn't block this async route's event loop (same fix applied
+    # across kid_progress.py/parent.py/chime.py's get_patient_events in
+    # this pass). count_events in particular runs once per patient in the
+    # loop further down, so on this route the cost compounds with clinic
+    # size if left blocking.
+    chime_week_count = await asyncio.to_thread(
+        chime_data_store.count_events_since, patient_ids, week_ago.isoformat(), db_path=CHIME_DB_PATH,
     )
 
     sessions_this_week = (bq_row.count or 0) + (vhr_row.count or 0) + vm_week_count + chime_week_count
@@ -155,7 +162,7 @@ async def get_dashboard_summary(
         )
         vm_total, vm_last = vm_count_result.one()
 
-        chime_total = chime_data_store.count_events(child_id=p.id, db_path=CHIME_DB_PATH)
+        chime_total = await asyncio.to_thread(chime_data_store.count_events, child_id=p.id, db_path=CHIME_DB_PATH)
 
         combined_total = (row.total or 0) + (vhr_row_p.total or 0) + (vm_total or 0) + chime_total
         combined_stars = int(row.stars or 0) + int(vhr_row_p.stars or 0)
@@ -706,7 +713,7 @@ async def list_patient_alerts(
         vm_last = (await db.execute(
             select(func.max(VaakMirrorSession.started_at)).where(VaakMirrorSession.patient_id == p.id)
         )).scalar()
-        chime_last = chime_data_store.last_event_time(child_id=p.id, db_path=CHIME_DB_PATH)
+        chime_last = await asyncio.to_thread(chime_data_store.last_event_time, child_id=p.id, db_path=CHIME_DB_PATH)
 
         last_candidates = [d for d in (bq_last, vhr_last, vm_last, chime_last) if d is not None]
         last_played = max(last_candidates) if last_candidates else None
@@ -719,7 +726,12 @@ async def list_patient_alerts(
             )
         )).scalar() or 0
 
-        trend = _agent_service.detect_trend(p.id)
+        # detect_trend does synchronous SQLite I/O internally (data_store.
+        # get_events) — thread it off, same fix as chime_last just above
+        # and the rest of this pass's async-blocking-I/O cleanup. This one
+        # runs once per patient in this loop, so on a route already O(n)
+        # in patient count, leaving it blocking would compound per-patient.
+        trend = await asyncio.to_thread(_agent_service.detect_trend, p.id)
         if trend is not None:
             flag = trend
         elif days_since is None or days_since >= inactive_days:
@@ -808,7 +820,7 @@ async def get_sound_progress(
         if outcome in ("passed", "caught"):
             wk[0] += 1
 
-    chime_events = chime_data_store.get_events(child_id=patient_id, db_path=CHIME_DB_PATH)
+    chime_events = await asyncio.to_thread(chime_data_store.get_events, child_id=patient_id, db_path=CHIME_DB_PATH)
     for ev in chime_events:
         try:
             ts = datetime.fromisoformat(ev["timestamp"])

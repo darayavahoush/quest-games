@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import asyncio
 import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -127,7 +128,18 @@ async def _log_session_to_agent(db: AsyncSession, session: GameSession, backgrou
     BreathQuest trigger on every event (retraining/scheduler.py) —
     previously VaakMirror logged real events here but never checked whether
     a shared-policy retrain was due, so its sessions never contributed
-    toward a PPO/RecurrentPPO retrain the way Chime's did."""
+    toward a PPO/RecurrentPPO retrain the way Chime's did.
+
+    data_store.add_event() and maybe_update_tabular_q_from_new_event() are
+    both synchronous, blocking file I/O (SQLite for the former, a JSON
+    Q-table write for the latter) — run through asyncio.to_thread so they
+    execute on a worker thread instead of blocking this coroutine's event
+    loop. Chime and BreathQuest's own versions of this call are safe
+    without that, since their route handlers are plain `def`, which
+    FastAPI already runs in a threadpool wholesale; this one is `async
+    def` (it needs to await the DB queries above it), so the blocking
+    calls need to be threaded off explicitly or every concurrent request
+    to the whole app stalls for as long as the SQLite/file write takes."""
     try:
         stmt = select(
             func.count(Attempt.id).label("attempts"),
@@ -147,7 +159,8 @@ async def _log_session_to_agent(db: AsyncSession, session: GameSession, backgrou
         settings = settings_result.scalar_one_or_none()
         difficulty = agent_bridge.round_size_to_difficulty(settings.round_size if settings else None)
 
-        data_store.add_event(
+        await asyncio.to_thread(
+            data_store.add_event,
             child_id=session.patient_id,
             level_id=session.game.value,
             attempt_number=session.id,
@@ -157,7 +170,8 @@ async def _log_session_to_agent(db: AsyncSession, session: GameSession, backgrou
             quit_flag=(attempts == 0),
             db_path=agent_bridge.DB_PATH,
         )
-        agent_bridge.agent_service.maybe_update_tabular_q_from_new_event(
+        await asyncio.to_thread(
+            agent_bridge.agent_service.maybe_update_tabular_q_from_new_event,
             session.patient_id, session.game.value, attempts == 0,
         )
         background_tasks.add_task(run_retrain_if_due, agent_bridge.DB_PATH)

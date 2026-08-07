@@ -20,6 +20,7 @@ into chime.py — see breathquest/frontend/src/game/lib/api.js.
 """
 
 from typing import Literal, Optional
+import asyncio
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
@@ -198,5 +199,8 @@ async def breath_agent_status(
     if not patient_result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Patient not found")
 
-    result = _agent_service.get_status(patient_id, level_id, policy)
+    # AgentService.get_status() does synchronous SQLite/file I/O internally
+    # (build_obs/_downgrade_reason) — threaded off since this route is
+    # `async def`, same class of fix applied across this pass.
+    result = await asyncio.to_thread(_agent_service.get_status, patient_id, level_id, policy)
     return AgentStatusOut(**result)

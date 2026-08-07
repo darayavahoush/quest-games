@@ -9,6 +9,7 @@ token, self-scoped, same pattern as createGameSession.
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+import asyncio
 
 from database import get_db
 from vaakmirror import agent_bridge
@@ -61,7 +62,11 @@ async def get_game_settings_suggestion(
     settings = result.scalar_one_or_none()
     current = settings.round_size if settings and settings.round_size is not None else agent_bridge.ROUND_SIZE_DEFAULT
 
-    decision = agent_bridge.agent_service.decide(patient_id, game.value, policy="tabular_q")
+    # AgentService.decide() does synchronous SQLite/file I/O internally —
+    # threaded off since this route is `async def` (same class of fix
+    # applied across breath_agent.py/voicehurdlerace.py/dashboard.py in
+    # this pass).
+    decision = await asyncio.to_thread(agent_bridge.agent_service.decide, patient_id, game.value, policy="tabular_q")
     suggested = agent_bridge.apply_action_to_round_size(current, decision["action"])
 
     return GameSettingsSuggestion(

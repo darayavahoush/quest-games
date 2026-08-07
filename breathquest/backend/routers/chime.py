@@ -164,7 +164,11 @@ async def get_patient_events(
     if not patient_result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Patient not found")
 
-    events = data_store.get_events(child_id=patient_id, db_path=DB_PATH)
+    # data_store.get_events is synchronous SQLite I/O — thread it off since
+    # this route is `async def` (transcribe_audio/score_phoneme above
+    # already establish this pattern in this same file; this one just
+    # hadn't been brought in line with it).
+    events = await asyncio.to_thread(data_store.get_events, child_id=patient_id, db_path=DB_PATH)
     if level_id:
         events = [e for e in events if e["level_id"] == level_id]
     return [EventOut(**e) for e in events]

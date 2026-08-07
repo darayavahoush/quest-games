@@ -8,6 +8,7 @@ get_current_therapist and are scoped to that therapist's own patients.
 """
 
 from typing import Optional
+import asyncio
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -63,7 +64,13 @@ async def create_session(
     db.add(session)
     await db.flush()
 
-    _log_race_to_agent(patient.id, data)
+    # _log_race_to_agent is synchronous SQLite/file I/O (data_store +
+    # AgentService's online Q-table update) — threaded off since this
+    # route is `async def` (same class of bug fixed across dashboard.py/
+    # kid_progress.py/parent.py/chime.py/vaakmirror's sessions.py in this
+    # pass — every direct call here blocks the whole app's event loop for
+    # every other concurrent request while the write happens).
+    await asyncio.to_thread(_log_race_to_agent, patient.id, data)
 
     return session
 
@@ -104,7 +111,11 @@ async def get_agent_decision(
     pitchTolerance/loudnessTolerance before starting the next race (see
     voiceHurdleRace/difficulty.ts)."""
     try:
-        result = _agent_service.decide(patient.id, _vhr_level_key(level_id), policy)
+        # AgentService.decide() does synchronous SQLite/file I/O internally
+        # (build_obs/_downgrade_reason both read data_store and check the
+        # child's Q-table file) — threaded off since this route is `async
+        # def`, same fix as the write path in create_session above.
+        result = await asyncio.to_thread(_agent_service.decide, patient.id, _vhr_level_key(level_id), policy)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=503, detail=f"Model not found: {exc}") from exc
     except ValueError as exc:

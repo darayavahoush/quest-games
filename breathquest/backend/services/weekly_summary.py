@@ -23,6 +23,7 @@ weakest — not just a retrospective of what already happened.
 
 import hashlib
 import random
+import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -378,8 +379,12 @@ async def generate_weekly_summary(
     completed_assignments, overdue_assignments = await _week_assignments(db, patient.id, week_start, week_end)
     goals = await _goals(db, patient.id)
     practice_logs = await _week_practice_logs(db, patient.id, week_start, week_end)
-    chime_events = _week_chime_events(
-        patient.id, week_start, week_end,
+    # _week_chime_events wraps synchronous SQLite I/O (chime_data_store) —
+    # threaded off since this whole function is `async def` and gets
+    # called from dashboard.py's async routes; a direct call here would
+    # block the event loop for every other concurrent request while it runs.
+    chime_events = await asyncio.to_thread(
+        _week_chime_events, patient.id, week_start, week_end,
         chime_db_path or chime_data_store.DEFAULT_DB_PATH,
     )
     vm_rows = await _week_vaakmirror_attempts(db, patient.id, week_start, week_end)
