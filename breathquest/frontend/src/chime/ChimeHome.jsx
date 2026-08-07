@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Rocket, Waves, Sparkles, Wind, Droplets, Bell, PawPrint, Mic } from 'lucide-react'
 import ChimeGameCard from './ChimeGameCard.jsx'
-import GameNavbar from '../components/GameNavbar.jsx'
+import { Sidebar } from '../components/ui'
+import { KID_SIDEBAR_ITEMS } from '../lib/kidSidebarItems'
+import { useAuth } from '../context/AuthContext'
 import { getPassedLevels, getUnlockedLevels, LEVEL_ORDER, LEVEL_ROUTES } from './lib/levelProgress'
 import { getEvents } from './lib/api'
 import './chime-home.css'
@@ -69,9 +71,12 @@ export default function ChimeHome() {
   const passedCount = passed ? LEVEL_ORDER.filter(id => passed[id]).length : 0
   const totalCount = LEVEL_ORDER.length
 
+  const { patient, logout } = useAuth()
+
   return (
-    <section className="relative min-h-screen bg-ink overflow-hidden">
-      <GameNavbar activeApp="chime" />
+    <div className="flex min-h-screen">
+      <Sidebar role="kid" items={KID_SIDEBAR_ITEMS} name={patient?.first_name} onLogout={logout} />
+      <section className="relative flex-1 bg-ink overflow-hidden overflow-y-auto">
       {/* Progress strip — same mechanic as BreathQuest's total-stars bar,
           just counting games passed instead of a 0-3 star sum, since
           Chime's own data is pass/fail rather than graded. */}
@@ -143,6 +148,7 @@ export default function ChimeHome() {
           </div>
         )}
       </div>
-    </section>
+      </section>
+    </div>
   )
 }

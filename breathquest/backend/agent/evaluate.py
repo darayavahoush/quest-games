@@ -90,74 +90,88 @@ def summarize(name, rewards, component_dicts=None):
               f"quit={means['quit_penalty']:6.3f}")
 
 
+def run_ladder_once(env, args, batch_idx):
+    out = {}
+
+    rule_agent = RuleBasedAgent()
+    rule_rewards = [run_episode_rule_based(env, rule_agent)[0] for _ in range(args.eval_episodes)]
+    out["1. Rule-based"] = float(np.mean(rule_rewards))
+
+    bandit = EpsilonGreedyBanditAgent()
+    for _ in range(args.train_episodes):
+        run_episode_tabular(env, bandit, is_q_learning=False)
+    bandit_rewards = [run_episode_tabular(env, bandit, is_q_learning=False, greedy=True)[0] for _ in range(args.eval_episodes)]
+    out["2. Contextual bandit"] = float(np.mean(bandit_rewards))
+
+    q_agent = TabularQAgent()
+    for _ in range(args.train_episodes):
+        run_episode_tabular(env, q_agent, is_q_learning=True)
+    q_rewards = [run_episode_tabular(env, q_agent, is_q_learning=True, greedy=True)[0] for _ in range(args.eval_episodes)]
+    out["3. Tabular Q-learning"] = float(np.mean(q_rewards))
+
+    if batch_idx == args.batches - 1:
+        save_prior_from_agent(q_agent)
+        print("Saved trained tabular-Q agent as the shared cold-start prior -> " + str(PRIOR_PATH))
+
+    try:
+        from stable_baselines3 import PPO
+        ppo_model = PPO.load(args.ppo_path)
+        ppo_rewards = [run_episode_sb3(env, ppo_model)[0] for _ in range(args.eval_episodes)]
+        out["4a. PPO"] = float(np.mean(ppo_rewards))
+    except FileNotFoundError:
+        if batch_idx == 0:
+            print("4a. PPO skipped, no model at " + args.ppo_path)
+    except ModuleNotFoundError:
+        if batch_idx == 0:
+            print("4a. PPO skipped, stable-baselines3 not installed")
+
+    try:
+        from sb3_contrib import RecurrentPPO
+        rppo_model = RecurrentPPO.load(args.recurrent_ppo_path)
+        rppo_rewards = [run_episode_sb3(env, rppo_model, recurrent=True)[0] for _ in range(args.eval_episodes)]
+        out["4b. Recurrent PPO"] = float(np.mean(rppo_rewards))
+    except FileNotFoundError:
+        if batch_idx == 0:
+            print("4b. Recurrent PPO skipped, no model at " + args.recurrent_ppo_path)
+    except ModuleNotFoundError:
+        if batch_idx == 0:
+            print("4b. Recurrent PPO skipped, sb3-contrib not installed")
+
+    return out
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--train-episodes", type=int, default=300)
     parser.add_argument("--eval-episodes", type=int, default=100)
+    parser.add_argument("--batches", type=int, default=1)
     parser.add_argument("--ppo-path", type=str, default="agent/models/ppo_difficulty.zip")
     parser.add_argument("--recurrent-ppo-path", type=str, default="agent/models/recurrent_ppo_difficulty.zip")
     args = parser.parse_args()
 
     env = DifficultyEnv()
 
-    print(f"\n=== Baseline ladder comparison ({args.eval_episodes} eval episodes each) ===\n")
+    print("=== Baseline ladder comparison (" + str(args.batches) + " batch(es) x " + str(args.eval_episodes) + " eval episodes) ===")
 
-    # Rung 1: rule-based, no training needed
-    rule_agent = RuleBasedAgent()
-    rule_results = [run_episode_rule_based(env, rule_agent) for _ in range(args.eval_episodes)]
-    rule_rewards = [r for r, _ in rule_results]
-    summarize("1. Rule-based", rule_rewards, [c for _, c in rule_results])
+    per_rung_batch_means = {}
+    for batch_idx in range(args.batches):
+        batch_result = run_ladder_once(env, args, batch_idx)
+        for rung, mean_reward in batch_result.items():
+            per_rung_batch_means.setdefault(rung, []).append(mean_reward)
+        if args.batches > 1:
+            line = "  batch " + str(batch_idx + 1) + "/" + str(args.batches) + " done: "
+            line += ", ".join(k + "=" + format(v, ".2f") for k, v in batch_result.items())
+            print(line)
 
-    # Rung 2: contextual bandit, train then eval greedy
-    bandit = EpsilonGreedyBanditAgent()
-    for _ in range(args.train_episodes):
-        run_episode_tabular(env, bandit, is_q_learning=False)
-    bandit_results = [run_episode_tabular(env, bandit, is_q_learning=False, greedy=True) for _ in range(args.eval_episodes)]
-    bandit_rewards = [r for r, _ in bandit_results]
-    summarize("2. Contextual bandit", bandit_rewards, [c for _, c in bandit_results])
-
-    # Rung 3: tabular Q-learning, train then eval greedy
-    q_agent = TabularQAgent()
-    for _ in range(args.train_episodes):
-        run_episode_tabular(env, q_agent, is_q_learning=True)
-    q_results = [run_episode_tabular(env, q_agent, is_q_learning=True, greedy=True) for _ in range(args.eval_episodes)]
-    q_rewards = [r for r, _ in q_results]
-    summarize("3. Tabular Q-learning", q_rewards, [c for _, c in q_results])
-
-    # This is what makes every new child's *first* real decision come from
-    # a genuinely-trained policy instead of an empty Q-table — see
-    # agent/child_q_store.py's load_child_agent(): it already looks for
-    # this file and seeds new children from it, but nothing ever actually
-    # generated it before. Without this, argmax([0,0,0]) on a brand-new
-    # child's untrained table deterministically returns index 0 ("lower")
-    # regardless of how they're actually doing — Claude found this while
-    # sanity-checking the agent extension, see commit history for the
-    # repro.
-    save_prior_from_agent(q_agent)
-    print(f"Saved trained tabular-Q agent as the shared cold-start prior -> {PRIOR_PATH}")
-
-    # Rung 4: PPO (if a trained model exists)
-    try:
-        from stable_baselines3 import PPO
-        ppo_model = PPO.load(args.ppo_path)
-        ppo_results = [run_episode_sb3(env, ppo_model) for _ in range(args.eval_episodes)]
-        ppo_rewards = [r for r, _ in ppo_results]
-        summarize("4a. PPO", ppo_rewards, [c for _, c in ppo_results])
-    except FileNotFoundError:
-        print(f"4a. PPO                       skipped, no model at {args.ppo_path} — run train_ppo.py first")
-    except ModuleNotFoundError:
-        print("4a. PPO                       skipped, stable-baselines3 not installed")
-
-    # Rung 4b: Recurrent PPO (if a trained model exists)
-    try:
-        from sb3_contrib import RecurrentPPO
-        rppo_model = RecurrentPPO.load(args.recurrent_ppo_path)
-        rppo_results = [run_episode_sb3(env, rppo_model, recurrent=True) for _ in range(args.eval_episodes)]
-        rppo_rewards = [r for r, _ in rppo_results]
-        summarize("4b. Recurrent PPO", rppo_rewards, [c for _, c in rppo_results])
-    except FileNotFoundError:
-        print(f"4b. Recurrent PPO             skipped, no model at {args.recurrent_ppo_path} — run train_ppo.py --recurrent first")
-    except ModuleNotFoundError:
-        print("4b. Recurrent PPO             skipped, sb3-contrib not installed")
+    print()
+    if args.batches == 1:
+        for rung, means in per_rung_batch_means.items():
+            print(format(rung, "28s") + "  mean=" + format(means[0], "7.2f"))
+    else:
+        print("=== Across " + str(args.batches) + " batches (mean +/- std of each batch mean) ===")
+        for rung, means in per_rung_batch_means.items():
+            arr = np.array(means)
+            per_batch_str = ", ".join(format(m, ".1f") for m in means)
+            print(format(rung, "28s") + "  mean=" + format(arr.mean(), "7.2f") + "  std=" + format(arr.std(), "6.2f") + "  (" + per_batch_str + ")")
 
     print()

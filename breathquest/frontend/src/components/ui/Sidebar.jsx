@@ -31,6 +31,18 @@ const THEMES = {
     nameText: 'text-paper',
     divider: 'bg-white/10',
   },
+  // Ember/dusk palette matching GameNavbar (the top bar this replaces),
+  // so swapping in the sidebar doesn't change kid-facing pages' established
+  // visual identity, just the layout shape.
+  kid: {
+    glow: 'bg-[#FF9B54]/15 border-[#FF9B54]/25 text-[#FF9B54]',
+    accentBar: 'bg-[#FF9B54]',
+    activeBg: 'bg-white/10 border-white/10 text-white',
+    inactiveText: 'text-white/55 hover:text-white hover:bg-white/[0.06]',
+    subtitleText: 'text-white/40',
+    nameText: 'text-white',
+    divider: 'bg-white/10',
+  },
 }
 
 function NavItem({ label, Icon, active, collapsed, t, to, onClick }) {

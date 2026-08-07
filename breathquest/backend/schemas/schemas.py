@@ -497,7 +497,7 @@ class PatientAlert(BaseModel):
     first_name: str
     days_since_last_session: int | None   # None = never played
     overdue_assignments: int
-    flag: str   # "inactive" | "overdue_assignment" | "ok"
+    flag: str   # "plateau" | "frustration_rising" | "inactive" | "overdue_assignment" | "ok"
 
 
 # ------------------------------------------------------------------ #

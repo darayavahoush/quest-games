@@ -6,6 +6,7 @@ import Landing            from './pages/Landing'
 import TherapistLogin     from './pages/therapist/Login'
 import TherapistDashboard from './pages/therapist/Dashboard'
 import PatientDetail      from './pages/therapist/PatientDetail'
+import AgentInsight        from './pages/therapist/AgentInsight'
 import KidPlay            from './pages/kid/Play'
 import LevelSelect        from './pages/kid/LevelSelect'
 import GamePage           from './pages/kid/GamePage'
@@ -107,6 +108,9 @@ function AppRoutes() {
       } />
       <Route path="/therapist/patients/:id" element={
         <ProtectedTherapist><PatientDetail /></ProtectedTherapist>
+      } />
+      <Route path="/therapist/patients/:id/agent" element={
+        <ProtectedTherapist><AgentInsight /></ProtectedTherapist>
       } />
 
       {/* Kid */}

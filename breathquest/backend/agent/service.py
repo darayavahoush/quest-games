@@ -36,7 +36,13 @@ AGENT_MODELS_DIR = Path(__file__).resolve().parent / "models"
 TABULAR_MIN_CHILD_EVENTS = 20  # this child's own logged events, any level
 
 
-def action_message(action: str) -> str:
+def action_message(action: str, trend: str = None) -> str:
+    if trend == "frustration_rising":
+        return {
+            "raise": "You've been working really hard on this — let's keep it exciting!",
+            "lower": "You've been working really hard on this — let's take it slower today.",
+            "hold": "You've been working really hard on this — let's keep steady for now.",
+        }[action]
     return {
         "raise": "Doing great! Let's raise the challenge a little.",
         "lower": "Let's ease up a bit so this feels achievable.",
@@ -97,6 +103,57 @@ class AgentService:
             [success_rate, difficulty, frustration, severity_numeric, is_targeted_sound],
             dtype=np.float32,
         ), len(recent)
+
+    def detect_trend(self, child_id: str, n_sessions: int = 4):
+        """Cross-session pattern check, distinct from build_obs's single-
+        session window. Groups events into sessions (a new session starts
+        whenever attempt_number resets to 0), checks the most recent
+        n_sessions for:
+        - plateau: success rate hasn't improved across 3+ sessions despite
+          the agent mostly choosing lower/hold.
+        - frustration_rising: quit-rate strictly increasing session over
+          session.
+        Returns None if not enough history, else "plateau" /
+        "frustration_rising" / None."""
+        events = data_store.get_events(child_id=child_id, db_path=self.db_path)
+        if not events:
+            return None
+
+        sessions = []
+        current = []
+        for e in events:
+            if e["attempt_number"] == 0 and current:
+                sessions.append(current)
+                current = []
+            current.append(e)
+        if current:
+            sessions.append(current)
+
+        recent_sessions = sessions[-n_sessions:]
+        if len(recent_sessions) < 3:
+            return None
+
+        success_rates = []
+        quit_rates = []
+        actions = []
+        for sess in recent_sessions:
+            valid = [e for e in sess if e["is_valid_attempt"]]
+            success_rates.append(
+                (sum(1 for e in valid if e["score"] >= 0.6) / len(sess)) if sess else 0.0
+            )
+            quit_rates.append(sum(1 for e in sess if e["quit_flag"]) / len(sess) if sess else 0.0)
+            actions.extend(e.get("action") for e in sess if e.get("action"))
+
+        if all(quit_rates[i] < quit_rates[i + 1] for i in range(len(quit_rates) - 1)) and quit_rates[-1] > 0:
+            return "frustration_rising"
+
+        easing_actions = sum(1 for a in actions if a in ("lower", "hold"))
+        was_easing = actions and (easing_actions / len(actions)) > 0.5
+        success_delta = success_rates[-1] - success_rates[0]
+        if was_easing and success_delta <= 0.05:
+            return "plateau"
+
+        return None
 
     def compute_reward(self, obs, next_obs, quit_flag: bool) -> float:
         old_success_rate = float(obs[0])
@@ -222,6 +279,28 @@ class AgentService:
         return None
 
     # ------------------------------------------------------------------
+    # Read-only status for therapist-facing display. Deliberately does NOT
+    # call decide() — decide() writes to _pending_transitions as a side
+    # effect for tabular_q (see the elif branch below), so a "just show me
+    # what the agent thinks" call must never go through it or it would
+    # corrupt a real in-progress game's training data / stomp a pending
+    # transition mid-session.
+    # ------------------------------------------------------------------
+    def get_status(self, child_id: str, level_id: str, policy: str = "tabular_q"):
+        obs, n_events = self.build_obs(child_id, level_id)
+        downgrade_reason = self._downgrade_reason(child_id, policy) if policy != "rule_based" else None
+        effective_policy = "rule_based" if downgrade_reason else policy
+        return {
+            "policy": effective_policy, "requested_policy": policy,
+            "n_events_considered": n_events, "downgrade_reason": downgrade_reason,
+            "obs": {
+                "success_rate": float(obs[0]), "difficulty": float(obs[1]),
+                "frustration": float(obs[2]), "severity_numeric": float(obs[3]),
+                "is_targeted_sound": bool(obs[4]),
+            },
+        }
+
+    # ------------------------------------------------------------------
     # Main entry point — mirrors chime.py's old agent_decide handler
     # ------------------------------------------------------------------
     def decide(self, child_id: str, level_id: str,
@@ -302,8 +381,9 @@ class AgentService:
         action_idx = apply_frustration_mask(obs[2], action_idx)
 
         action = ACTION_LABELS[action_idx]
+        trend = self.detect_trend(child_id)
         return {
             "policy": effective_policy, "requested_policy": policy, "action": action,
-            "n_events_considered": n_events, "message": action_message(action),
+            "n_events_considered": n_events, "message": action_message(action, trend),
             "downgrade_reason": downgrade_reason,
         }

@@ -2,12 +2,17 @@ import { Smile, Wand2, Music, Users, Blend } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import GameCard from './components/GameCard.jsx'
 import MouthMotif from './components/MouthMotif.jsx'
-import GameNavbar from '../components/GameNavbar.jsx'
+import { Sidebar } from '../components/ui'
+import { KID_SIDEBAR_ITEMS } from '../lib/kidSidebarItems'
+import { useAuth } from '../context/AuthContext'
 
 export default function Landing() {
+  const { patient, logout } = useAuth()
+
   return (
-    <>
-      <GameNavbar activeApp="vaakmirror" />
+    <div className="flex min-h-screen">
+      <Sidebar role="kid" items={KID_SIDEBAR_ITEMS} name={patient?.first_name} onLogout={logout} />
+      <div className="flex-1 overflow-y-auto">
       {/* Hero */}
       <section className="bg-ink relative overflow-hidden">
         <div className="max-w-6xl mx-auto px-6 pt-20 pb-24 grid md:grid-cols-2 gap-12 items-center relative z-10">
@@ -134,6 +139,7 @@ export default function Landing() {
           </div>
         </div>
       </section>
-    </>
+      </div>
+    </div>
   )
 }

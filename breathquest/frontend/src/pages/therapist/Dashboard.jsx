@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { dashboardAPI } from '../../api/client'
-import { Button, Card, Badge, Avatar, StatCard, PageLoader, Sidebar } from '../../components/ui'
+import { Button, Card, Badge, Avatar, StatCard, PageLoader, Sidebar, AmbientGlow } from '../../components/ui'
 import AddPatientModal from '../../components/therapist/AddPatientModal'
 import {
   Users, UserCheck, Gamepad2, Star, AlertTriangle, Clock,
@@ -78,7 +78,7 @@ export default function TherapistDashboard() {
       {/* A real gradient now, not just a couple of faint blur blobs on a flat
           fill — same idea as the login screen's radial panel, in the
           brand.teal/brand.dark this page (and PatientDetail) already use. */}
-      <div className="absolute -top-32 right-0 w-96 h-96 rounded-full bg-brand-green/10 blur-3xl pointer-events-none" />
+      <AmbientGlow />
 
       <Sidebar
         role="therapist"
@@ -122,7 +122,11 @@ export default function TherapistDashboard() {
                              hover:bg-brand-amber/20 transition-colors">
                   {a.flag === 'inactive' ? <Clock size={12} /> : <AlertTriangle size={12} />}
                   {a.first_name}
-                  {a.flag === 'inactive'
+                  {a.flag === 'plateau'
+                    ? ' — plateaued despite easier difficulty'
+                    : a.flag === 'frustration_rising'
+                    ? ' — frustration rising session over session'
+                    : a.flag === 'inactive'
                     ? ` — ${a.days_since_last_session == null ? 'never played' : `${a.days_since_last_session}d inactive`}`
                     : ` — ${a.overdue_assignments} overdue`}
                 </button>
@@ -230,7 +234,10 @@ function PatientCard({ patient, alert, onClick }) {
         </div>
         {alert ? (
           <Badge color="amber">
-            {alert.flag === 'inactive' ? 'Inactive' : 'Overdue'}
+            {alert.flag === 'plateau' ? 'Plateau'
+              : alert.flag === 'frustration_rising' ? 'Frustration rising'
+              : alert.flag === 'inactive' ? 'Inactive'
+              : 'Overdue'}
           </Badge>
         ) : (
           <Badge color={patient.is_active ? 'green' : 'gray'}>

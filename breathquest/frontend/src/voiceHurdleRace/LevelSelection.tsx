@@ -6,7 +6,9 @@
 import { useEffect, useState } from 'react';
 import { LEVELS, LevelProgress, getLevelProgress } from './levels';
 import { Badge, StarRating, Button } from '../components/ui';
-import GameNavbar from '../components/GameNavbar';
+import { Sidebar } from '../components/ui';
+import { KID_SIDEBAR_ITEMS } from '../lib/kidSidebarItems';
+import { useAuth } from '../context/AuthContext';
 
 interface LevelSelectionProps {
   onSelectLevel: (levelId: number) => void;
@@ -31,11 +33,14 @@ export default function LevelSelection({ onSelectLevel, onBack }: LevelSelection
   const totalStars = levelProgress.reduce((sum, p) => sum + (p.stars || 0), 0);
   const maxStars = LEVELS.length * 3;
 
+  const { patient, logout } = useAuth();
+
   return (
-    <div className="min-h-screen text-white flex flex-col font-sans" style={{
-      background: 'radial-gradient(ellipse at 50% -10%, #1e3a8a 0%, #0d0d1a 60%)'
-    }}>
-      <GameNavbar activeApp="voicehurdle" />
+    <div className="flex min-h-screen">
+      <Sidebar role="kid" items={KID_SIDEBAR_ITEMS} name={patient?.first_name} onLogout={logout} />
+      <div className="flex-1 text-white flex flex-col font-sans overflow-y-auto" style={{
+        background: 'radial-gradient(ellipse at 50% -10%, #1e3a8a 0%, #0d0d1a 60%)'
+      }}>
 
       {/* Stats strip — total stars is unique to this page, not shown in GameNavbar */}
       <div className="flex items-center justify-center gap-2 px-6 py-2.5 border-b border-white/5 bg-black/10">
@@ -149,6 +154,7 @@ export default function LevelSelection({ onSelectLevel, onBack }: LevelSelection
             ← Back to Portal Select
           </Button>
         </div>
+      </div>
       </div>
     </div>
   );

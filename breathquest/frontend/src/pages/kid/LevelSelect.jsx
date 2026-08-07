@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import GameNavbar from '../../components/GameNavbar.jsx'
+import { Sidebar } from '../../components/ui'
+import { KID_SIDEBAR_ITEMS } from '../../lib/kidSidebarItems'
+import { useAuth } from '../../context/AuthContext'
 import { loadScores, isUnlocked, LEVEL_ORDER, DIFFICULTY } from '../../game/scoring/index.js'
 
 const LEVELS = [
@@ -31,11 +33,14 @@ export default function LevelSelect() {
   const totalStars = LEVEL_ORDER.reduce((sum, id) => sum + (scores[id]?.stars || 0), 0)
   const maxStars   = LEVEL_ORDER.length * 3
 
+  const { patient, logout } = useAuth()
+
   return (
-    <div className="min-h-screen" style={{
-      background: 'radial-gradient(ellipse at 50% -10%, #1a2a4a 0%, #0d0d1a 60%)'
-    }}>
-      <GameNavbar activeApp="breathquest" />
+    <div className="flex min-h-screen">
+      <Sidebar role="kid" items={KID_SIDEBAR_ITEMS} name={patient?.first_name} onLogout={logout} />
+      <div className="flex-1 overflow-y-auto" style={{
+        background: 'radial-gradient(ellipse at 50% -10%, #1a2a4a 0%, #0d0d1a 60%)'
+      }}>
       {/* Stars sub-bar — unique to this page, kept alongside the shared navbar */}
       <div className="flex items-center justify-center gap-2 px-6 py-2 border-b border-white/10">
         <span className="text-brand-amber font-bold text-sm">⭐ {totalStars} / {maxStars}</span>
@@ -154,6 +159,7 @@ export default function LevelSelect() {
         <p className="text-center text-white/20 text-xs mt-8">
           Make sure your microphone is allowed! 🎤
         </p>
+      </div>
       </div>
     </div>
   )

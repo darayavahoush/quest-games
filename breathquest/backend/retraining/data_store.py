@@ -31,7 +31,9 @@ CREATE TABLE IF NOT EXISTS session_events (
     quit_flag INTEGER DEFAULT 0,
     raw_features_json TEXT,
     severity_numeric REAL DEFAULT 0.0,
-    is_targeted_sound INTEGER DEFAULT 0
+    is_targeted_sound INTEGER DEFAULT 0,
+    policy_used TEXT,
+    downgrade_reason TEXT
 );
 
 CREATE TABLE IF NOT EXISTS retrain_checkpoints (
@@ -44,12 +46,16 @@ CREATE TABLE IF NOT EXISTS retrain_checkpoints (
 
 def _ensure_new_columns(conn):
     """Migration for chime_sessions.db files created before
-    severity_numeric/is_targeted_sound existed."""
+    severity_numeric/is_targeted_sound/policy_used/downgrade_reason existed."""
     existing_cols = {row[1] for row in conn.execute("PRAGMA table_info(session_events)").fetchall()}
     if "severity_numeric" not in existing_cols:
         conn.execute("ALTER TABLE session_events ADD COLUMN severity_numeric REAL DEFAULT 0.0")
     if "is_targeted_sound" not in existing_cols:
         conn.execute("ALTER TABLE session_events ADD COLUMN is_targeted_sound INTEGER DEFAULT 0")
+    if "policy_used" not in existing_cols:
+        conn.execute("ALTER TABLE session_events ADD COLUMN policy_used TEXT")
+    if "downgrade_reason" not in existing_cols:
+        conn.execute("ALTER TABLE session_events ADD COLUMN downgrade_reason TEXT")
 
 
 @contextmanager
@@ -69,17 +75,19 @@ def add_event(child_id: str, level_id: str, attempt_number: int, score: float,
               is_valid_attempt: bool, threshold_at_time: float = None, action: str = None,
               quit_flag: bool = False, raw_features: dict = None,
               severity_numeric: float = 0.0, is_targeted_sound: bool = False,
+              policy_used: str = None, downgrade_reason: str = None,
               db_path: Path = DEFAULT_DB_PATH):
     with get_connection(db_path) as conn:
         conn.execute(
             """INSERT INTO session_events
                (child_id, timestamp, level_id, attempt_number, score, is_valid_attempt,
                 threshold_at_time, action, quit_flag, raw_features_json,
-                severity_numeric, is_targeted_sound)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                severity_numeric, is_targeted_sound, policy_used, downgrade_reason)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (child_id, datetime.now(timezone.utc).isoformat(), level_id, attempt_number,
              score, int(is_valid_attempt), threshold_at_time, action, int(quit_flag),
-             json.dumps(raw_features or {}), severity_numeric, int(is_targeted_sound)),
+             json.dumps(raw_features or {}), severity_numeric, int(is_targeted_sound),
+             policy_used, downgrade_reason),
         )
 
 

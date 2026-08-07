@@ -23,9 +23,12 @@ from typing import Literal, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
-from models.models import Patient
-from core.deps import get_current_patient
+from database import get_db
+from models.models import Patient, Therapist
+from core.deps import get_current_patient, get_current_therapist
 from retraining import data_store
 from retraining.scheduler import run_retrain_if_due
 from agent.diagnostic_client import get_diagnostic_context
@@ -44,6 +47,22 @@ _agent_service = AgentService(db_path=DB_PATH, recent_window=RECENT_WINDOW)
 # Schemas — same shape as chime.py's EventIn/EventOut/AgentDecisionOut,
 # so the two games' event rows stay interchangeable in the shared table.
 # ============================================================
+class AgentStatusObs(BaseModel):
+    success_rate: float
+    difficulty: float
+    frustration: float
+    severity_numeric: float
+    is_targeted_sound: bool
+
+
+class AgentStatusOut(BaseModel):
+    policy: str
+    requested_policy: str
+    n_events_considered: int
+    downgrade_reason: Optional[str]
+    obs: AgentStatusObs
+
+
 class BreathEventIn(BaseModel):
     level_id: str
     attempt_number: int
@@ -152,3 +171,32 @@ def breath_agent_decide(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return AgentDecisionOut(**result)
+
+
+# ============================================================
+# Therapist-facing, read-only agent status — GET /breath/agent/status,
+# not GET /breath/agent/decide. Deliberately calls AgentService.get_status,
+# never .decide(): decide() writes to _pending_transitions for tabular_q
+# as a side effect (used to update that child's Q-table from a real game
+# action), so a therapist "peek" view must never call decide() or it could
+# corrupt an in-progress session's training data. Ownership check matches
+# the pattern in routers/dashboard.py / voicehurdlerace.py — 404 (not 403)
+# so this doesn't leak which patient IDs exist to a therapist probing at
+# random.
+# ============================================================
+@router.get("/agent/status/{patient_id}", response_model=AgentStatusOut)
+async def breath_agent_status(
+    patient_id: str,
+    level_id: str,
+    policy: Literal["rule_based", "bandit", "tabular_q", "ppo", "recurrent_ppo"] = "tabular_q",
+    therapist: Therapist = Depends(get_current_therapist),
+    db: AsyncSession = Depends(get_db),
+):
+    patient_result = await db.execute(
+        select(Patient).where(Patient.id == patient_id, Patient.therapist_id == therapist.id)
+    )
+    if not patient_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    result = _agent_service.get_status(patient_id, level_id, policy)
+    return AgentStatusOut(**result)

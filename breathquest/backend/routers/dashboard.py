@@ -15,6 +15,10 @@ from models.models import (
 from models.voicehurdlerace_models import VoiceHurdleRaceSession
 from vaakmirror.models import GameSession as VaakMirrorSession, Attempt
 from retraining import data_store as chime_data_store
+from agent.service import AgentService
+
+RECENT_WINDOW = 10
+_agent_service = AgentService(db_path=chime_data_store.DEFAULT_DB_PATH, recent_window=RECENT_WINDOW)
 from schemas.schemas import (
     PatientProgress, LevelProgress, DashboardSummary,
     PatientDetailOut, PatientOut, SessionOut,
@@ -715,7 +719,10 @@ async def list_patient_alerts(
             )
         )).scalar() or 0
 
-        if days_since is None or days_since >= inactive_days:
+        trend = _agent_service.detect_trend(p.id)
+        if trend is not None:
+            flag = trend
+        elif days_since is None or days_since >= inactive_days:
             flag = "inactive"
         elif overdue_count > 0:
             flag = "overdue_assignment"

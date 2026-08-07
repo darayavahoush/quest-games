@@ -3,10 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { dashboardAPI, chimeAPI, vaakmirrorAPI } from '../../api/client'
 import { voiceHurdleRaceApi } from '../../api/voiceHurdleRaceApi'
-import { Card, Badge, Avatar, StarRating, Button, Spinner, PageLoader, Sidebar } from '../../components/ui'
+import { Card, Badge, Avatar, StarRating, Button, Spinner, PageLoader, Sidebar, AmbientGlow } from '../../components/ui'
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer,
          BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line, Legend } from 'recharts'
-import { Download, BarChart3, Gamepad2, Dog, Bell, Waves, HeartPulse, FileText, LayoutDashboard } from 'lucide-react'
+import { Download, BarChart3, Gamepad2, Dog, Bell, Waves, HeartPulse, FileText, LayoutDashboard, X, ChevronLeft, ChevronRight, Brain } from 'lucide-react'
 
 const LEVEL_EMOJIS = {
   pinwheel: '🌀', float_rider: '🐥', candle: '🕯️',
@@ -333,10 +333,7 @@ export default function PatientDetail() {
       {/* Same ambient glow as the therapist dashboard, so landing on a
           specific patient doesn't feel like a flatter, less-considered
           page than the dashboard just navigated from. */}
-      <div className="absolute top-0 left-0 w-full h-80 overflow-hidden pointer-events-none">
-        <div className="absolute -top-32 -left-24 w-[28rem] h-[28rem] rounded-full bg-brand-teal/[0.07] blur-[100px]" />
-        <div className="absolute -top-40 right-0 w-[26rem] h-[26rem] rounded-full bg-brand-green/[0.05] blur-[100px]" />
-      </div>
+      <AmbientGlow />
 
       <Sidebar
         role="therapist"
@@ -357,6 +354,10 @@ export default function PatientDetail() {
         <span className="text-white/20">/</span>
         <span className="text-white font-semibold">{data.first_name}</span>
         <div className="flex-1" />
+        <Button variant="ghost" size="sm" onClick={() => navigate(`/therapist/patients/${id}/agent`)}>
+          <Brain size={14} className="mr-1.5 inline" />
+          What the agent sees
+        </Button>
         <Button variant="ghost" size="sm" onClick={handleDownloadReport} disabled={downloadingReport}>
           <Download size={14} className="mr-1.5 inline" />
           {downloadingReport ? 'Generating…' : 'Download Report'}
@@ -740,13 +741,13 @@ export default function PatientDetail() {
                 <h3 className="font-semibold text-white">Weekly Summary</h3>
                 <div className="flex items-center gap-2">
                   <button onClick={() => setWeekOffset(w => w + 1)}
-                          className="text-white/40 hover:text-white text-xs px-2 py-1 rounded transition-colors">
-                    ← Prior week
+                          className="flex items-center gap-1 text-white/40 hover:text-white text-xs px-2 py-1 rounded transition-colors">
+                    <ChevronLeft size={13} /> Prior week
                   </button>
                   <span className="text-white/30 text-xs">{weekOffset === 0 ? 'This week' : `${weekOffset} week${weekOffset === 1 ? '' : 's'} ago`}</span>
                   <button onClick={() => setWeekOffset(w => Math.max(0, w - 1))} disabled={weekOffset === 0}
-                          className="text-white/40 hover:text-white text-xs px-2 py-1 rounded transition-colors disabled:opacity-20">
-                    Next week →
+                          className="flex items-center gap-1 text-white/40 hover:text-white text-xs px-2 py-1 rounded transition-colors disabled:opacity-20">
+                    Next week <ChevronRight size={13} />
                   </button>
                 </div>
               </div>
@@ -805,7 +806,7 @@ export default function PatientDetail() {
                           </p>
                         </div>
                         <Badge color={g.achieved ? 'green' : 'gray'}>{g.achieved ? 'Achieved' : 'In progress'}</Badge>
-                        <button onClick={() => removeGoal(g.id)} className="text-white/20 hover:text-brand-coral text-xs">✕</button>
+                        <button onClick={() => removeGoal(g.id)} className="text-white/20 hover:text-brand-coral"><X size={14} /></button>
                       </div>
                     ))}
                   </div>
@@ -888,7 +889,7 @@ export default function PatientDetail() {
                         <button onClick={() => toggleAssignmentDone(a)} className="text-white/40 hover:text-brand-green text-xs">
                           {a.status === 'completed' ? 'Undo' : 'Done'}
                         </button>
-                        <button onClick={() => removeAssignment(a.id)} className="text-white/20 hover:text-brand-coral text-xs">✕</button>
+                        <button onClick={() => removeAssignment(a.id)} className="text-white/20 hover:text-brand-coral"><X size={14} /></button>
                       </div>
                     ))}
                   </div>

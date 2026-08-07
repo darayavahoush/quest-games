@@ -58,6 +58,8 @@ class EventOut(BaseModel):
     threshold_at_time: Optional[float]
     action: Optional[str]
     quit_flag: bool
+    policy_used: Optional[str] = None
+    downgrade_reason: Optional[str] = None
 
 
 class DifficultyDecision(BaseModel):
@@ -107,6 +109,12 @@ def log_event(event: EventIn, background_tasks: BackgroundTasks, patient: Patien
     severity_numeric, targeted_quests = get_diagnostic_context(patient.id)
     is_targeted_sound = event.level_id in targeted_quests
 
+    # See routers/breath_agent.py's log_breath_event for why this is read
+    # here -- same shared AgentService, same reasoning.
+    last_decision = _agent_service.get_last_decision(patient.id, event.level_id)
+    policy_used = last_decision["policy"] if last_decision else None
+    downgrade_reason = last_decision["downgrade_reason"] if last_decision else None
+
     data_store.add_event(
         child_id=patient.id,
         level_id=event.level_id,
@@ -119,6 +127,8 @@ def log_event(event: EventIn, background_tasks: BackgroundTasks, patient: Patien
         raw_features=event.raw_features,
         severity_numeric=severity_numeric,
         is_targeted_sound=is_targeted_sound,
+        policy_used=policy_used,
+        downgrade_reason=downgrade_reason,
         db_path=DB_PATH,
     )
 
