@@ -73,6 +73,14 @@ class AgentService:
         self._recurrent_states: dict = {}
         self._RECURRENT_STATES_MAX = 500
         self._pending_transitions: dict = {}
+        # Last decide() result per (child_id, level_id) — read by
+        # chime.py/breath_agent.py's log_event handlers so a logged event
+        # can record which policy actually served the difficulty change
+        # that led to it, and why (if downgraded). Same unbounded-growth
+        # tradeoff as _pending_transitions above (not capacity-bounded like
+        # _recurrent_states) — acceptable for now since it's one small dict
+        # entry per (child, level) pair, not one per LSTM state.
+        self._last_decisions: dict = {}
 
     # ------------------------------------------------------------------
     # Observation / reward
@@ -308,7 +316,7 @@ class AgentService:
         obs, n_events = self.build_obs(child_id, level_id)
 
         if n_events < 3:
-            return {
+            result = {
                 "policy": "rule_based", "requested_policy": policy, "action": "hold",
                 "n_events_considered": n_events,
                 "message": "Not enough recent attempts yet — holding difficulty steady.",
@@ -317,6 +325,8 @@ class AgentService:
                     else "fewer than 3 recent attempts for this level — holding steady regardless of policy"
                 ),
             }
+            self._last_decisions[(child_id, level_id)] = result
+            return result
 
         effective_policy = policy
         downgrade_reason = self._downgrade_reason(child_id, policy) if policy != "rule_based" else None
@@ -382,8 +392,17 @@ class AgentService:
 
         action = ACTION_LABELS[action_idx]
         trend = self.detect_trend(child_id)
-        return {
+        result = {
             "policy": effective_policy, "requested_policy": policy, "action": action,
             "n_events_considered": n_events, "message": action_message(action, trend),
             "downgrade_reason": downgrade_reason,
         }
+        self._last_decisions[(child_id, level_id)] = result
+        return result
+
+    def get_last_decision(self, child_id: str, level_id: str):
+        """Most recent decide() result for this (child, level) pair, or
+        None if decide() was never called for it. Read-only — does not
+        call decide() itself, so checking this never has the side effects
+        decide() has (tabular_q's _pending_transitions write, etc.)."""
+        return self._last_decisions.get((child_id, level_id))
