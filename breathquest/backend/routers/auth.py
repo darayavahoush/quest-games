@@ -3,7 +3,7 @@ routers/auth.py — Authentication for therapists (JWT) and kids (PIN).
 """
 
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -16,6 +16,10 @@ from schemas.schemas import (
     AssessmentPinSetupRequest,
 )
 from core import assessment_client
+from core.rate_limit import (
+    check_ip_rate_limit, check_account_lockout,
+    record_failed_attempt, clear_failed_attempts,
+)
 from core.security import (
     hash_password, verify_password,
     create_access_token,
@@ -55,16 +59,21 @@ async def register_therapist(data: TherapistRegister, db: AsyncSession = Depends
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login_therapist(data: TherapistLogin, db: AsyncSession = Depends(get_db)):
+async def login_therapist(data: TherapistLogin, request: Request, db: AsyncSession = Depends(get_db)):
+    check_ip_rate_limit(request)
+    check_account_lockout("therapist", data.email)
+
     result = await db.execute(select(Therapist).where(Therapist.email == data.email))
     therapist = result.scalar_one_or_none()
 
     if not therapist or not verify_password(data.password, therapist.hashed_password):
+        record_failed_attempt("therapist", data.email)
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     if not therapist.is_active:
         raise HTTPException(status_code=403, detail="Account deactivated")
 
+    clear_failed_attempts("therapist", data.email)
     therapist.last_login = datetime.now(timezone.utc)
 
     token = create_access_token(therapist.id)
@@ -109,21 +118,32 @@ async def kid_register(data: KidRegisterRequest, db: AsyncSession = Depends(get_
 # ------------------------------------------------------------------ #
 
 @router.post("/kid-login", response_model=KidTokenResponse)
-async def kid_login(data: KidLoginRequest, db: AsyncSession = Depends(get_db)):
+async def kid_login(data: KidLoginRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    check_ip_rate_limit(request)
+    check_account_lockout("kid", data.player_code.upper())
+
     result = await db.execute(
         select(Patient).where(Patient.player_code == data.player_code.upper())
     )
     patient = result.scalar_one_or_none()
 
     if not patient:
+        # Deliberately still counts against the lockout — a not-found
+        # response looks identical to a wrong-PIN response from the
+        # client's side, so treating it differently here would let an
+        # attacker enumerate valid player codes for free before the PIN
+        # brute-force protection ever kicks in.
+        record_failed_attempt("kid", data.player_code.upper())
         raise HTTPException(status_code=404, detail="Player code not found")
 
     if not patient.is_active:
         raise HTTPException(status_code=403, detail="Account deactivated")
 
     if not verify_pin(data.pin, patient.pin_hash):
+        record_failed_attempt("kid", data.player_code.upper())
         raise HTTPException(status_code=401, detail="Incorrect PIN")
 
+    clear_failed_attempts("kid", data.player_code.upper())
     token = create_kid_token(patient.id)
     return KidTokenResponse(
         access_token=token,
@@ -252,11 +272,15 @@ async def parent_register(data: ParentRegisterRequest, db: AsyncSession = Depend
 
 
 @router.post("/parent-login", response_model=ParentTokenResponse)
-async def parent_login(data: ParentLoginRequest, db: AsyncSession = Depends(get_db)):
+async def parent_login(data: ParentLoginRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    check_ip_rate_limit(request)
+    check_account_lockout("parent", data.email)
+
     result = await db.execute(select(Parent).where(Parent.email == data.email))
     parent = result.scalar_one_or_none()
 
     if not parent or not verify_password(data.password, parent.hashed_password):
+        record_failed_attempt("parent", data.email)
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     if not parent.is_active:
@@ -267,6 +291,7 @@ async def parent_login(data: ParentLoginRequest, db: AsyncSession = Depends(get_
     if not patient:
         raise HTTPException(status_code=404, detail="Linked child account no longer exists")
 
+    clear_failed_attempts("parent", data.email)
     parent.last_login = datetime.now(timezone.utc)
 
     token = create_parent_token(parent.id)
