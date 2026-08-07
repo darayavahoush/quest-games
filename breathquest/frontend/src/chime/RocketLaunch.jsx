@@ -144,7 +144,7 @@ export default function RocketLaunch() {
   const [ariaMsg, setAriaMsg] = useState('')
 
   const stateRef = useRef({
-    audioCtx: null, analyser: null, timeDomainData: null,
+    audioCtx: null, analyser: null, timeDomainData: null, mediaStream: null,
     noiseFloor: 0.01, maxExpectedRms: 0.3,
     altitude: 0, smoothedScore: 0, pitchBoost: 0,
     frameCount: 0, lastFrameTime: 0,
@@ -175,6 +175,13 @@ export default function RocketLaunch() {
     return () => {
       cancelAnimationFrame(rafRef.current)
       if (state.audioCtx) state.audioCtx.close().catch(() => {})
+      // audioCtx.close() does NOT stop the underlying getUserMedia
+      // tracks — those are a separate object from the AudioContext and
+      // stay live (mic indicator on, hardware in use) until stopped
+      // explicitly. Found missing here and in 5 other Chime games; the
+      // fix pattern matches VillageBuilder.jsx, the one game that
+      // already did this correctly.
+      if (state.mediaStream) state.mediaStream.getTracks().forEach(t => t.stop())
     }
   }, [])
 
@@ -237,6 +244,7 @@ export default function RocketLaunch() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } })
       const AudioContextClass = window.AudioContext || window.webkitAudioContext
       const s = stateRef.current
+      s.mediaStream = stream
       s.audioCtx = new AudioContextClass()
       const source = s.audioCtx.createMediaStreamSource(stream)
       s.analyser = s.audioCtx.createAnalyser()

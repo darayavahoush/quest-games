@@ -169,7 +169,7 @@ export default function SubmarineDive() {
   const [ariaMsg, setAriaMsg] = useState('')
 
   const stateRef = useRef({
-    audioCtx: null, analyser: null, timeDomainData: null,
+    audioCtx: null, analyser: null, timeDomainData: null, mediaStream: null,
     noiseFloor: NOISE_FLOOR_RMS_DEFAULT, maxExpectedRms: 0.3,
     depth: 0, smoothedQuality: 0,
     lastFrameTime: 0, frameCount: 0,
@@ -200,6 +200,9 @@ export default function SubmarineDive() {
     return () => {
       cancelAnimationFrame(rafRef.current)
       if (state.audioCtx) state.audioCtx.close().catch(() => {})
+      // See RocketLaunch.jsx's cleanup for why this is separate from
+      // audioCtx.close() — the mic stream isn't released by that call.
+      if (state.mediaStream) state.mediaStream.getTracks().forEach(t => t.stop())
     }
   }, [])
 
@@ -288,6 +291,7 @@ export default function SubmarineDive() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } })
       const AudioContextClass = window.AudioContext || window.webkitAudioContext
       const s = stateRef.current
+      s.mediaStream = stream
       s.audioCtx = new AudioContextClass()
       const source = s.audioCtx.createMediaStreamSource(stream)
       s.analyser = s.audioCtx.createAnalyser()

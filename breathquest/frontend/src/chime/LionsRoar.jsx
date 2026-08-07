@@ -81,7 +81,7 @@ export default function LionsRoar() {
   const [ariaMsg, setAriaMsg] = useState('')
 
   const stateRef = useRef({
-    audioCtx: null, analyser: null, timeDomainData: null,
+    audioCtx: null, analyser: null, timeDomainData: null, mediaStream: null,
     noiseFloor: 0.01, maxExpectedRms: 0.3,
     smoothedScore: 0, lastFrameTime: 0, quietStreak: 0,
     roarsDone: 0, targetRoars: TARGET_ROARS_DEFAULT,
@@ -108,6 +108,7 @@ export default function LionsRoar() {
     return () => {
       cancelAnimationFrame(rafRef.current)
       if (state.audioCtx) state.audioCtx.close().catch(() => {})
+      if (state.mediaStream) state.mediaStream.getTracks().forEach(t => t.stop())
     }
   }, [])
 
@@ -182,6 +183,7 @@ export default function LionsRoar() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } })
       const AudioContextClass = window.AudioContext || window.webkitAudioContext
       const s = stateRef.current
+      s.mediaStream = stream
       s.audioCtx = new AudioContextClass()
       const source = s.audioCtx.createMediaStreamSource(stream)
       s.analyser = s.audioCtx.createAnalyser()

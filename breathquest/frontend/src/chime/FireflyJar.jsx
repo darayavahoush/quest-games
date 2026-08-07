@@ -91,7 +91,7 @@ export default function FireflyJar() {
   const [ariaMsg, setAriaMsg] = useState('')
 
   const stateRef = useRef({
-    audioCtx: null, analyser: null, timeDomainData: null,
+    audioCtx: null, analyser: null, timeDomainData: null, mediaStream: null,
     noiseFloor: 0.01,
     firefliesCaught: 0, catchThreshold: CATCH_THRESHOLD_DEFAULT,
     minPeakRms: MIN_PEAK_RMS_DEFAULT, maxExpectedPeakRms: MAX_EXPECTED_PEAK_RMS_DEFAULT,
@@ -120,6 +120,7 @@ export default function FireflyJar() {
     return () => {
       cancelAnimationFrame(rafRef.current)
       if (state.audioCtx) state.audioCtx.close().catch(() => {})
+      if (state.mediaStream) state.mediaStream.getTracks().forEach(t => t.stop())
     }
   }, [])
 
@@ -181,6 +182,7 @@ export default function FireflyJar() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } })
       const AudioContextClass = window.AudioContext || window.webkitAudioContext
       const s = stateRef.current
+      s.mediaStream = stream
       s.audioCtx = new AudioContextClass()
       const source = s.audioCtx.createMediaStreamSource(stream)
       s.analyser = s.audioCtx.createAnalyser()
