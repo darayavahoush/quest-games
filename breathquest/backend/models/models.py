@@ -76,6 +76,37 @@ class EmailVerification(Base):
     created_at:       Mapped[datetime]      = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class Subscription(Base):
+    """Billing status for a Parent or Therapist account. Exactly one of
+    owner_parent_id / owner_therapist_id is set -- matches the product
+    decision that parents pay per-child (Parent is already 1:1 with a
+    single Patient, so this is naturally per-child) and therapists pay
+    per practice/seat, as two separate plan tracks.
+
+    provider / provider_customer_id / provider_subscription_id are
+    nullable until an actual payment gateway (Razorpay/Stripe/etc.) is
+    wired in -- entitlement checks work off status + trial_ends_at /
+    current_period_end regardless of which provider eventually fills
+    those in, so gating can ship ahead of the gateway integration.
+    """
+    __tablename__ = "subscriptions"
+
+    id:                       Mapped[str]           = mapped_column(String, primary_key=True, default=new_uuid)
+    owner_parent_id:          Mapped[str | None]    = mapped_column(ForeignKey("parents.id"), nullable=True, unique=True, index=True)
+    owner_therapist_id:       Mapped[str | None]    = mapped_column(ForeignKey("therapists.id"), nullable=True, unique=True, index=True)
+    # 'parent_monthly' | 'parent_annual' | 'therapist_monthly' | 'therapist_annual'
+    plan_type:                Mapped[str]           = mapped_column(String(50), nullable=False)
+    # 'trialing' | 'active' | 'past_due' | 'canceled'
+    status:                   Mapped[str]           = mapped_column(String(20), nullable=False, default="trialing")
+    trial_ends_at:            Mapped[datetime]      = mapped_column(DateTime(timezone=True), nullable=False)
+    current_period_end:       Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    provider:                 Mapped[str | None]    = mapped_column(String(30), nullable=True)
+    provider_customer_id:     Mapped[str | None]    = mapped_column(String(255), nullable=True)
+    provider_subscription_id: Mapped[str | None]    = mapped_column(String(255), nullable=True)
+    created_at:                Mapped[datetime]     = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at:                Mapped[datetime]     = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
 class Patient(Base):
     __tablename__ = "patients"
 

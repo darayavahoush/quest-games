@@ -210,6 +210,13 @@ export const meAPI = {
 //  Parent-facing                                                      //
 // ------------------------------------------------------------------ //
 
+export const billingAPI = {
+  getSubscription:       () => api.get('/billing/subscription'),
+  getParentSubscription: () => api.get('/billing/parent-subscription'),
+  checkout:       () => api.post('/billing/checkout'),
+  parentCheckout: () => api.post('/billing/parent-checkout'),
+}
+
 export const parentAPI = {
   progress: () => api.get('/parent/progress'),
   guidedActivity: () => api.get('/parent/guided-activity'),

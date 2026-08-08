@@ -2,13 +2,13 @@
 routers/auth.py — Authentication for therapists (JWT) and kids (PIN).
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from database import get_db
-from models.models import Therapist, Patient, Parent
+from models.models import Therapist, Patient, Parent, Subscription
 from schemas.schemas import (
     TherapistRegister, TherapistLogin, TokenResponse,
     KidLoginRequest, KidTokenResponse, KidRegisterRequest,
@@ -48,6 +48,14 @@ async def register_therapist(data: TherapistRegister, db: AsyncSession = Depends
         clinic_name=data.clinic_name,
     )
     db.add(therapist)
+    await db.flush()
+
+    db.add(Subscription(
+        owner_therapist_id=therapist.id,
+        plan_type="therapist_monthly",
+        status="trialing",
+        trial_ends_at=datetime.now(timezone.utc) + timedelta(days=14),
+    ))
     await db.flush()
 
     token = create_access_token(therapist.id)
@@ -260,6 +268,14 @@ async def parent_register(data: ParentRegisterRequest, db: AsyncSession = Depend
     if data.invite_code:
         patient.parent_invite_code = None
 
+    await db.flush()
+
+    db.add(Subscription(
+        owner_parent_id=parent.id,
+        plan_type="parent_monthly",
+        status="trialing",
+        trial_ends_at=datetime.now(timezone.utc) + timedelta(days=14),
+    ))
     await db.flush()
 
     token = create_parent_token(parent.id)

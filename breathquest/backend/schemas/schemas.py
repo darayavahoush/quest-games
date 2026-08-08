@@ -518,3 +518,13 @@ class PatientAlert(BaseModel):
 #  Weekly summary (rule-based, no LLM calls)                           #
 # ------------------------------------------------------------------ #
 
+
+# ------------------------------------------------------------------ #
+#  Billing / subscription                                              #
+# ------------------------------------------------------------------ #
+
+class SubscriptionOut(BaseModel):
+    plan_type: str
+    status: str
+    trial_ends_at: datetime
+    current_period_end: datetime | None

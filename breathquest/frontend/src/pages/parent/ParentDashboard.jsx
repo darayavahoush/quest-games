@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { TrendingUp, TrendingDown, Calendar, Star, Sparkles, Heart, LogOut } from 'lucide-react'
+import { TrendingUp, TrendingDown, Calendar, Star, Sparkles, Heart, LogOut, CreditCard } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { Avatar, Card, StatCard, Sidebar } from '../../components/ui'
 import { parentAPI } from '../../api/client'
@@ -51,6 +51,7 @@ export default function ParentDashboard() {
         role="parent"
         items={[
           { label: 'Progress', icon: TrendingUp, to: '/parent/dashboard' },
+          { label: 'Billing', icon: CreditCard, to: '/parent/billing' },
         ]}
         name={(data?.child_first_name || parent?.child_first_name) ? `${data?.child_first_name || parent?.child_first_name}'s Progress` : undefined}
         onLogout={logout}

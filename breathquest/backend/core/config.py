@@ -24,6 +24,22 @@ class Settings(BaseSettings):
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
 
+    # Billing — provider-agnostic. BILLING_PROVIDER selects the
+    # implementation in core/billing_provider.py ("stub" until a real
+    # provider is picked). Credential fields below are optional and
+    # provider-specific -- only the ones matching BILLING_PROVIDER need
+    # to actually be set; switching providers is meant to be "set
+    # BILLING_PROVIDER + fill in that provider's two/three fields",
+    # not a code change.
+    BILLING_PROVIDER: str = "stub"
+    RAZORPAY_KEY_ID: str = ""
+    RAZORPAY_KEY_SECRET: str = ""
+    RAZORPAY_WEBHOOK_SECRET: str = ""
+    STRIPE_SECRET_KEY: str = ""
+    STRIPE_WEBHOOK_SECRET: str = ""
+    BILLING_SUCCESS_URL: str = "http://localhost:5173/billing/success"
+    BILLING_CANCEL_URL: str = "http://localhost:5173/billing/cancel"
+
     # App
     APP_NAME: str = "BreathQuest"
     DEBUG: bool = False

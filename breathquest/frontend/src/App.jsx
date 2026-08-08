@@ -37,6 +37,7 @@ import VoiceHurdleRace    from './voiceHurdleRace/VoiceHurdleRace'
 import ParentAuth         from './pages/parent/ParentAuth'
 import ParentDashboard    from './pages/parent/ParentDashboard'
 import Verify             from './pages/Verify'
+import Billing            from './pages/Billing'
 
 // Lets Quest Hub hand off a logged-in session by linking here with
 // ?token=&kind=&id=&name=&data= — adopts it into BreathQuest's OWN
@@ -128,6 +129,9 @@ function AppRoutes() {
       <Route path="/therapist/patients/:id/agent" element={
         <ProtectedTherapist><AgentInsight /></ProtectedTherapist>
       } />
+      <Route path="/therapist/billing" element={
+        <ProtectedTherapist><Billing role="therapist" /></ProtectedTherapist>
+      } />
 
       {/* Kid */}
       <Route path="/play" element={
@@ -192,6 +196,9 @@ function AppRoutes() {
       <Route path="/parent/login" element={<ParentAuth />} />
       <Route path="/parent/dashboard" element={
         <ProtectedParent><ParentDashboard /></ProtectedParent>
+      } />
+      <Route path="/parent/billing" element={
+        <ProtectedParent><Billing role="parent" /></ProtectedParent>
       } />
 
       <Route path="*" element={<Navigate to="/" replace />} />
