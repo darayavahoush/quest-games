@@ -41,10 +41,10 @@ export const LEVELS: LevelConfig[] = [
   {
     id: 1,
 
-    name: 'Level 1: Puppy Practice',
+    name: "Level 1: Blip's Green Plains",
 
     description:
-      'Use your voice to run and raise your pitch to jump over 3 hurdles.',
+      'Use your voice to run and raise your pitch to help Blip hop over 3 hurdles.',
 
     // Game
     duration: 30,
@@ -71,10 +71,10 @@ export const LEVELS: LevelConfig[] = [
   {
     id: 2,
 
-    name: 'Level 2: Getting Warmer',
+    name: "Level 2: Zog's Circuit Desert",
 
     description:
-      'Use stronger voice control to clear 5 hurdles.',
+      'Use stronger voice control to help Zog clear 5 hurdles.',
 
     duration: 35,
     numHurdles: 5,
@@ -97,10 +97,10 @@ export const LEVELS: LevelConfig[] = [
   {
     id: 3,
 
-    name: 'Level 3: Higher Hurdles',
+    name: "Level 3: Glorb's Swamp Moon",
 
     description:
-      'Raise your pitch higher to clear taller hurdles.',
+      'Raise your pitch higher to help Glorb clear taller hurdles.',
 
     duration: 40,
     numHurdles: 5,
@@ -123,10 +123,10 @@ export const LEVELS: LevelConfig[] = [
   {
     id: 4,
 
-    name: 'Level 4: Speed Challenge',
+    name: "Level 4: Cosmo's Red Frontier",
 
     description:
-      'Control your loudness carefully while jumping over hurdles.',
+      'Control your loudness carefully to guide Cosmo over the hurdles.',
 
     duration: 40,
     numHurdles: 6,
@@ -149,10 +149,10 @@ export const LEVELS: LevelConfig[] = [
   {
     id: 5,
 
-    name: 'Level 5: Puppy Champion',
+    name: "Level 5: Comet's Starfield",
 
     description:
-      'Master loudness and pitch to complete the final race.',
+      'Master loudness and pitch to help Comet finish the final race.',
 
     duration: 45,
     numHurdles: 7,

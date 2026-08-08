@@ -677,7 +677,7 @@ export default function VoiceHurdleRace() {
                 '0 2px 0 white',
             }}
           >
-            🐶 Puppy Voice Race
+            🛸 Alien Voice Race
           </h1>
 
           <div
@@ -720,7 +720,7 @@ export default function VoiceHurdleRace() {
           <StartPanel
             title="Ready to Race?"
             description={
-              '🔊 Louder voice = faster puppy\n🎵 Higher pitch = jump'
+              '🔊 Louder voice = run faster\n🎵 Higher pitch = jump'
             }
             buttonText={
               isStarting
@@ -2087,219 +2087,92 @@ function drawHurdle(
   ctx: CanvasRenderingContext2D,
   hurdle: Hurdle
 ) {
-  const width =
-    Math.max(
-      100,
-      hurdle.width + 45
-    );
-
-  const height =
-    hurdle.height;
+  const width = Math.max(100, hurdle.width + 45);
+  const height = hurdle.height;
+  const now = performance.now();
 
   let rotation = 0;
-
   let drop = 0;
-
   let alpha = 1;
 
-
-  /* HIT/FALL ANIMATION */
-
-  if (
-    hurdle.isHit &&
-    hurdle.hitTime !== null
-  ) {
-    const elapsed =
-      performance.now() -
-      hurdle.hitTime;
-
-    const progress =
-      Math.min(
-        1,
-        elapsed / 600
-      );
-
-    rotation =
-      progress * 1.12;
-
-    drop =
-      progress * 18;
-
-    alpha =
-      Math.max(
-        0.55,
-        1 -
-          progress * 0.35
-      );
+  /* HIT/FALL ANIMATION — unchanged mechanics, same as the original hurdle */
+  if (hurdle.isHit && hurdle.hitTime !== null) {
+    const elapsed = now - hurdle.hitTime;
+    const progress = Math.min(1, elapsed / 600);
+    rotation = progress * 1.12;
+    drop = progress * 18;
+    alpha = Math.max(0.55, 1 - progress * 0.35);
   }
 
-
   ctx.save();
-
-  ctx.globalAlpha =
-    alpha;
-
-  /*
-   * Bottom centre becomes rotation point.
-   */
-
-  ctx.translate(
-    hurdle.x +
-      width / 2,
-    hurdle.y + drop
-  );
-
-  ctx.rotate(
-    rotation
-  );
-
-  ctx.translate(
-    -width / 2,
-    -height
-  );
-
+  ctx.globalAlpha = alpha;
+  ctx.translate(hurdle.x + width / 2, hurdle.y + drop);
+  ctx.rotate(rotation);
+  ctx.translate(-width / 2, -height);
 
   /* GROUND SHADOW */
-
-  ctx.fillStyle =
-    'rgba(80,40,20,.2)';
-
+  ctx.fillStyle = 'rgba(0,0,0,.28)';
   ctx.beginPath();
-
-  ctx.ellipse(
-    width / 2,
-    height + 7,
-    width / 2,
-    9,
-    0,
-    0,
-    Math.PI * 2
-  );
-
+  ctx.ellipse(width / 2, height + 7, width / 2, 9, 0, 0, Math.PI * 2);
   ctx.fill();
 
+  /* PYLONS — crystal posts instead of legs, each with a glowing core */
+  const pylonW = 14;
+  for (const px of [8, width - 8 - pylonW]) {
+    const pylonGrad = ctx.createLinearGradient(px, 0, px + pylonW, 0);
+    pylonGrad.addColorStop(0, '#1a1f3a');
+    pylonGrad.addColorStop(0.5, '#3a4a7a');
+    pylonGrad.addColorStop(1, '#1a1f3a');
+    roundRect(ctx, px, 10, pylonW, height, 5);
+    ctx.fillStyle = pylonGrad;
+    ctx.fill();
 
-  /* LEGS */
+    // Pulsing crystal core inside each pylon
+    const pulse = 0.6 + Math.sin(now / 260 + px) * 0.4;
+    ctx.save();
+    ctx.globalAlpha = alpha * pulse;
+    ctx.beginPath();
+    ctx.ellipse(px + pylonW / 2, height * 0.55, 3.5, height * 0.32, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#7fe8ff';
+    ctx.fill();
+    ctx.restore();
+  }
 
-  ctx.fillStyle =
-    '#fff4d7';
+  /* ENERGY FIELD BAR — the part actually jumped over, pulsing gradient */
+  const barGlow = 0.75 + Math.sin(now / 200) * 0.25;
+  const barGrad = ctx.createLinearGradient(0, 0, width, 0);
+  barGrad.addColorStop(0, '#5b6bff');
+  barGrad.addColorStop(0.5, '#7fe8ff');
+  barGrad.addColorStop(1, '#c77fff');
 
-  roundRect(
-    ctx,
-    9,
-    14,
-    15,
-    height,
-    5
-  );
-
+  ctx.save();
+  ctx.globalAlpha = alpha * barGlow;
+  ctx.shadowColor = '#7fe8ff';
+  ctx.shadowBlur = 12;
+  roundRect(ctx, 6, 4, width - 12, 16, 8);
+  ctx.fillStyle = barGrad;
   ctx.fill();
+  ctx.restore();
 
-  roundRect(
-    ctx,
-    width - 24,
-    14,
-    15,
-    height,
-    5
-  );
-
+  // Thin bright core line through the middle of the energy bar
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = 'rgba(255,255,255,.75)';
+  roundRect(ctx, 10, 9, width - 20, 4, 2);
   ctx.fill();
+  ctx.restore();
 
-
-  /* LEG SHADOW */
-
-  ctx.fillStyle =
-    '#d9c9a5';
-
-  ctx.fillRect(
-    14,
-    48,
-    5,
-    Math.max(
-      10,
-      height - 35
-    )
-  );
-
-  ctx.fillRect(
-    width - 19,
-    48,
-    5,
-    Math.max(
-      10,
-      height - 35
-    )
-  );
-
-
-  /* TOP BAR */
-
-  ctx.fillStyle =
-    '#ef4444';
-
-  roundRect(
-    ctx,
-    0,
-    0,
-    width,
-    22,
-    7
-  );
-
-  ctx.fill();
-
-
-  /* LOWER BAR */
-
-  ctx.fillStyle =
-    '#ef4444';
-
-  roundRect(
-    ctx,
-    4,
-    34,
-    width - 8,
-    17,
-    6
-  );
-
-  ctx.fill();
-
-
-  /* WHITE STRIPES */
-
-  ctx.fillStyle =
-    '#fff9e9';
-
-  ctx.fillRect(
-    21,
-    1,
-    22,
-    20
-  );
-
-  ctx.fillRect(
-    66,
-    1,
-    22,
-    20
-  );
-
-  ctx.fillRect(
-    28,
-    35,
-    21,
-    15
-  );
-
-  ctx.fillRect(
-    72,
-    35,
-    20,
-    15
-  );
-
+  /* Small drifting spark particles along the bar */
+  for (let i = 0; i < 4; i++) {
+    const t = (now / 900 + i / 4) % 1;
+    ctx.save();
+    ctx.globalAlpha = alpha * (1 - Math.abs(t - 0.5) * 1.6);
+    ctx.beginPath();
+    ctx.arc(10 + t * (width - 20), 12, 2, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.restore();
+  }
 
   ctx.restore();
 }
@@ -2935,6 +2808,132 @@ function drawDog(
   ctx.restore();
 }
 
+
+
+function drawBlip(
+  ctx: CanvasRenderingContext2D,
+  state: GameState
+) {
+  const x = state.puppyX;
+  const y = state.puppyY;
+  const now = performance.now();
+
+  const moving =
+    state.puppySpeed > 0 &&
+    !state.isJumping &&
+    !state.isStumbling;
+
+  // Blip has no legs -- it hops. Squash-and-stretch on the ground,
+  // a single-bounce arc while moving, replaces a walk cycle entirely.
+  const hopPhase = moving
+    ? Math.sin(now / Math.max(60, 160 - state.puppySpeed * 20))
+    : 0;
+  const hopHeight = moving ? Math.max(0, hopPhase) * 10 : 0;
+  const squash = moving ? 1 - Math.max(0, -hopPhase) * 0.18 : 1;
+  const stretch = 1 / squash;
+
+  const stumbleProgress = state.isStumbling
+    ? Math.min(1, (now - state.stumbleStartedAt) / 650)
+    : 0;
+  const wobble = state.isStumbling
+    ? Math.sin(stumbleProgress * Math.PI * 3) * (1 - stumbleProgress) * 0.35
+    : 0;
+
+  // While airborne, Blip tucks into a tighter ball and spins slightly --
+  // reads clearly as "jumping" from a side-on race view.
+  const jumpSpin = state.isJumping ? Math.sin(now / 90) * 0.12 : 0;
+  const jumpTuck = state.isJumping ? 0.9 : 1;
+
+  const drawY = y - hopHeight;
+  const bodyW = 34 * stretch * jumpTuck;
+  const bodyH = 30 * squash * jumpTuck;
+
+  ctx.save();
+  ctx.translate(x, drawY);
+  ctx.rotate(wobble + jumpSpin);
+
+  // Soft ground shadow -- helps hop height read clearly.
+  ctx.save();
+  ctx.globalAlpha = 0.25 * (1 - hopHeight / 14);
+  ctx.beginPath();
+  ctx.ellipse(0, 20, 16, 4, 0, 0, Math.PI * 2);
+  ctx.fillStyle = '#000000';
+  ctx.fill();
+  ctx.restore();
+
+  // Antenna -- bobs opposite the hop for a little life.
+  const antennaSway = moving ? -hopPhase * 0.4 : Math.sin(now / 500) * 0.15;
+  ctx.save();
+  ctx.translate(0, -bodyH * 0.55);
+  ctx.rotate(antennaSway);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(0, -14);
+  ctx.strokeStyle = '#2fae3f';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+  const glow = ctx.createRadialGradient(0, -16, 0, 0, -16, 5);
+  glow.addColorStop(0, '#ccff8a');
+  glow.addColorStop(1, '#7fe85a');
+  ctx.beginPath();
+  ctx.arc(0, -16, 4, 0, Math.PI * 2);
+  ctx.fillStyle = glow;
+  ctx.fill();
+  ctx.restore();
+
+  // Body -- round blob, gradient for a soft glossy feel.
+  const bodyGrad = ctx.createRadialGradient(-8, -8, 4, 0, 0, bodyW);
+  bodyGrad.addColorStop(0, '#a4f57e');
+  bodyGrad.addColorStop(0.6, '#5fd44a');
+  bodyGrad.addColorStop(1, '#3aa832');
+  ctx.beginPath();
+  ctx.ellipse(0, 0, bodyW, bodyH, 0, 0, Math.PI * 2);
+  ctx.fillStyle = bodyGrad;
+  ctx.fill();
+
+  // Big cartoon eyes -- the main "relatable/friendly" signal.
+  const eyeY = -bodyH * 0.12;
+  const blink = Math.sin(now / 1800) > 0.97 ? 0.15 : 1;
+  for (const side of [-1, 1]) {
+    ctx.save();
+    ctx.translate(side * bodyW * 0.32, eyeY);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 8, 9 * blink, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    if (blink > 0.5) {
+      ctx.beginPath();
+      ctx.arc(side * 1.5, 1.5, 4.2, 0, Math.PI * 2);
+      ctx.fillStyle = '#173a17';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(side * 1.5 - 1.2, 0, 1.3, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // Small smile -- reads even at race speed/size.
+  ctx.beginPath();
+  ctx.arc(0, bodyH * 0.25, 6, 0.15 * Math.PI, 0.85 * Math.PI);
+  ctx.strokeStyle = '#1f5c22';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Two little stub feet -- just enough ground contact to not look like
+  // it's floating, without a full leg-articulation system.
+  if (!state.isJumping) {
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(side * bodyW * 0.4, bodyH * squash - 2, 6, 4, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#3aa832';
+      ctx.fill();
+    }
+  }
+
+  ctx.restore();
+}
 
 
 function drawBunny(
@@ -5442,18 +5441,16 @@ function drawCreature(
   creature: CreatureType
 ) {
   switch (creature) {
-    case 'bunny':
-      drawBunny(ctx, state);
+    case 'blip':
+      drawBlip(ctx, state);
       return;
-    case 'fox':
-      drawFox(ctx, state);
-      return;
-    case 'dragon':
-      drawDragon(ctx, state);
-      return;
-    case 'unicorn':
-      drawUnicorn(ctx, state);
-      return;
+    // TODO: zog/glorb/cosmo/comet are placeholders -- temporarily
+    // reusing drawDog so the build stays green while each alien gets
+    // built one at a time and checked in-browser before moving on.
+    case 'zog':
+    case 'glorb':
+    case 'cosmo':
+    case 'comet':
     default:
       drawDog(ctx, state);
       return;

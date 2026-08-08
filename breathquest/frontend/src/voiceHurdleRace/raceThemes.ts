@@ -1,12 +1,12 @@
 /**
  * Voice Hurdle Race — visual themes per level.
  *
- * Level 1 keeps the original pixel-identical look (Puppy Practice).
- * Levels 2-5 get a distinct world + companion creature so the
- * race feels like a real progression, not a re-skin.
+ * Each level is a distinct alien planet with its own companion
+ * creature, so progression feels like traveling further into space,
+ * not a re-skin of the same world.
  */
 
-export type CreatureType = 'dog' | 'bunny' | 'fox' | 'dragon' | 'unicorn';
+export type CreatureType = 'blip' | 'zog' | 'glorb' | 'cosmo' | 'comet';
 
 export interface RaceTheme {
   creature: CreatureType;
@@ -52,152 +52,152 @@ export interface RaceTheme {
 }
 
 export const THEMES: Record<number, RaceTheme> = {
-  // Level 1 — Puppy Practice (original look, untouched)
+  // Level 1 — Blip / Green Crater Plains (soft lime, friendly)
   1: {
-    creature: 'dog',
-    sky: { top: '#55c8ff', mid: '#c3efff', bottom: '#f0fbff' },
-    mountain: { fill: '#79add1', snow: 'rgba(245,252,255,.75)' },
-    hills: '#72d178',
+    creature: 'blip',
+    sky: { top: '#2a1a5e', mid: '#5b3a9e', bottom: '#a685d6' },
+    mountain: { fill: '#4a3577', snow: 'rgba(200,255,210,.55)' },
+    hills: '#3d8a5c',
     tree: {
-      trunk: '#855126',
-      top: '#279b47',
-      highlight: '#4fc45d',
-      fruit: '#ef4444',
+      trunk: '#6b4a8a',
+      top: '#5fd48a',
+      highlight: '#8ef0ae',
+      fruit: '#baff5c',
     },
-    grassDetail: 'rgba(25,130,55,.45)',
+    grassDetail: 'rgba(90,220,140,.4)',
     road: {
-      grassEdge: '#48ad49',
-      gradientTop: '#e5aa65',
-      gradientMid: '#c98447',
-      gradientBottom: '#9d542e',
-      highlight: 'rgba(255,225,170,.5)',
-      detail1: 'rgba(255,230,185,.28)',
-      detail2: 'rgba(100,50,25,.12)',
+      grassEdge: '#3d8a5c',
+      gradientTop: '#8a6ac4',
+      gradientMid: '#6a4a9e',
+      gradientBottom: '#4a3277',
+      highlight: 'rgba(200,255,220,.4)',
+      detail1: 'rgba(180,255,200,.25)',
+      detail2: 'rgba(30,15,55,.2)',
     },
     flowers: {
-      stem: '#238c3b',
-      petalA: '#f472b6',
-      petalB: '#a855f7',
-      center: '#fde047',
+      stem: '#3d8a5c',
+      petalA: '#baff5c',
+      petalB: '#5fd48a',
+      center: '#fef9c3',
     },
   },
 
-  // Level 2 — Bunny / Spring Meadow (soft pinks, mint greens)
+  // Level 2 — Zog / Chrome Circuit Desert (orange-teal, techy)
   2: {
-    creature: 'bunny',
-    sky: { top: '#a8e6ff', mid: '#d9f5f0', bottom: '#fef6fb' },
-    mountain: { fill: '#b9a8d4', snow: 'rgba(255,250,253,.8)' },
-    hills: '#a3e6b8',
+    creature: 'zog',
+    sky: { top: '#7a2e2e', mid: '#c65d3a', bottom: '#ffb066' },
+    mountain: { fill: '#5a3a3a', snow: 'rgba(255,220,180,.5)' },
+    hills: '#3a5a5a',
     tree: {
-      trunk: '#8a6a4a',
-      top: '#f9a8d4',
-      highlight: '#fbcfe8',
-      fruit: '#fda4af',
+      trunk: '#4a3a3a',
+      top: '#2fbfae',
+      highlight: '#5fe8d6',
+      fruit: '#ffcc4a',
     },
-    grassDetail: 'rgba(180,120,170,.4)',
+    grassDetail: 'rgba(50,190,175,.4)',
     road: {
-      grassEdge: '#7ed99a',
-      gradientTop: '#f0c8dc',
-      gradientMid: '#dba3c0',
-      gradientBottom: '#b97fa0',
-      highlight: 'rgba(255,240,250,.5)',
-      detail1: 'rgba(255,235,245,.3)',
-      detail2: 'rgba(120,60,100,.12)',
+      grassEdge: '#3a5a5a',
+      gradientTop: '#d67a4a',
+      gradientMid: '#a8502e',
+      gradientBottom: '#6e2f1a',
+      highlight: 'rgba(255,210,160,.45)',
+      detail1: 'rgba(255,200,150,.28)',
+      detail2: 'rgba(40,15,10,.2)',
     },
     flowers: {
-      stem: '#4ade80',
-      petalA: '#fbcfe8',
-      petalB: '#c4b5fd',
-      center: '#fef08a',
+      stem: '#2fbfae',
+      petalA: '#ffcc4a',
+      petalB: '#5fe8d6',
+      center: '#fff4d6',
     },
   },
 
-  // Level 3 — Fox / Autumn Forest (burnt orange, gold)
+  // Level 3 — Glorb / Bioluminescent Swamp Moon (deep purple, glowy)
   3: {
-    creature: 'fox',
-    sky: { top: '#ffb066', mid: '#ffd9a0', bottom: '#fff3dc' },
-    mountain: { fill: '#c17a4a', snow: 'rgba(255,240,220,.6)' },
-    hills: '#b8862f',
+    creature: 'glorb',
+    sky: { top: '#1a0f3d', mid: '#3a1f6e', bottom: '#6b3fa0' },
+    mountain: { fill: '#2a1a4a', snow: 'rgba(180,255,240,.4)' },
+    hills: '#2f4a3a',
     tree: {
-      trunk: '#6b3f1f',
-      top: '#d97706',
-      highlight: '#f59e0b',
-      fruit: '#dc2626',
+      trunk: '#3a2a52',
+      top: '#3fd6a8',
+      highlight: '#7fffd4',
+      fruit: '#ff6ec7',
     },
-    grassDetail: 'rgba(146,90,30,.45)',
+    grassDetail: 'rgba(63,214,168,.45)',
     road: {
-      grassEdge: '#a86a2e',
-      gradientTop: '#e0a35e',
-      gradientMid: '#b8763b',
-      gradientBottom: '#8a4f22',
-      highlight: 'rgba(255,220,160,.5)',
-      detail1: 'rgba(255,210,150,.28)',
-      detail2: 'rgba(80,40,15,.15)',
+      grassEdge: '#2f4a3a',
+      gradientTop: '#5a3a8a',
+      gradientMid: '#3f2566',
+      gradientBottom: '#241645',
+      highlight: 'rgba(150,255,230,.35)',
+      detail1: 'rgba(130,255,220,.22)',
+      detail2: 'rgba(15,10,30,.25)',
     },
     flowers: {
-      stem: '#92400e',
-      petalA: '#fbbf24',
-      petalB: '#f97316',
-      center: '#fef3c7',
-    },
-  },
-
-  // Level 4 — Baby Dragon / Misty Dusk Mountains (purple-teal, moody)
-  4: {
-    creature: 'dragon',
-    sky: { top: '#4c3a70', mid: '#6b5b8f', bottom: '#9c8fb5' },
-    mountain: { fill: '#4a3a5e', snow: 'rgba(200,220,230,.5)' },
-    hills: '#2f6b5e',
-    tree: {
-      trunk: '#3f2a4a',
-      top: '#1f7a6e',
-      highlight: '#2fae9c',
-      fruit: '#a855f7',
-    },
-    grassDetail: 'rgba(80,150,140,.4)',
-    road: {
-      grassEdge: '#235c4f',
-      gradientTop: '#6b5580',
-      gradientMid: '#4a3d63',
-      gradientBottom: '#302847',
-      highlight: 'rgba(190,170,220,.4)',
-      detail1: 'rgba(180,160,210,.25)',
-      detail2: 'rgba(30,20,45,.2)',
-    },
-    flowers: {
-      stem: '#2f6b5e',
-      petalA: '#a855f7',
-      petalB: '#38bdf8',
+      stem: '#3fd6a8',
+      petalA: '#ff6ec7',
+      petalB: '#7fffd4',
       center: '#e9d5ff',
     },
   },
 
-  // Level 5 — Unicorn / Dreamy Aurora Meadow (lavender-pink-gold)
-  5: {
-    creature: 'unicorn',
-    sky: { top: '#c4b5fd', mid: '#f9d5e5', bottom: '#fff8e7' },
-    mountain: { fill: '#a78bda', snow: 'rgba(255,250,240,.8)' },
-    hills: '#f4b8d6',
+  // Level 4 — Cosmo / Red Rock Frontier (mars-red, dusty)
+  4: {
+    creature: 'cosmo',
+    sky: { top: '#3a1010', mid: '#7a2e1e', bottom: '#c96b3a' },
+    mountain: { fill: '#5a2a1a', snow: 'rgba(255,200,170,.4)' },
+    hills: '#6e3520',
     tree: {
-      trunk: '#7c5a8a',
-      top: '#e879f9',
-      highlight: '#f0abfc',
-      fruit: '#fbbf24',
+      trunk: '#4a2515',
+      top: '#8a4a2a',
+      highlight: '#c96b3a',
+      fruit: '#ffd54a',
     },
-    grassDetail: 'rgba(200,150,220,.4)',
+    grassDetail: 'rgba(160,80,50,.4)',
     road: {
-      grassEdge: '#d8a8dd',
-      gradientTop: '#fde3f0',
-      gradientMid: '#f0c1e0',
-      gradientBottom: '#dba0cf',
-      highlight: 'rgba(255,250,255,.55)',
-      detail1: 'rgba(255,245,255,.3)',
-      detail2: 'rgba(140,90,150,.12)',
+      grassEdge: '#6e3520',
+      gradientTop: '#a85a35',
+      gradientMid: '#7a3a1f',
+      gradientBottom: '#4a2210',
+      highlight: 'rgba(255,190,150,.4)',
+      detail1: 'rgba(255,180,140,.25)',
+      detail2: 'rgba(30,12,5,.25)',
     },
     flowers: {
-      stem: '#c084fc',
-      petalA: '#fde047',
-      petalB: '#67e8f9',
+      stem: '#8a4a2a',
+      petalA: '#ffd54a',
+      petalB: '#ff8a5c',
+      center: '#fff4d6',
+    },
+  },
+
+  // Level 5 — Comet / Starfield Finish Line (deep space navy, sparkly)
+  5: {
+    creature: 'comet',
+    sky: { top: '#05061a', mid: '#131b4a', bottom: '#3a3f8a' },
+    mountain: { fill: '#1a1f4a', snow: 'rgba(220,230,255,.6)' },
+    hills: '#20265a',
+    tree: {
+      trunk: '#2a2f6a',
+      top: '#5a6aff',
+      highlight: '#9fb0ff',
+      fruit: '#ffe94a',
+    },
+    grassDetail: 'rgba(150,170,255,.4)',
+    road: {
+      grassEdge: '#20265a',
+      gradientTop: '#4a4f9e',
+      gradientMid: '#2f3370',
+      gradientBottom: '#181c45',
+      highlight: 'rgba(220,230,255,.45)',
+      detail1: 'rgba(200,215,255,.3)',
+      detail2: 'rgba(10,10,30,.25)',
+    },
+    flowers: {
+      stem: '#5a6aff',
+      petalA: '#ffe94a',
+      petalB: '#9fb0ff',
       center: '#ffffff',
     },
   },
