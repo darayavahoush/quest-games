@@ -14,6 +14,16 @@ class Settings(BaseSettings):
     # Kid session tokens (simpler, longer-lived)
     KID_TOKEN_EXPIRE_DAYS: int = 30
 
+    # Email (OTP verification) — Gmail SMTP with an app password. See
+    # routers/verify.py / core/email.py. Not required at startup: if unset,
+    # /verify/request will fail loudly with a clear error rather than the
+    # app refusing to boot, same tolerance-for-missing-optional-config
+    # pattern as ASSESSMENT_SERVICE_API_KEY elsewhere in this codebase.
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+
     # App
     APP_NAME: str = "BreathQuest"
     DEBUG: bool = False

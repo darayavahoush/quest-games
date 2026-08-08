@@ -51,6 +51,31 @@ class Therapist(Base):
     patients: Mapped[list["Patient"]] = relationship(back_populates="therapist", cascade="all, delete-orphan")
 
 
+class EmailVerification(Base):
+    """OTP-gate in front of both the Assessment and quest-games entry
+    points (public landing page's "Start Assessment"/"Start Trial"
+    buttons) — deliberately NOT tied to either app's actual patient/
+    therapist account models, which are still two separate, incompatible
+    systems (see assessment_patient_id above). This just answers "have we
+    verified this email before" so a first-time visitor gets sent to
+    Assessment's registration flow and a returning one skips straight to
+    /play-select, without needing those two account systems merged first.
+    """
+    __tablename__ = "email_verifications"
+
+    id:               Mapped[str]           = mapped_column(String, primary_key=True, default=new_uuid)
+    email:            Mapped[str]           = mapped_column(String(255), nullable=False, index=True)
+    # Hashed, not plaintext — same reasoning as Patient.pin_hash. A 6-digit
+    # code is low-entropy, so this also gets a short expiry + attempt cap
+    # (enforced in routers/verify.py) rather than relying on hash strength
+    # alone.
+    otp_code_hash:    Mapped[str]           = mapped_column(String(64), nullable=False)
+    expires_at:       Mapped[datetime]      = mapped_column(DateTime(timezone=True), nullable=False)
+    attempts:         Mapped[int]           = mapped_column(Integer, default=0)
+    verified:         Mapped[bool]          = mapped_column(Boolean, default=False)
+    created_at:       Mapped[datetime]      = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class Patient(Base):
     __tablename__ = "patients"
 

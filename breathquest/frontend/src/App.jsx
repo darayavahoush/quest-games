@@ -36,6 +36,7 @@ import RequireLevelUnlocked from './chime/lib/RequireLevelUnlocked'
 import VoiceHurdleRace    from './voiceHurdleRace/VoiceHurdleRace'
 import ParentAuth         from './pages/parent/ParentAuth'
 import ParentDashboard    from './pages/parent/ParentDashboard'
+import Verify             from './pages/Verify'
 
 // Lets Quest Hub hand off a logged-in session by linking here with
 // ?token=&kind=&id=&name=&data= — adopts it into BreathQuest's OWN
@@ -104,9 +105,13 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<AgentiLanding onStart={(target) => window.location.assign(
-        target === 'dashboard' ? '/dashboard' : target === 'patients' ? '/patients' : '/play-select'
+        target === 'dashboard' ? '/dashboard'
+          : target === 'patients' ? '/patients'
+          : target.startsWith('play-select') ? `/${target}`  // preserves ?mode=signin, if present
+          : '/play-select'
       )} />} />
       <Route path="/play-select" element={<PlaySelect />} />
+      <Route path="/verify" element={<Verify />} />
       <Route path="/dashboard" element={<AgentiDashboard />} />
       <Route path="/patients" element={<AgentiPatients />} />
 

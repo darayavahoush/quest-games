@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Stethoscope, Heart, Sparkles, ArrowRight, Volume2 } from 'lucide-react'
 import { Avatar } from '../components/ui'
 import { speak } from '../lib/speech'
@@ -39,6 +39,12 @@ function BreathBuddy() {
 
 export default function Landing() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  // Reached via "Sign in" (already-registered users) -- skip the email
+  // verification hop and go straight to the role's real login page.
+  // Reached via "Start Assessment" (default) -- go through /verify first.
+  const isSignIn = searchParams.get('mode') === 'signin'
+  const routeFor = (dest) => isSignIn ? dest : `/verify?dest=${dest}`
   // Manual tap-to-hear only, no auto-play — see Play.jsx for why nav/menu
   // screens don't auto-speak while the actual games still do.
   const replayTagline = () => speak(
@@ -98,7 +104,7 @@ export default function Landing() {
 
       <div className="flex flex-col sm:flex-row gap-5 w-full max-w-3xl relative z-10">
         <button
-          onClick={() => navigate('/play')}
+          onClick={() => navigate(routeFor('/play'))}
           className="flex-1 group relative overflow-hidden rounded-[2rem] p-8 text-center
                      bg-gradient-to-br from-ember/20 to-dusk-mid/50 backdrop-blur-sm border-2 border-ember/25
                      hover:border-ember/60 hover:-translate-y-1 hover:shadow-2xl hover:shadow-ember/20
@@ -122,7 +128,7 @@ export default function Landing() {
         </button>
 
         <button
-          onClick={() => navigate('/therapist/login')}
+          onClick={() => navigate(routeFor('/therapist/login'))}
           className="flex-1 group relative overflow-hidden rounded-[2rem] p-8 text-center
                      bg-gradient-to-br from-mint/15 to-dusk-mid/50 backdrop-blur-sm border-2 border-mint/25
                      hover:border-mint/60 hover:-translate-y-1 hover:shadow-2xl hover:shadow-mint/20
@@ -144,7 +150,7 @@ export default function Landing() {
         </button>
 
         <button
-          onClick={() => navigate('/parent/login')}
+          onClick={() => navigate(routeFor('/parent/login'))}
           className="flex-1 group relative overflow-hidden rounded-[2rem] p-8 text-center
                      bg-gradient-to-br from-coral/15 to-dusk-mid/50 backdrop-blur-sm border-2 border-coral/25
                      hover:border-coral/60 hover:-translate-y-1 hover:shadow-2xl hover:shadow-coral/20

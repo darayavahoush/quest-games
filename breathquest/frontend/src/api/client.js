@@ -80,6 +80,11 @@ api.interceptors.response.use(
 //  Auth                                                                //
 // ------------------------------------------------------------------ //
 
+export const verifyAPI = {
+  request: (data) => api.post('/verify/request', data),
+  confirm: (data) => api.post('/verify/confirm', data),
+}
+
 export const authAPI = {
   register: (data) => api.post('/auth/register', data),
   login:    (data) => api.post('/auth/login', data),

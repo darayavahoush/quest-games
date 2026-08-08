@@ -245,6 +245,20 @@ class PatientUpdate(BaseModel):
     is_active: bool | None = None
 
 
+class VerifyRequestIn(BaseModel):
+    email: EmailStr
+
+
+class VerifyConfirmIn(BaseModel):
+    email: EmailStr
+    code: str
+
+
+class VerifyConfirmOut(BaseModel):
+    verified: bool
+    first_time: bool
+
+
 class PatientOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

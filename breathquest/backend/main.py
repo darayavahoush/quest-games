@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from core.config import get_settings
 from database import create_tables
-from routers import auth, patients, sessions, dashboard, chime, voicehurdlerace, parent, kid_progress, breath_agent
+from routers import auth, patients, sessions, dashboard, chime, voicehurdlerace, parent, kid_progress, breath_agent, verify
 try:
     from vaakmirror.routers import sessions as vm_sessions, dashboard as vm_dashboard, exercises as vm_exercises, game_settings as vm_game_settings
     _VAAKMIRROR_IMPORT_ERROR = None
@@ -60,6 +60,7 @@ app.include_router(breath_agent.router, prefix="/api/v1")
 app.include_router(voicehurdlerace.router, prefix="/api/v1")
 app.include_router(parent.router,     prefix="/api/v1")
 app.include_router(kid_progress.router, prefix="/api/v1")
+app.include_router(verify.router,       prefix="/api/v1")
 
 # VaakMirror routers — namespaced so nothing collides with BreathQuest's
 # own /sessions, /dashboard routes above (both had prefix-less "/sessions"
