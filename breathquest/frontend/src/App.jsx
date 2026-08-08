@@ -2,7 +2,13 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { PageLoader } from './components/ui'
 
-import Landing            from './pages/Landing'
+import PlaySelect         from './pages/Landing'  // quest-games' original kid/therapist/parent
+                                                        // chooser -- renamed at the import site only;
+                                                        // moved off "/" to make room for agenti_ai's
+                                                        // Landing there instead (see routes below)
+import { Landing as AgentiLanding } from './agenti/Landing'
+import AgentiDashboard    from './agenti/Dashboard'
+import AgentiPatients     from './agenti/Patients'
 import TherapistLogin     from './pages/therapist/Login'
 import TherapistDashboard from './pages/therapist/Dashboard'
 import PatientDetail      from './pages/therapist/PatientDetail'
@@ -97,7 +103,12 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/" element={<Landing />} />
+      <Route path="/" element={<AgentiLanding onStart={(target) => window.location.assign(
+        target === 'dashboard' ? '/dashboard' : target === 'patients' ? '/patients' : '/play-select'
+      )} />} />
+      <Route path="/play-select" element={<PlaySelect />} />
+      <Route path="/dashboard" element={<AgentiDashboard />} />
+      <Route path="/patients" element={<AgentiPatients />} />
 
       {/* Therapist */}
       <Route path="/therapist/login" element={
