@@ -49,6 +49,37 @@ def _get(url: str):
         return None
 
 
+def _post(url: str, payload: dict):
+    """Counterpart to _get for writes -- deliberately NOT run through
+    _cached (see get_therapist_candidates/get_kid_candidates below), since
+    caching a create call would silently swallow subsequent creates.
+    Returns (result_dict_or_None, error_detail_or_None) -- unlike _get,
+    callers of this need to distinguish "unreachable/failed" from "worked",
+    not just degrade to an empty default, since a failed patient-creation
+    call must surface as a real error to the therapist, not silently no-op."""
+    if not ASSESSMENT_SERVICE_API_KEY:
+        return None, "ASSESSMENT_SERVICE_API_KEY not configured"
+
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        url, data=data, method="POST",
+        headers={"X-API-Key": ASSESSMENT_SERVICE_API_KEY, "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT_SECONDS) as resp:
+            return json.loads(resp.read().decode("utf-8")), None
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        logger.warning("Assessment service returned HTTP %s for POST %s: %s", exc.code, url, body)
+        return None, f"Assessment service error ({exc.code}): {body}"
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        logger.warning("Assessment service unreachable for POST %s: %s", url, exc)
+        return None, "Assessment service unreachable"
+    except (ValueError, json.JSONDecodeError) as exc:
+        logger.warning("Malformed response from Assessment service for POST %s: %s", url, exc)
+        return None, "Malformed response from Assessment service"
+
+
 def _cached(key: str, fetch_fn):
     now = time.monotonic()
     with _cache_lock:
@@ -77,6 +108,46 @@ def get_kid_candidates() -> list[dict]:
 def get_assessment_patient(patient_id: str):
     url = f"{ASSESSMENT_SERVICE_URL.rstrip('/')}/assessment/patients/{patient_id}"
     return _get(url)
+
+
+def create_assessment_patient(therapist_email: str, name: str, age: int | None = None,
+                               diagnosis: str | None = None,
+                               max_attempts: int = 3) -> tuple[str | None, str | None]:
+    """Creates the real, Assessment-origin patient record -- called by
+    routers/patients.py's create_patient so a BreathQuest 'Add Patient'
+    action originates the patient_id in Assessment rather than creating a
+    second, disconnected BreathQuest-only patient (see the 2026-08-10
+    branch note). Returns (assessment_patient_id, error_message) -- exactly
+    one will be None.
+
+    Retries on transient "unreachable" failures only (max_attempts, short
+    backoff) -- this runs inside asyncio.to_thread from routers/patients.py,
+    so a blocking sleep here doesn't stall the event loop. Does NOT retry on
+    a real HTTP error response from Assessment -- that means Assessment is
+    up and rejecting the request, so retrying just delays an inevitable
+    failure instead of recovering from one."""
+    import time
+
+    url = f"{ASSESSMENT_SERVICE_URL.rstrip('/')}/assessment/patients"
+    payload = {
+        "name": name, "therapist_email": therapist_email,
+        "age": age, "diagnosis": diagnosis,
+    }
+    last_error = None
+    for attempt in range(1, max_attempts + 1):
+        result, error = _post(url, payload)
+        if result is not None:
+            return result.get("id"), None
+        last_error = error
+        if error != "Assessment service unreachable":
+            return None, error
+        if attempt < max_attempts:
+            logger.warning(
+                "Assessment service unreachable creating patient (attempt %s/%s), retrying...",
+                attempt, max_attempts,
+            )
+            time.sleep(0.5 * attempt)
+    return None, last_error
 
 
 def invalidate_cache():

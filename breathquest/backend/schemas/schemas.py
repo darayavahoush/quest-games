@@ -269,6 +269,7 @@ class PatientOut(BaseModel):
     is_active: bool
     created_at: datetime
     player_code: str
+    assessment_patient_id: str | None = None
     # Note: diagnosis_notes and pin_hash are NOT exposed here (therapist-only)
 
 

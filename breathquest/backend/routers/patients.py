@@ -2,6 +2,8 @@
 routers/patients.py — Patient management (therapist-only).
 """
 
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -13,6 +15,7 @@ from schemas.schemas import PatientCreate, PatientUpdate, PatientOut, PatientDet
 from core.security import hash_pin, generate_unique_player_code
 from core.deps import get_current_therapist
 from core.security import generate_invite_code
+from core import assessment_client
 
 router = APIRouter(prefix="/patients", tags=["patients"])
 
@@ -23,6 +26,29 @@ async def create_patient(
     therapist: Therapist = Depends(get_current_therapist),
     db: AsyncSession = Depends(get_db),
 ):
+    # 2026-08-10: patient_id now originates in Assessment, not here -- a
+    # BreathQuest-only patient with no assessment_patient_id is exactly the
+    # disconnected-identity bug this branch exists to fix (see routers/
+    # therapist_patients.py in agenti_ai and core/assessment_client.py's
+    # create_assessment_patient). Fails loudly (503) rather than silently
+    # falling back to the old disconnected behavior if Assessment is
+    # unreachable -- a therapist should know their patient wasn't really
+    # created, not get a patient that looks fine but has no diagnostic
+    # linkage.
+    #
+    # asyncio.to_thread: create_assessment_patient does blocking urllib I/O
+    # -- calling it directly here would reintroduce the exact class of bug
+    # already fixed once across this backend (see git log d2afa76).
+    assessment_patient_id, error = await asyncio.to_thread(
+        assessment_client.create_assessment_patient,
+        therapist.email, data.first_name, data.age, data.diagnosis_notes,
+    )
+    if assessment_patient_id is None:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Could not create the Assessment-side patient record: {error}",
+        )
+
     # player_code is NOT NULL + unique on the model — this endpoint 500'd on
     # every single call before this, since nothing here ever set it (kid
     # self-registration, in auth.py, generated one inline; this therapist-
@@ -36,6 +62,7 @@ async def create_patient(
         player_code=player_code,
         age=data.age,
         diagnosis_notes=data.diagnosis_notes,
+        assessment_patient_id=assessment_patient_id,
     )
     db.add(patient)
     await db.flush()
