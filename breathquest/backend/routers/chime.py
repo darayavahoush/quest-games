@@ -106,7 +106,16 @@ class AgentDecisionOut(BaseModel):
 # ============================================================
 @router.post("/events", response_model=EventOut)
 def log_event(event: EventIn, background_tasks: BackgroundTasks, patient: Patient = Depends(get_current_patient)):
-    severity_numeric, targeted_quests = get_diagnostic_context(patient.id)
+    # patient.id is BreathQuest's own primary key -- get_diagnostic_context
+    # needs Assessment's UUID instead, which is only set for patients
+    # linked via kid-pin-setup. Unlinked patients (created directly in
+    # BreathQuest via AddPatientModal) have no Assessment record to look
+    # up at all -- skip the call rather than pass patient.id and silently
+    # 404 against an Assessment patient that doesn't correspond to them.
+    if patient.assessment_patient_id:
+        severity_numeric, targeted_quests = get_diagnostic_context(patient.assessment_patient_id)
+    else:
+        severity_numeric, targeted_quests = 0.0, frozenset()
     is_targeted_sound = event.level_id in targeted_quests
 
     # See routers/breath_agent.py's log_breath_event for why this is read

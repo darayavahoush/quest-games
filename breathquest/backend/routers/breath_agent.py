@@ -109,7 +109,12 @@ class AgentDecisionOut(BaseModel):
 @router.post("/events", response_model=BreathEventOut)
 def log_breath_event(event: BreathEventIn, background_tasks: BackgroundTasks,
                       patient: Patient = Depends(get_current_patient)):
-    severity_numeric, targeted_quests = get_diagnostic_context(patient.id)
+    # See routers/chime.py's identical fix for why this checks
+    # assessment_patient_id, not patient.id.
+    if patient.assessment_patient_id:
+        severity_numeric, targeted_quests = get_diagnostic_context(patient.assessment_patient_id)
+    else:
+        severity_numeric, targeted_quests = 0.0, frozenset()
     is_targeted_sound = event.level_id in targeted_quests
 
     data_store.add_event(
