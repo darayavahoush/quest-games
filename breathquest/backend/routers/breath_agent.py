@@ -20,6 +20,7 @@ into chime.py — see breathquest/frontend/src/game/lib/api.js.
 """
 
 from typing import Literal, Optional
+from datetime import datetime
 import asyncio
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -78,7 +79,7 @@ class BreathEventIn(BaseModel):
 class BreathEventOut(BaseModel):
     id: int
     child_id: str
-    timestamp: str
+    timestamp: datetime
     level_id: str
     attempt_number: int
     score: float
@@ -117,6 +118,16 @@ def log_breath_event(event: BreathEventIn, background_tasks: BackgroundTasks,
         severity_numeric, targeted_quests = 0.0, frozenset()
     is_targeted_sound = event.level_id in targeted_quests
 
+    # See routers/chime.py's identical read -- same shared AgentService.
+    # Persists the agent's own recommendation alongside the raw gameplay
+    # event so it survives past the HTTP response (see retraining/models.py
+    # 2026-08-10 recommended_action/recommendation_message addition).
+    last_decision = _agent_service.get_last_decision(patient.id, event.level_id)
+    policy_used = last_decision["policy"] if last_decision else None
+    downgrade_reason = last_decision["downgrade_reason"] if last_decision else None
+    recommended_action = last_decision["action"] if last_decision else None
+    recommendation_message = last_decision["message"] if last_decision else None
+
     data_store.add_event(
         child_id=patient.id,
         level_id=event.level_id,
@@ -129,6 +140,10 @@ def log_breath_event(event: BreathEventIn, background_tasks: BackgroundTasks,
         raw_features=event.raw_features,
         severity_numeric=severity_numeric,
         is_targeted_sound=is_targeted_sound,
+        policy_used=policy_used,
+        downgrade_reason=downgrade_reason,
+        recommended_action=recommended_action,
+        recommendation_message=recommendation_message,
         db_path=DB_PATH,
     )
 
