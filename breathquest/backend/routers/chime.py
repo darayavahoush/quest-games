@@ -123,6 +123,8 @@ def log_event(event: EventIn, background_tasks: BackgroundTasks, patient: Patien
     last_decision = _agent_service.get_last_decision(patient.id, event.level_id)
     policy_used = last_decision["policy"] if last_decision else None
     downgrade_reason = last_decision["downgrade_reason"] if last_decision else None
+    recommended_action = last_decision["action"] if last_decision else None
+    recommendation_message = last_decision["message"] if last_decision else None
 
     data_store.add_event(
         child_id=patient.id,
@@ -138,6 +140,8 @@ def log_event(event: EventIn, background_tasks: BackgroundTasks, patient: Patien
         is_targeted_sound=is_targeted_sound,
         policy_used=policy_used,
         downgrade_reason=downgrade_reason,
+        recommended_action=recommended_action,
+        recommendation_message=recommendation_message,
         db_path=DB_PATH,
     )
 

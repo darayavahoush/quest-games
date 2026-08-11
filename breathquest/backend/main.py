@@ -2,6 +2,17 @@
 main.py — BreathQuest + VaakMirror FastAPI application (merged).
 """
 
+# Must run before any of this app's modules are imported below --
+# core/assessment_client.py reads ASSESSMENT_SERVICE_API_KEY via os.getenv()
+# at module import time (not lazily inside a function), and core/config.py's
+# pydantic-settings Settings class only populates its own typed fields from
+# .env, it does NOT inject values into os.environ -- so anything using plain
+# os.getenv() elsewhere in the app (by design, per core/config.py's Config
+# class comment) never saw .env values before this fix, in any environment
+# without .env already exported into the shell.
+from dotenv import load_dotenv
+load_dotenv()
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

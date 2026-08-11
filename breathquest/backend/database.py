@@ -53,3 +53,13 @@ async def create_tables():
         await conn.execute(text(
             "ALTER TABLE patients ADD COLUMN IF NOT EXISTS assessment_patient_id VARCHAR UNIQUE"
         ))
+        # Same reasoning as above -- rl_training_events already existed
+        # before the 2026-08-10 recommendation-persistence addition
+        # (retraining/models.py), so create_all() won't add these columns
+        # to the existing table on its own.
+        await conn.execute(text(
+            "ALTER TABLE rl_training_events ADD COLUMN IF NOT EXISTS recommended_action VARCHAR"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE rl_training_events ADD COLUMN IF NOT EXISTS recommendation_message VARCHAR"
+        ))

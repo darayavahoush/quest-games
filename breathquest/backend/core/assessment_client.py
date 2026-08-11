@@ -110,6 +110,21 @@ def get_assessment_patient(patient_id: str):
     return _get(url)
 
 
+def get_latest_assessment(patient_id: str):
+    """Full diagnostic payload for dashboard display -- deliberately NOT
+    reduced to severity_numeric/targeted_quests like
+    agent/diagnostic_client.py's get_diagnostic_context does for the RL
+    policy. A therapist-facing dashboard needs the readable fields
+    (severity_classification, error patterns, notes, etc.), not just the
+    numeric encoding the agent uses internally. Returns the raw dict from
+    Assessment's /latest endpoint, or None if unreachable/no assessment on
+    file yet -- same degrade-gracefully contract as the rest of this
+    module, since a patient with no assessment yet is a normal state, not
+    an error."""
+    url = f"{ASSESSMENT_SERVICE_URL.rstrip('/')}/assessment/patients/{patient_id}/latest"
+    return _cached(f"latest_assessment:{patient_id}", lambda: _get(url))
+
+
 def create_assessment_patient(therapist_email: str, name: str, age: int | None = None,
                                diagnosis: str | None = None,
                                max_attempts: int = 3) -> tuple[str | None, str | None]:

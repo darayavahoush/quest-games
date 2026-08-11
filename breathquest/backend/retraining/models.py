@@ -63,6 +63,8 @@ class RLTrainingEvent(Base):
     is_targeted_sound:    Mapped[bool]          = mapped_column(Boolean, default=False)
     policy_used:          Mapped[str | None]    = mapped_column(String, nullable=True)
     downgrade_reason:     Mapped[str | None]    = mapped_column(String, nullable=True)
+    recommended_action:    Mapped[str | None]    = mapped_column(String, nullable=True)
+    recommendation_message: Mapped[str | None]   = mapped_column(String, nullable=True)
 
 
 class RetrainCheckpoint(Base):

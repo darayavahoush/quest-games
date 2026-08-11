@@ -9,3 +9,5 @@ backenv/
 dist/
 .DS_Store
 *.db
+patch_*.py
+agent/models/q_tables/

@@ -42,6 +42,7 @@ def add_event(child_id: str, level_id: str, attempt_number: int, score: float,
               quit_flag: bool = False, raw_features: dict = None,
               severity_numeric: float = 0.0, is_targeted_sound: bool = False,
               policy_used: str = None, downgrade_reason: str = None,
+              recommended_action: str = None, recommendation_message: str = None,
               db_path=None):
     with SessionLocal() as session:
         event = RLTrainingEvent(
@@ -59,6 +60,8 @@ def add_event(child_id: str, level_id: str, attempt_number: int, score: float,
             is_targeted_sound=is_targeted_sound,
             policy_used=policy_used,
             downgrade_reason=downgrade_reason,
+            recommended_action=recommended_action,
+            recommendation_message=recommendation_message,
         )
         session.add(event)
         session.commit()
@@ -80,6 +83,31 @@ def get_events(child_id: str = None, since_id: int = None, db_path=None):
             {c.name: getattr(r, c.name) for c in RLTrainingEvent.__table__.columns}
             for r in rows
         ]
+
+
+def get_latest_decision(child_id: str, db_path=None):
+    """Most recent persisted recommendation for this child, across all
+    levels -- for dashboard display (see routers/dashboard.py's
+    get_patient_progress). Distinct from agent/service.py's
+    get_last_decision(), which is in-memory, per-(child,level), and lost on
+    restart; this reads the durable copy written by routers/breath_agent.py
+    and routers/chime.py's log_event handlers (see 2026-08-10
+    recommended_action/recommendation_message addition to RLTrainingEvent).
+    Returns None if this child has no event with a recorded recommendation
+    yet (e.g. fewer than 3 events so far -- decide() holds at rule_based
+    with no policy recommendation to persist)."""
+    with SessionLocal() as session:
+        query = (
+            select(RLTrainingEvent)
+            .where(RLTrainingEvent.child_id == child_id)
+            .where(RLTrainingEvent.recommended_action.isnot(None))
+            .order_by(RLTrainingEvent.id.desc())
+            .limit(1)
+        )
+        row = session.execute(query).scalars().first()
+        if row is None:
+            return None
+        return {c.name: getattr(row, c.name) for c in RLTrainingEvent.__table__.columns}
 
 
 def count_events(child_id: str = None, db_path=None) -> int:

@@ -17,6 +17,7 @@ from models.voicehurdlerace_models import VoiceHurdleRaceSession
 from vaakmirror.models import GameSession as VaakMirrorSession, Attempt
 from retraining import data_store as chime_data_store
 from agent.service import AgentService
+from core.assessment_client import get_latest_assessment
 
 RECENT_WINDOW = 10
 _agent_service = AgentService(db_path=chime_data_store.DEFAULT_DB_PATH, recent_window=RECENT_WINDOW)
@@ -254,6 +255,22 @@ async def get_patient_progress(
     breath_vals = [s.avg_breath_strength for s in completed if s.avg_breath_strength]
     avg_breath_overall = round(sum(breath_vals) / len(breath_vals), 3) if breath_vals else None
 
+    # 2026-08-10: PM-requested end-to-end lifecycle connection. Both calls
+    # are blocking I/O (get_latest_assessment does a urllib request to
+    # Assessment; get_latest_decision opens a sync psycopg2 session per
+    # retraining/db.py's docstring) -- run via asyncio.to_thread so neither
+    # stalls this endpoint's event loop, same pattern as
+    # _agent_service.detect_trend's call further down this file and
+    # routers/patients.py's create_patient.
+    latest_assessment = None
+    if patient.assessment_patient_id:
+        latest_assessment = await asyncio.to_thread(get_latest_assessment, patient.assessment_patient_id)
+
+    latest_decision = await asyncio.to_thread(chime_data_store.get_latest_decision, patient.id)
+    recommended_action = latest_decision["recommended_action"] if latest_decision else None
+    recommendation_message = latest_decision["recommendation_message"] if latest_decision else None
+    recommendation_policy = latest_decision["policy_used"] if latest_decision else None
+
     return PatientProgress(
         patient_id=patient.id,
         first_name=patient.first_name,
@@ -266,6 +283,10 @@ async def get_patient_progress(
         improvement_trend=trend,
         level_progress=level_progress,
         recent_sessions=[SessionOut.model_validate(s) for s in sessions[:10]],
+        latest_assessment=latest_assessment,
+        recommended_action=recommended_action,
+        recommendation_message=recommendation_message,
+        recommendation_policy=recommendation_policy,
     )
 
 

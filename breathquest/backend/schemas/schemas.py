@@ -382,6 +382,22 @@ class PatientProgress(BaseModel):
     improvement_trend: float | None  # positive = improving
     level_progress: list[LevelProgress]
     recent_sessions: list[SessionOut]
+    # 2026-08-10: PM-requested end-to-end lifecycle connection (Patient ->
+    # Assessment -> Diagnostic Report -> Live Therapy -> Progress ->
+    # Dashboard). latest_assessment is the raw dict from Assessment's
+    # /latest endpoint (core/assessment_client.get_latest_assessment) --
+    # left untyped since Assessment's schema evolves independently of this
+    # backend and we don't want a field-mismatch there to break the
+    # dashboard here. None if the patient has no assessment on file yet,
+    # or isn't Assessment-linked at all.
+    latest_assessment: dict | None = None
+    # From retraining.data_store.get_latest_decision -- the agent's most
+    # recent persisted recommendation. None if not enough events yet for
+    # the agent to have made one (see agent/service.py decide()'s n_events
+    # < 3 guard).
+    recommended_action: str | None = None
+    recommendation_message: str | None = None
+    recommendation_policy: str | None = None
 
 
 class DashboardSummary(BaseModel):
