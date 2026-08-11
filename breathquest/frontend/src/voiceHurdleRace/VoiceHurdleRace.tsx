@@ -3509,6 +3509,160 @@ function drawBunny(
 
 
 
+function drawZog(
+  ctx: CanvasRenderingContext2D,
+  state: GameState
+) {
+  const x = state.puppyX;
+  const y = state.puppyY;
+  const now = performance.now();
+
+  const moving =
+    state.puppySpeed > 0 &&
+    !state.isJumping &&
+    !state.isStumbling;
+
+  // Tank-tread feet roll rather than step -- a subtle body bob reads as
+  // "moving" without needing leg articulation.
+  const bounce = moving
+    ? Math.sin(now / Math.max(55, 150 - state.puppySpeed * 0.2)) * 3
+    : 0;
+  const drawY = y + bounce;
+
+  const stumbleProgress = state.isStumbling
+    ? Math.min(1, (now - state.stumbleStartedAt) / 650)
+    : 0;
+  const wobble = state.isStumbling
+    ? Math.sin(stumbleProgress * Math.PI * 3) * (1 - stumbleProgress) * 0.3
+    : 0;
+
+  const jumpLean = state.isJumping ? -0.08 : 0;
+
+  ctx.save();
+  ctx.translate(x, drawY);
+  ctx.rotate(wobble + jumpLean);
+
+  // Ground shadow
+  ctx.save();
+  ctx.globalAlpha = 0.28;
+  ctx.beginPath();
+  ctx.ellipse(0, 24, 18, 4.5, 0, 0, Math.PI * 2);
+  ctx.fillStyle = '#000000';
+  ctx.fill();
+  ctx.restore();
+
+  // Antenna, blinking light on top
+  const blinkOn = Math.sin(now / 260) > 0;
+  ctx.save();
+  ctx.translate(0, -30);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(0, -10);
+  ctx.strokeStyle = '#c8560f';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(0, -12, 3.5, 0, Math.PI * 2);
+  ctx.fillStyle = blinkOn ? '#ffb84a' : '#7a4a1f';
+  ctx.fill();
+  if (blinkOn) {
+    ctx.save();
+    ctx.globalAlpha = 0.4;
+    ctx.beginPath();
+    ctx.arc(0, -12, 6.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffb84a';
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+
+  // Head -- chunky rounded-square with metallic gradient
+  const headGrad = ctx.createLinearGradient(-16, -28, 16, -6);
+  headGrad.addColorStop(0, '#f0f4f8');
+  headGrad.addColorStop(0.5, '#c8d2dc');
+  headGrad.addColorStop(1, '#98a4b0');
+  roundRect(ctx, -16, -28, 32, 24, 8);
+  ctx.fillStyle = headGrad;
+  ctx.fill();
+
+  // Screen-face panel
+  roundRect(ctx, -12, -24, 24, 16, 4);
+  ctx.fillStyle = '#1a2a3a';
+  ctx.fill();
+
+  // Eyes -- widen on jump, squint-wince on stumble
+  const eyeH = state.isJumping ? 6 : state.isStumbling ? 2 : 4.5;
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(side * 5.5, -17, 3, eyeH, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#5fe8ff';
+    ctx.fill();
+  }
+  // Mouth -- small LED bar, curves up when moving well
+  ctx.beginPath();
+  if (state.isStumbling) {
+    ctx.moveTo(-5, -11);
+    ctx.lineTo(5, -11);
+  } else {
+    ctx.arc(0, -13, 5, 0.15 * Math.PI, 0.85 * Math.PI);
+  }
+  ctx.strokeStyle = '#5fe8ff';
+  ctx.lineWidth = 1.6;
+  ctx.stroke();
+
+  // Body -- rounded chunky box with a colored accent panel
+  const bodyGrad = ctx.createLinearGradient(-14, -4, 14, 20);
+  bodyGrad.addColorStop(0, '#e6ebf0');
+  bodyGrad.addColorStop(1, '#aab6c2');
+  roundRect(ctx, -14, -4, 28, 24, 7);
+  ctx.fillStyle = bodyGrad;
+  ctx.fill();
+
+  roundRect(ctx, -9, 1, 18, 9, 3);
+  ctx.fillStyle = '#ff8a3a';
+  ctx.fill();
+  roundRect(ctx, -6, 3.5, 5, 4, 1.5);
+  ctx.fillStyle = 'rgba(255,255,255,.5)';
+  ctx.fill();
+
+  // Little side arms -- simple rounded stubs, swing slightly while moving
+  const armSwing = moving ? Math.sin(now / 130) * 0.5 : 0;
+  for (const side of [-1, 1]) {
+    ctx.save();
+    ctx.translate(side * 15, 2);
+    ctx.rotate(side * armSwing * 0.4);
+    roundRect(ctx, -3, 0, 6, 12, 3);
+    ctx.fillStyle = '#c8d2dc';
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Tank-tread feet -- rolling dash pattern instead of articulated legs
+  if (!state.isJumping) {
+    const treadOffset = (now / 40) % 8;
+    for (const side of [-1, 1]) {
+      ctx.save();
+      ctx.translate(side * 9, 20);
+      roundRect(ctx, -8, 0, 16, 8, 4);
+      ctx.fillStyle = '#3a4048';
+      ctx.fill();
+      ctx.save();
+      ctx.beginPath();
+      roundRect(ctx, -8, 0, 16, 8, 4);
+      ctx.clip();
+      ctx.fillStyle = '#5a6270';
+      for (let i = -1; i < 3; i++) {
+        ctx.fillRect(-8 + i * 8 + treadOffset, 0, 3, 8);
+      }
+      ctx.restore();
+      ctx.restore();
+    }
+  }
+
+  ctx.restore();
+}
+
+
 function drawFox(
   ctx: CanvasRenderingContext2D,
   state: GameState
@@ -4146,6 +4300,134 @@ function drawFox(
   ctx.restore();
 }
 
+
+
+function drawGlorb(
+  ctx: CanvasRenderingContext2D,
+  state: GameState
+) {
+  const x = state.puppyX;
+  const y = state.puppyY;
+  const now = performance.now();
+
+  const moving =
+    state.puppySpeed > 0 &&
+    !state.isJumping &&
+    !state.isStumbling;
+
+  const bounce = moving
+    ? Math.sin(now / Math.max(50, 140 - state.puppySpeed * 0.2)) * 4
+    : 0;
+  const drawY = y + bounce;
+
+  const stumbleProgress = state.isStumbling
+    ? Math.min(1, (now - state.stumbleStartedAt) / 650)
+    : 0;
+  const wobble = state.isStumbling
+    ? Math.sin(stumbleProgress * Math.PI * 3) * (1 - stumbleProgress) * 0.32
+    : 0;
+
+  const jumpSquash = state.isJumping ? 0.85 : 1;
+
+  ctx.save();
+  ctx.translate(x, drawY);
+  ctx.rotate(wobble);
+
+  // Ground shadow
+  ctx.save();
+  ctx.globalAlpha = 0.26;
+  ctx.beginPath();
+  ctx.ellipse(0, 22, 17, 4.5, 0, 0, Math.PI * 2);
+  ctx.fillStyle = '#000000';
+  ctx.fill();
+  ctx.restore();
+
+  // Tentacle-legs -- 3 wavy limbs instead of articulated legs, each with
+  // independent phase so they read as "wiggling," not walking.
+  if (!state.isJumping) {
+    for (let i = 0; i < 3; i++) {
+      const phase = i * 2.1;
+      const wiggle = moving
+        ? Math.sin(now / 130 + phase) * 8
+        : Math.sin(now / 500 + phase) * 2;
+      const baseX = (i - 1) * 9;
+      ctx.save();
+      ctx.translate(baseX, 14);
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(wiggle, 8, wiggle * 0.6, 15);
+      ctx.strokeStyle = '#5fbf8a';
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // Body -- fuzzy round blob, gradient + a scalloped fuzzy edge
+  const bodyR = 20 * jumpSquash;
+  ctx.save();
+  ctx.scale(1, jumpSquash);
+  const bodyGrad = ctx.createRadialGradient(-6, -8, 4, 0, 0, bodyR + 6);
+  bodyGrad.addColorStop(0, '#8ae0b0');
+  bodyGrad.addColorStop(0.6, '#4fbf85');
+  bodyGrad.addColorStop(1, '#2f8f60');
+  ctx.beginPath();
+  ctx.arc(0, 0, bodyR, 0, Math.PI * 2);
+  ctx.fillStyle = bodyGrad;
+  ctx.fill();
+
+  // Fuzzy scalloped rim
+  ctx.strokeStyle = '#3a9e6a';
+  ctx.lineWidth = 2;
+  const spikes = 14;
+  for (let i = 0; i < spikes; i++) {
+    const a = (i / spikes) * Math.PI * 2;
+    const r1 = bodyR - 1;
+    const r2 = bodyR + 3;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * r1, Math.sin(a) * r1);
+    ctx.lineTo(Math.cos(a) * r2, Math.sin(a) * r2);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Three eyes -- big center, two smaller flanking -- expressive, not creepy
+  const blink = Math.sin(now / 1700) > 0.96 ? 0.15 : 1;
+  const eyeConfigs = [
+    { ox: 0, oy: -4, r: 7 },
+    { ox: -10, oy: 1, r: 4.2 },
+    { ox: 10, oy: 1, r: 4.2 },
+  ];
+  for (const ec of eyeConfigs) {
+    ctx.save();
+    ctx.translate(ec.ox, ec.oy * jumpSquash);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, ec.r, ec.r * blink, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    if (blink > 0.5) {
+      ctx.beginPath();
+      ctx.arc(0, 0.5, ec.r * 0.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#1a3a2a';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(-ec.r * 0.18, -ec.r * 0.18, ec.r * 0.18, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // Small friendly smile below the eyes
+  ctx.beginPath();
+  ctx.arc(0, 9 * jumpSquash, 6, 0.1 * Math.PI, 0.9 * Math.PI);
+  ctx.strokeStyle = '#1f6b47';
+  ctx.lineWidth = 1.8;
+  ctx.stroke();
+
+  ctx.restore();
+}
 
 
 function drawDragon(
@@ -5431,6 +5713,236 @@ function drawUnicorn(
 }
 
 
+
+function drawCosmo(
+  ctx: CanvasRenderingContext2D,
+  state: GameState
+) {
+  const x = state.puppyX;
+  const y = state.puppyY;
+  const now = performance.now();
+
+  const moving =
+    state.puppySpeed > 0 &&
+    !state.isJumping &&
+    !state.isStumbling;
+
+  // Heavy, low bounce -- Cosmo is a squat rock-armored creature, so it
+  // thumps rather than bobs.
+  const bounce = moving
+    ? Math.abs(Math.sin(now / Math.max(70, 170 - state.puppySpeed * 0.2))) * 3
+    : 0;
+  const drawY = y - bounce;
+
+  const stumbleProgress = state.isStumbling
+    ? Math.min(1, (now - state.stumbleStartedAt) / 650)
+    : 0;
+  const wobble = state.isStumbling
+    ? Math.sin(stumbleProgress * Math.PI * 3) * (1 - stumbleProgress) * 0.28
+    : 0;
+
+  const jumpSquash = state.isJumping ? 0.82 : 1;
+
+  ctx.save();
+  ctx.translate(x, drawY);
+  ctx.rotate(wobble);
+
+  // Ground shadow
+  ctx.save();
+  ctx.globalAlpha = 0.3;
+  ctx.beginPath();
+  ctx.ellipse(0, 24, 19, 5, 0, 0, Math.PI * 2);
+  ctx.fillStyle = '#000000';
+  ctx.fill();
+  ctx.restore();
+
+  // Stubby legs -- planted, barely animated; Cosmo is built low and
+  // heavy, not light-footed.
+  const legLift = moving ? Math.abs(Math.sin(now / 150)) * 2 : 0;
+  for (const side of [-1, 1]) {
+    ctx.save();
+    ctx.translate(side * 9, 16 - legLift);
+    roundRect(ctx, -4, 0, 8, 10, 3);
+    ctx.fillStyle = '#5a2a1a';
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Body -- wide rounded boulder shape with a cracked-rock texture,
+  // mars-red/dusty gradient matching the Level 4 theme.
+  ctx.save();
+  ctx.scale(1, jumpSquash);
+  const bodyGrad = ctx.createRadialGradient(-8, -10, 4, 0, 0, 26);
+  bodyGrad.addColorStop(0, '#e0855a');
+  bodyGrad.addColorStop(0.55, '#c96b3a');
+  bodyGrad.addColorStop(1, '#8a4a2a');
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 21, 18, 0, 0, Math.PI * 2);
+  ctx.fillStyle = bodyGrad;
+  ctx.fill();
+
+  // Rock-plate cracks across the body -- a few static jagged lines
+  ctx.strokeStyle = 'rgba(74,37,21,.55)';
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(-12, -6);
+  ctx.lineTo(-4, -2);
+  ctx.lineTo(-6, 6);
+  ctx.moveTo(6, -10);
+  ctx.lineTo(10, -2);
+  ctx.lineTo(4, 4);
+  ctx.stroke();
+
+  // A few small ore/crystal highlights embedded in the rock
+  for (const [px, py, r] of [[-10, 2, 2], [9, 6, 1.6], [2, -12, 1.8]] as const) {
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffd54a';
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // Head bump -- smaller rounded rock on top, slightly offset
+  ctx.save();
+  ctx.translate(0, -20 * jumpSquash);
+  const headGrad = ctx.createRadialGradient(-4, -4, 2, 0, 0, 12);
+  headGrad.addColorStop(0, '#e0855a');
+  headGrad.addColorStop(1, '#a85a35');
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 11, 9, 0, 0, Math.PI * 2);
+  ctx.fillStyle = headGrad;
+  ctx.fill();
+
+  // Eyes -- two small round eyes, low and wide-set like a sturdy
+  // creature peering over rubble
+  const eyeH = state.isJumping ? 4.5 : state.isStumbling ? 1.5 : 3.2;
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(side * 4.5, 0, 2.4, eyeH, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#2a1208';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(side * 4.5 - 0.6, -eyeH * 0.3, 0.7, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+  }
+  ctx.restore();
+
+  ctx.restore();
+}
+
+
+function drawComet(
+  ctx: CanvasRenderingContext2D,
+  state: GameState
+) {
+  const x = state.puppyX;
+  const y = state.puppyY;
+  const now = performance.now();
+
+  const moving =
+    state.puppySpeed > 0 &&
+    !state.isJumping &&
+    !state.isStumbling;
+
+  // Light, floaty bob -- Comet reads as gliding rather than running.
+  const bounce = moving
+    ? Math.sin(now / Math.max(60, 160 - state.puppySpeed * 0.2)) * 5
+    : Math.sin(now / 900) * 1.5;
+  const drawY = y + bounce;
+
+  const stumbleProgress = state.isStumbling
+    ? Math.min(1, (now - state.stumbleStartedAt) / 650)
+    : 0;
+  const wobble = state.isStumbling
+    ? Math.sin(stumbleProgress * Math.PI * 3) * (1 - stumbleProgress) * 0.3
+    : 0;
+
+  const jumpStretch = state.isJumping ? 1.15 : 1;
+
+  ctx.save();
+  ctx.translate(x, drawY);
+  ctx.rotate(wobble);
+
+  // Ground shadow
+  ctx.save();
+  ctx.globalAlpha = 0.22;
+  ctx.beginPath();
+  ctx.ellipse(0, 22, 16, 4, 0, 0, Math.PI * 2);
+  ctx.fillStyle = '#000000';
+  ctx.fill();
+  ctx.restore();
+
+  // Sparkling trail -- a handful of fading starburst particles behind
+  // the body, denser while moving fast, matching the Level 5
+  // "Starfield Finish Line" theme.
+  if (moving) {
+    for (let i = 0; i < 5; i++) {
+      const seed = (now / 90 + i * 37) % 100;
+      const trailX = -16 - (seed % 20) - i * 4;
+      const trailY = Math.sin(now / 140 + i) * 6;
+      const trailAlpha = Math.max(0, 1 - seed / 60);
+      if (trailAlpha <= 0) continue;
+      ctx.save();
+      ctx.globalAlpha = trailAlpha * 0.7;
+      ctx.beginPath();
+      ctx.arc(trailX, trailY, 1.6 - i * 0.15, 0, Math.PI * 2);
+      ctx.fillStyle = '#9fb0ff';
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  // Body -- elongated glowing oval, deep-space navy core with a bright
+  // rim, stretched slightly on jump to suggest streaking through the sky.
+  ctx.save();
+  ctx.scale(jumpStretch, 1 / jumpStretch);
+  const bodyGrad = ctx.createRadialGradient(-5, -5, 2, 0, 0, 20);
+  bodyGrad.addColorStop(0, '#e8ecff');
+  bodyGrad.addColorStop(0.35, '#9fb0ff');
+  bodyGrad.addColorStop(0.75, '#5a6aff');
+  bodyGrad.addColorStop(1, '#2f3370');
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 17, 15, 0, 0, Math.PI * 2);
+  ctx.fillStyle = bodyGrad;
+  ctx.fill();
+
+  // Soft outer glow ring
+  ctx.save();
+  ctx.globalAlpha = 0.35;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 21, 19, 0, 0, Math.PI * 2);
+  ctx.strokeStyle = '#9fb0ff';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+  ctx.restore();
+  ctx.restore();
+
+  // A few embedded star-sparkle points on the body surface
+  const twinkle = Math.sin(now / 300) > 0;
+  for (const [px, py] of [[-6, -4], [5, -6], [3, 5]] as const) {
+    ctx.save();
+    ctx.globalAlpha = twinkle ? 0.9 : 0.5;
+    ctx.beginPath();
+    ctx.arc(px, py, 1.3, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffe94a';
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Eyes -- small, bright, alert -- set toward the "front" (direction
+  // of travel) of the elongated body
+  const eyeH = state.isJumping ? 4 : state.isStumbling ? 1.5 : 3;
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(3 + side * 4, -1, 2, eyeH, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#131b4a';
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
 /* ============================================================
    CREATURE DISPATCH
 ============================================================ */
@@ -5444,13 +5956,18 @@ function drawCreature(
     case 'blip':
       drawBlip(ctx, state);
       return;
-    // TODO: zog/glorb/cosmo/comet are placeholders -- temporarily
-    // reusing drawDog so the build stays green while each alien gets
-    // built one at a time and checked in-browser before moving on.
     case 'zog':
+      drawZog(ctx, state);
+      return;
     case 'glorb':
+      drawGlorb(ctx, state);
+      return;
     case 'cosmo':
+      drawCosmo(ctx, state);
+      return;
     case 'comet':
+      drawComet(ctx, state);
+      return;
     default:
       drawDog(ctx, state);
       return;
