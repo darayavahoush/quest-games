@@ -49,7 +49,7 @@ class RLTrainingEvent(Base):
     __tablename__ = "rl_training_events"
 
     id:                 Mapped[int]           = mapped_column(Integer, primary_key=True, autoincrement=True)
-    child_id:           Mapped[str]           = mapped_column(ForeignKey("patients.id"), nullable=False, index=True)
+    child_id:           Mapped[str]           = mapped_column(String, ForeignKey("patients.id"), nullable=False, index=True)
     timestamp:          Mapped[datetime]      = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
     level_id:            Mapped[str]           = mapped_column(String, nullable=False)
     attempt_number:      Mapped[int]           = mapped_column(Integer, nullable=False)

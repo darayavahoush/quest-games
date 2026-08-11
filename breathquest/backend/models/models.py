@@ -39,7 +39,7 @@ class SessionStatus(str, enum.Enum):
 class Therapist(Base):
     __tablename__ = "therapists"
 
-    id:               Mapped[str]           = mapped_column(String, primary_key=True, default=new_uuid)
+    id:               Mapped[str]      = mapped_column(String, primary_key=True, default=new_uuid)
     email:            Mapped[str]           = mapped_column(String(255), unique=True, nullable=False, index=True)
     hashed_password:  Mapped[str]           = mapped_column(String(255), nullable=False)
     full_name:        Mapped[str]           = mapped_column(String(255), nullable=False)
@@ -141,11 +141,24 @@ class Patient(Base):
     parent: Mapped["Parent | None"] = relationship("models.models.Parent", back_populates="patient", uselist=False, cascade="all, delete-orphan")
 
 
+class BreathquestTherapist(Base):
+    __tablename__ = "breathquest_therapists"
+
+    id:              Mapped[str]       = mapped_column(String, primary_key=True, default=new_uuid)
+    email:           Mapped[str]              = mapped_column(String(255), nullable=False, index=True)
+    hashed_password: Mapped[str]              = mapped_column(String(255), nullable=False)
+    full_name:       Mapped[str]              = mapped_column(String(255), nullable=False)
+    clinic_name:     Mapped[str | None]       = mapped_column(String(255), nullable=True)
+    is_active:       Mapped[bool]              = mapped_column(Boolean, nullable=False, default=True)
+    created_at:      Mapped[datetime]          = mapped_column(DateTime(timezone=True), default=utcnow)
+    last_login:      Mapped[datetime | None]   = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class GameSession(Base):
     __tablename__ = "game_sessions"
 
-    id:                   Mapped[str]          = mapped_column(String, primary_key=True, default=new_uuid)
-    patient_id:           Mapped[str]          = mapped_column(ForeignKey("patients.id"), nullable=False, index=True)
+    id:                   Mapped[str]    = mapped_column(String, primary_key=True, default=new_uuid)
+    patient_id:           Mapped[str]    = mapped_column(String, ForeignKey("patients.id"), nullable=False, index=True)
     level_id:             Mapped[str]          = mapped_column(SAEnum(LevelID), nullable=False)
     started_at:           Mapped[datetime]     = mapped_column(DateTime(timezone=True), default=utcnow)
     ended_at:             Mapped[datetime|None]= mapped_column(DateTime(timezone=True))
@@ -167,8 +180,8 @@ class GameSession(Base):
 class SessionEvent(Base):
     __tablename__ = "session_events"
 
-    id:           Mapped[str]          = mapped_column(String, primary_key=True, default=new_uuid)
-    session_id:   Mapped[str]          = mapped_column(ForeignKey("game_sessions.id"), nullable=False, index=True)
+    id:           Mapped[str]    = mapped_column(String, primary_key=True, default=new_uuid)
+    session_id:   Mapped[str]    = mapped_column(String, ForeignKey("game_sessions.id"), nullable=False, index=True)
     timestamp:    Mapped[datetime]     = mapped_column(DateTime(timezone=True), default=utcnow)
     event_type:   Mapped[str]          = mapped_column(String(50))
     breath_value: Mapped[float|None]   = mapped_column(Float)
@@ -180,12 +193,12 @@ class SessionEvent(Base):
 class TherapistNote(Base):
     __tablename__ = "therapist_notes"
 
-    id:           Mapped[str]          = mapped_column(String, primary_key=True, default=new_uuid)
-    patient_id:   Mapped[str]          = mapped_column(ForeignKey("patients.id"), nullable=False, index=True)
-    therapist_id: Mapped[str]          = mapped_column(ForeignKey("therapists.id"), nullable=False)
+    id:           Mapped[str]    = mapped_column(String, primary_key=True, default=new_uuid)
+    patient_id:   Mapped[str]    = mapped_column(String, ForeignKey("patients.id"), nullable=False, index=True)
+    therapist_id: Mapped[str]    = mapped_column(String, ForeignKey("therapists.id"), nullable=False)
     created_at:   Mapped[datetime]     = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at:   Mapped[datetime]     = mapped_column(DateTime(timezone=True), default=utcnow)
-    session_id:   Mapped[str|None]     = mapped_column(ForeignKey("game_sessions.id"))
+    session_id:   Mapped[str | None] = mapped_column(String, ForeignKey("game_sessions.id"))
     content:      Mapped[str]          = mapped_column(Text, nullable=False)
     tags:         Mapped[list|None]    = mapped_column(JSON)
 
@@ -203,9 +216,9 @@ class Assignment(Base):
     """Homework — a specific level/word-set a therapist assigns to a patient."""
     __tablename__ = "assignments"
 
-    id:           Mapped[str]           = mapped_column(String, primary_key=True, default=new_uuid)
-    patient_id:   Mapped[str]           = mapped_column(ForeignKey("patients.id"), nullable=False, index=True)
-    assigned_by:  Mapped[str]           = mapped_column(ForeignKey("therapists.id"), nullable=False)
+    id:           Mapped[str]     = mapped_column(String, primary_key=True, default=new_uuid)
+    patient_id:   Mapped[str]     = mapped_column(String, ForeignKey("patients.id"), nullable=False, index=True)
+    assigned_by:  Mapped[str]     = mapped_column(String, ForeignKey("therapists.id"), nullable=False)
     game:         Mapped[str]           = mapped_column(String(50), nullable=False)   # e.g. "chime", "breathquest", "vaakmirror"
     level_id:     Mapped[str|None]      = mapped_column(String(50))                  # phoneme/level/word-set target, if applicable
     title:        Mapped[str]           = mapped_column(String(255), nullable=False)
@@ -222,9 +235,9 @@ class Goal(Base):
     """A measurable target tracked against SessionEvent/GameSession aggregates."""
     __tablename__ = "goals"
 
-    id:            Mapped[str]           = mapped_column(String, primary_key=True, default=new_uuid)
-    patient_id:    Mapped[str]           = mapped_column(ForeignKey("patients.id"), nullable=False, index=True)
-    created_by:    Mapped[str]           = mapped_column(ForeignKey("therapists.id"), nullable=False)
+    id:            Mapped[str]     = mapped_column(String, primary_key=True, default=new_uuid)
+    patient_id:    Mapped[str]     = mapped_column(String, ForeignKey("patients.id"), nullable=False, index=True)
+    created_by:    Mapped[str]     = mapped_column(String, ForeignKey("therapists.id"), nullable=False)
     target_metric: Mapped[str]           = mapped_column(String(100), nullable=False)  # e.g. "/s/_accuracy", "breath_consistency"
     target_value:  Mapped[float]         = mapped_column(Float, nullable=False)
     baseline_value: Mapped[float|None]   = mapped_column(Float)
@@ -245,8 +258,8 @@ class Message(Base):
     """In-app therapist <-> parent communication log, per patient."""
     __tablename__ = "messages"
 
-    id:          Mapped[str]           = mapped_column(String, primary_key=True, default=new_uuid)
-    patient_id:  Mapped[str]           = mapped_column(ForeignKey("patients.id"), nullable=False, index=True)
+    id:          Mapped[str]     = mapped_column(String, primary_key=True, default=new_uuid)
+    patient_id:  Mapped[str]     = mapped_column(String, ForeignKey("patients.id"), nullable=False, index=True)
     sender_role: Mapped[str]           = mapped_column(SAEnum(SenderRole), nullable=False)
     sender_id:   Mapped[str|None]      = mapped_column(String)  # therapist_id when sender_role == therapist; nullable for parent (no parent accounts yet)
     body:        Mapped[str]           = mapped_column(Text, nullable=False)
@@ -261,8 +274,8 @@ class HomePracticeLog(Base):
     telemetry, since home practice often happens without the device/mic set up."""
     __tablename__ = "home_practice_logs"
 
-    id:            Mapped[str]           = mapped_column(String, primary_key=True, default=new_uuid)
-    patient_id:    Mapped[str]           = mapped_column(ForeignKey("patients.id"), nullable=False, index=True)
+    id:            Mapped[str]     = mapped_column(String, primary_key=True, default=new_uuid)
+    patient_id:    Mapped[str]     = mapped_column(String, ForeignKey("patients.id"), nullable=False, index=True)
     logged_at:     Mapped[datetime]      = mapped_column(DateTime(timezone=True), default=utcnow)
     practiced_on:  Mapped[datetime]      = mapped_column(DateTime(timezone=True), nullable=False)
     duration_minutes: Mapped[int|None]   = mapped_column(Integer)
@@ -274,10 +287,10 @@ class HomePracticeLog(Base):
 class Parent(Base):
     __tablename__ = "parents"
 
-    id: Mapped[str] = mapped_column(primary_key=True, default=lambda: __import__("uuid").uuid4().hex)
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_uuid)
     # One parent per child (unique) — matches the current product decision;
     # relax this constraint later if multi-parent support is ever needed.
-    patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id"), unique=True, nullable=False)
+    patient_id: Mapped[str] = mapped_column(String, ForeignKey("patients.id"), unique=True, nullable=False)
     email: Mapped[str] = mapped_column(unique=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(nullable=False)
     full_name: Mapped[str | None] = mapped_column(nullable=True)
