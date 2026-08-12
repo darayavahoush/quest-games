@@ -70,7 +70,7 @@ export default function Landing() {
           Blow, speak, and watch the world move.
         </h1>
         <p className="text-paper/60 text-lg mt-4 max-w-md mx-auto">
-          Three small worlds built around one big idea — a real breath, a real word,
+          Four small worlds built around one big idea — a real breath, a real word,
           moving something real on screen.
         </p>
       </div>
@@ -84,6 +84,9 @@ export default function Landing() {
         </span>
         <span className="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-coral/15 text-coral-light border border-coral/25">
           🔔 Chime
+        </span>
+        <span className="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-sky/15 text-sky-light border border-sky/25">
+          🐶 Voice Hurdle Race
         </span>
       </div>
 
