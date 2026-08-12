@@ -103,12 +103,12 @@ export const authAPI = {
 // ------------------------------------------------------------------ //
 
 export const patientsAPI = {
-  list:   ()           => api.get('/patients'),
-  get:    (id)         => api.get(`/patients/${id}`),
-  create: (data)       => api.post('/patients', data),
-  update: (id, data)   => api.patch(`/patients/${id}`, data),
-  delete: (id)         => api.delete(`/patients/${id}`),
-  generateParentInviteCode: (id) => api.post(`/patients/${id}/parent-invite-code`),
+  list:   ()           => api.get('/breathquest/patients'),
+  get:    (id)         => api.get(`/breathquest/patients/${id}`),
+  create: (data)       => api.post('/breathquest/patients', data),
+  update: (id, data)   => api.patch(`/breathquest/patients/${id}`, data),
+  delete: (id)         => api.delete(`/breathquest/patients/${id}`),
+  generateParentInviteCode: (id) => api.post(`/breathquest/patients/${id}/parent-invite-code`),
 }
 
 // ------------------------------------------------------------------ //
