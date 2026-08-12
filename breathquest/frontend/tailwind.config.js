@@ -45,6 +45,11 @@ export default {
           hot: '#FF6B4A',
           glow: '#FFD08A',
         },
+        sky: {
+          DEFAULT: '#60A5FA',
+          dark: '#3B82F6',
+          light: '#93C5FD',
+        },
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
