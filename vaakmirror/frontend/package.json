@@ -23,5 +23,20 @@
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.4",
     "vite": "^5.3.1"
-  }
+  },
+  "description": "Real-time speech & oromotor visual biofeedback app tracking oral motor movements with MediaPipe",
+  "homepage": "https://github.com/darayavahoush/vaakmirror",
+  "author": "Ananya Sridhar",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/darayavahoush/vaakmirror.git"
+  },
+  "keywords": [
+    "speech-therapy",
+    "mediapipe",
+    "facial-landmarks",
+    "oromotor",
+    "react",
+    "vite"
+  ]
 }
